@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 fs.mkdirSync('dist', { recursive: true });
-const exe = process.platform === 'win32' ? 'ShowDesk.exe' : 'ShowDesk';
+const exe = 'sea-prep.blob';
 fs.writeFileSync('dist/sea-config.json', JSON.stringify({
   main: path.resolve('dist/server.cjs'),
   mainFormat: 'commonjs',
