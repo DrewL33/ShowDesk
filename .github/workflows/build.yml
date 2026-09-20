@@ -48,6 +48,8 @@ jobs:
         run: codesign --force --sign - dist/ShowDesk
       - name: Smoke test packaged executable
         shell: bash
+        env:
+          SHOWDESK_NO_OPEN: '1'
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
             ./dist/ShowDesk.exe > dist/smoke.log 2>&1 &
@@ -57,7 +59,11 @@ jobs:
             APP_PID=$!
           fi
           sleep 3
-          curl --fail --silent --show-error http://127.0.0.1:47821/ > dist/smoke-index.html
+          if ! curl --fail --silent --show-error http://127.0.0.1:47821/ > dist/smoke-index.html; then
+            echo "----- ShowDesk smoke log -----"
+            cat dist/smoke.log || true
+            exit 1
+          fi
           grep -q "SHOWDESK" dist/smoke-index.html
           kill $APP_PID || true
       - uses: actions/upload-artifact@v4
