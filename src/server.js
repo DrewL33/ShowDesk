@@ -3,7 +3,16 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { exec } = require('node:child_process');
 const { WebSocketServer } = require('ws');
-const { Atem } = require('atem-connection');
+let Atem;
+
+function loadAtem() {
+  if (Atem) return Atem;
+  // atem-connection imports an optional native freetype binding for multiview
+  // label generation. ShowDesk does not use that feature, so keep the native
+  // module out of the standalone SEA startup path.
+  Atem = require('atem-connection').Atem;
+  return Atem;
+}
 
 const HOST = '127.0.0.1';
 const PORT = Number(process.env.SHOWDESK_PORT || 47821);
@@ -74,7 +83,8 @@ async function disconnectAtem() {
 
 async function connectAtem(ip) {
   await disconnectAtem();
-  const instance = new Atem();
+  const AtemClass = loadAtem();
+  const instance = new AtemClass();
   atem = instance;
   currentIp = ip;
 
