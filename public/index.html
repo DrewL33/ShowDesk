@@ -805,6 +805,33 @@ function parseXmlReference(text){
  [...doc.querySelectorAll("output,aux,route,destination")].forEach((el,i)=>{const n=el.getAttribute("name")||el.getAttribute("label")||el.getAttribute("destination");const v=el.getAttribute("source")||el.getAttribute("route")||el.getAttribute("value");if(n&&v)routes[n]=v;});
  return {routes,pgm:null,pvw:null,metadata:{format:"XML"}};
 }
+const SHOWDESK_REFERENCE_STORAGE_KEY="showdesk.reference.v1";
+function persistReference(){
+ try{
+   if(!baselineState.attached){localStorage.removeItem(SHOWDESK_REFERENCE_STORAGE_KEY);return;}
+   localStorage.setItem(SHOWDESK_REFERENCE_STORAGE_KEY,JSON.stringify({
+     version:1,name:baselineState.name,loadedAt:baselineState.loadedAt,
+     pgm:baselineState.pgm,pvw:baselineState.pvw,
+     metadata:baselineState.metadata||{},routes:{...baselineState.routes}
+   }));
+ }catch(err){console.warn("ShowDesk could not persist the reference locally.",err);}
+}
+function restorePersistedReference(){
+ try{
+   const raw=localStorage.getItem(SHOWDESK_REFERENCE_STORAGE_KEY);if(!raw)return false;
+   const saved=JSON.parse(raw);
+   if(!saved||saved.version!==1||!saved.name||!saved.routes||typeof saved.routes!=="object")throw new Error("Invalid saved reference");
+   baselineState.attached=true;baselineState.name=saved.name;baselineState.loadedAt=saved.loadedAt||new Date().toISOString();
+   baselineState.pgm=saved.pgm||null;baselineState.pvw=saved.pvw||null;baselineState.metadata=saved.metadata||{};
+   Object.keys(baselineState.routes).forEach(k=>delete baselineState.routes[k]);Object.assign(baselineState.routes,saved.routes);
+   recordEvent("REFERENCE",`Reference restored locally: ${saved.name}`,{routes:Object.keys(saved.routes).length});
+   return true;
+ }catch(err){
+   console.warn("ShowDesk ignored an invalid locally saved reference.",err);
+   try{localStorage.removeItem(SHOWDESK_REFERENCE_STORAGE_KEY);}catch(_){}
+   return false;
+ }
+}
 async function importReferenceFile(event){
  const file=event.target.files?.[0];if(!file)return;
  try{
@@ -814,12 +841,12 @@ async function importReferenceFile(event){
    if(!Object.keys(ref.routes).length&&!ref.pgm&&!ref.pvw)throw new Error("No comparable routing or bus state was found in this file.");
    baselineState.attached=true;baselineState.name=file.name;baselineState.loadedAt=new Date().toISOString();baselineState.pgm=ref.pgm;baselineState.pvw=ref.pvw;baselineState.metadata=ref.metadata||{};
    Object.keys(baselineState.routes).forEach(k=>delete baselineState.routes[k]);Object.assign(baselineState.routes,ref.routes);
-   recordEvent("REFERENCE",`Reference attached: ${file.name}`,{routes:Object.keys(ref.routes).length});updateReferenceUI();render();toast("Reference attached");
+   recordEvent("REFERENCE",`Reference attached: ${file.name}`,{routes:Object.keys(ref.routes).length});persistReference();updateReferenceUI();render();toast("Reference attached");
  }catch(err){toast("Reference not imported");alert("ShowDesk could not use this reference file. "+err.message+"\n\nFor now, import JSON containing routes/outputs/aux, or XML with output/aux/route elements that identify a destination and source.");}
  event.target.value="";
 }
 function clearReference(){
- if(!baselineState.attached)return;const old=baselineState.name;baselineState.attached=false;baselineState.name="";baselineState.loadedAt=null;baselineState.pgm=null;baselineState.pvw=null;baselineState.metadata={};Object.keys(baselineState.routes).forEach(k=>delete baselineState.routes[k]);recordEvent("REFERENCE",`Reference removed: ${old}`);updateReferenceUI();render();toast("Reference removed");
+ if(!baselineState.attached)return;const old=baselineState.name;baselineState.attached=false;baselineState.name="";baselineState.loadedAt=null;baselineState.pgm=null;baselineState.pvw=null;baselineState.metadata={};Object.keys(baselineState.routes).forEach(k=>delete baselineState.routes[k]);recordEvent("REFERENCE",`Reference removed: ${old}`);persistReference();updateReferenceUI();render();toast("Reference removed");
 }
 async function exportLogReport(){
  const mismatches=getMismatches();const report={product:"ShowDesk",exportedAt:new Date().toISOString(),device:connectedDevice?{name:connectedDevice.name,inputs:connectedDevice.inputs,outputs:connectedDevice.outputs,mes:connectedDevice.mes}:null,reference:baselineState.attached?{name:baselineState.name,loadedAt:baselineState.loadedAt,routes:baselineState.routes,pgm:baselineState.pgm,pvw:baselineState.pvw}:null,live:{pgm,pvw,routes:{...actual}},mismatches,history:sessionEvents};
@@ -943,7 +970,7 @@ window.ATEM_OPS=Object.assign(window.ATEM_OPS||{},{applyStateUpdate:applyAtemSta
 })();
 
 
-setDemoMode(false);updateReferenceUI();
+setDemoMode(false);restorePersistedReference();updateReferenceUI();
 </script><div id="toast" class="toast"></div><script src="/transport.js"></script>
 </body>
 </html>
