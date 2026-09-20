@@ -28,9 +28,38 @@ jobs:
       - run: npm run bundle
       - run: node scripts/make-sea-config.js
       - run: node --experimental-sea-config dist/sea-config.json
+      - name: Create SEA executable
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            node -e "require('fs').copyFileSync(process.execPath, 'dist/ShowDesk.exe')"
+            npx postject dist/ShowDesk.exe NODE_SEA_BLOB dist/sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+          else
+            cp "$(command -v node)" dist/ShowDesk
+            if [ "$RUNNER_OS" = "macOS" ]; then
+              codesign --remove-signature dist/ShowDesk || true
+              npx postject dist/ShowDesk NODE_SEA_BLOB dist/sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 --macho-segment-name NODE_SEA
+            else
+              npx postject dist/ShowDesk NODE_SEA_BLOB dist/sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+            fi
+          fi
       - name: Ad-hoc sign macOS build
         if: runner.os == 'macOS'
         run: codesign --force --sign - dist/ShowDesk
+      - name: Smoke test packaged executable
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            ./dist/ShowDesk.exe > dist/smoke.log 2>&1 &
+            APP_PID=$!
+          else
+            ./dist/ShowDesk > dist/smoke.log 2>&1 &
+            APP_PID=$!
+          fi
+          sleep 3
+          curl --fail --silent --show-error http://127.0.0.1:47821/ > dist/smoke-index.html
+          grep -q "SHOWDESK" dist/smoke-index.html
+          kill $APP_PID || true
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
