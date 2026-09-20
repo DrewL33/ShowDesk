@@ -1,0 +1,38 @@
+name: Build ShowDesk
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-14
+            artifact: ShowDesk-macOS-arm64
+          - os: macos-15-intel
+            artifact: ShowDesk-macOS-x64
+          - os: windows-latest
+            artifact: ShowDesk-Windows-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '26'
+      - run: npm install
+      - run: npm run check
+      - run: npm run bundle
+      - run: node scripts/make-sea-config.js
+      - run: node --build-sea dist/sea-config.json
+      - name: Ad-hoc sign macOS build
+        if: runner.os == 'macOS'
+        run: codesign --force --sign - dist/ShowDesk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            dist/ShowDesk
+            dist/ShowDesk.exe
+          if-no-files-found: error
