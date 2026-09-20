@@ -10,6 +10,7 @@ fs.writeFileSync('dist/sea-config.json', JSON.stringify({
   useCodeCache: false,
   assets: {
     'index.html': path.resolve('public/index.html'),
-    'transport.js': path.resolve('public/transport.js')
+    'transport.js': path.resolve('public/transport.js'),
+    'freetype2.node': path.resolve('dist/prebuilds', `freetype2-${process.platform}-${process.arch}`, 'node-napi-v7.node')
   }
 }, null, 2));
