@@ -26,6 +26,11 @@ jobs:
       - run: npm install
       - run: npm run check
       - run: npm run bundle
+      - name: Stage native freetype binding
+        shell: bash
+        run: |
+          mkdir -p dist/prebuilds
+          cp -R node_modules/@julusian/freetype2/prebuilds/* dist/prebuilds/
       - run: node scripts/make-sea-config.js
       - run: node --experimental-sea-config dist/sea-config.json
       - name: Create SEA executable
