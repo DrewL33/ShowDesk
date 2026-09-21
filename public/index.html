@@ -548,7 +548,7 @@ button,input,select,textarea {
  <button id="connectAtemBtn" class="connectBtn" disabled onclick="connectAtem()">CONNECT &amp; DISCOVER</button>
  <p class="safeNote" id="setupStatus">Enter the ATEM switcher IP address. ShowDesk will identify the connected switcher and build the workspace from its reported topology and routing state.</p>
 </div></div>
-<div class="top"><div class="brand">SHOWDESK</div><span class="demoBadge" id="demoBadge" hidden>DEMO</span><div class="demo"> • SIMULATED</div><div id="modelLabel" style="font-size:9px;color:#7f8b99"></div><button id="referenceStatus" class="referenceStatus" hidden onclick="setTab('engineering')">● Referencing <span id="referenceName"></span></button><div class="spacer"></div><div class="mode"><button id="showBtn" class="on" onclick="setTab('show')">SHOW</button><button id="signalBtn" onclick="setTab('signal')">SIGNAL PATHS</button><button id="engBtn" onclick="setTab('engineering')">ENGINEERING</button></div></div>
+<div class="top"><div class="brand">SHOWDESK</div><span class="demoBadge" id="demoBadge" hidden>DEMO</span><div id="modelLabel" style="font-size:9px;color:#7f8b99"></div><button id="referenceStatus" class="referenceStatus" hidden onclick="setTab('engineering')">● Referencing <span id="referenceName"></span></button><div class="spacer"></div><div class="mode"><button id="showBtn" class="on" onclick="setTab('show')">SHOW</button><button id="signalBtn" onclick="setTab('signal')">SIGNAL PATHS</button><button id="engBtn" onclick="setTab('engineering')">ENGINEERING</button></div></div>
 <div class="wrap tab-show" id="app">
 
 <section class="showContent">
@@ -653,6 +653,7 @@ const standard=["LED WALL","STREAM","RECORD","DSM A","DSM B","LOBBY"];
 function $(id){return document.getElementById(id)}
 
 let demoMode=false;
+let liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],productIdentifier:null,videoMode:null};
 const demoProfiles={
  sdi:{name:"ATEM SDI",inputs:4,outputs:3,mes:1,keys:2},
  sdiPro:{name:"ATEM SDI Pro ISO",inputs:4,outputs:3,mes:1,keys:2},
@@ -956,6 +957,11 @@ function render(){
 setInterval(()=>{let s=Math.floor((Date.now()-pgmSince)/1000),q=Math.floor((Date.now()-pvwSince)/1000);if($("pgmTime"))$("pgmTime").textContent=`LIVE ${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;if($("pvwTime"))$("pvwTime").textContent=`READY ${String(Math.floor(q/60)).padStart(2,"0")}:${String(q%60).padStart(2,"0")}`;if($("clock"))$("clock").textContent=new Date().toLocaleTimeString()},1000);
 
 function applyAtemStateUpdate(patch={}){
+   if(Array.isArray(patch.inputs)) liveEngineering.inputs=patch.inputs;
+   if(Array.isArray(patch.mixEffects)) liveEngineering.mixEffects=patch.mixEffects;
+   if(Array.isArray(patch.downstreamKeyers)) liveEngineering.downstreamKeyers=patch.downstreamKeyers;
+   if(patch.productIdentifier!==undefined) liveEngineering.productIdentifier=patch.productIdentifier;
+   if(patch.videoMode!==undefined) liveEngineering.videoMode=patch.videoMode;
   if(patch.pgm!==undefined){const prevPgm=pgm;pgm=typeof patch.pgm==="object"?(patch.pgm.name||patch.pgm.label||String(patch.pgm.id||patch.pgm)):patch.pgm;pgmSince=Date.now();if(prevPgm!==pgm)recordEvent("STATE",`PROGRAM: ${prevPgm} → ${pgm}`,{from:prevPgm,to:pgm});}
   if(patch.pvw!==undefined){const prevPvw=pvw;pvw=typeof patch.pvw==="object"?(patch.pvw.name||patch.pvw.label||String(patch.pvw.id||patch.pvw)):patch.pvw;pvwSince=Date.now();if(prevPvw!==pvw)recordEvent("STATE",`PREVIEW: ${prevPvw} → ${pvw}`,{from:prevPvw,to:pvw});}
   liveState.pgm=pgm;liveState.pvw=pvw;liveState.updatedAt=new Date().toISOString();
