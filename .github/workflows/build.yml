@@ -24,62 +24,66 @@ jobs:
       - run: npm install
       - run: npm run check
       - run: npm run bundle
-      - name: Stage packaged ATEM runtime
+
+      - name: Package Node runtime
         shell: bash
         run: |
-          mkdir -p dist/node_modules
-          cp -R node_modules/atem-connection dist/node_modules/
-          cp -R node_modules/@julusian dist/node_modules/@julusian
-          cp -R node_modules/eventemitter3 dist/node_modules/ 2>/dev/null || true
-          cp -R node_modules/exit-hook dist/node_modules/ 2>/dev/null || true
-          cp -R node_modules/p-timeout dist/node_modules/ 2>/dev/null || true
-          cp -R node_modules/threadedclass dist/node_modules/ 2>/dev/null || true
-      - run: node scripts/make-sea-config.js
-      - run: node --experimental-sea-config dist/sea-config.json
-      - name: Create SEA executable
+          mkdir -p dist/runtime
+          node -e "require('fs').copyFileSync(process.execPath, process.platform === 'win32' ? 'dist/runtime/node.exe' : 'dist/runtime/node')"
+          if [ "$RUNNER_OS" != "Windows" ]; then chmod +x dist/runtime/node; fi
+
+      - name: Create launchers
         shell: bash
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
-            node -e "require('fs').copyFileSync(process.execPath, 'dist/ShowDesk.exe')"
-            npx postject dist/ShowDesk.exe NODE_SEA_BLOB dist/sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+            cat > dist/ShowDesk.cmd <<'EOF'
+          @echo off
+          cd /d "%~dp0"
+          runtime\node.exe src\server.js
+          EOF
           else
-            cp "$(command -v node)" dist/ShowDesk
-            if [ "$RUNNER_OS" = "macOS" ]; then
-              codesign --remove-signature dist/ShowDesk || true
-              npx postject dist/ShowDesk NODE_SEA_BLOB dist/sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 --macho-segment-name NODE_SEA
-            else
-              npx postject dist/ShowDesk NODE_SEA_BLOB dist/sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
-            fi
+            cat > dist/ShowDesk <<'EOF'
+          #!/bin/sh
+          cd "$(dirname "$0")"
+          exec ./runtime/node ./src/server.js
+          EOF
+            chmod +x dist/ShowDesk
           fi
-      - name: Ad-hoc sign macOS build
-        if: runner.os == 'macOS'
-        run: codesign --force --sign - dist/ShowDesk
-      - name: Smoke test packaged executable
+
+      - name: Smoke test packaged runtime
         shell: bash
         env:
           SHOWDESK_NO_OPEN: '1'
         run: |
+          cd dist
           if [ "$RUNNER_OS" = "Windows" ]; then
-            ./dist/ShowDesk.exe > dist/smoke.log 2>&1 &
-            APP_PID=$!
+            ./runtime/node.exe src/server.js > smoke.log 2>&1 &
           else
-            ./dist/ShowDesk > dist/smoke.log 2>&1 &
-            APP_PID=$!
+            ./runtime/node src/server.js > smoke.log 2>&1 &
           fi
+          APP_PID=$!
           sleep 3
-          if ! curl --fail --silent --show-error http://127.0.0.1:47821/ > dist/smoke-index.html; then
-            echo "----- ShowDesk smoke log -----"
-            cat dist/smoke.log || true
+          if ! curl --fail --silent --show-error http://127.0.0.1:47821/ > smoke-index.html; then
+            cat smoke.log || true
             exit 1
           fi
-          grep -q "SHOWDESK" dist/smoke-index.html
-          node -e "const WebSocket=require('ws'); const ws=new WebSocket('ws://127.0.0.1:47821/ws'); const timer=setTimeout(()=>{console.error('ATEM module smoke test timed out');process.exit(1)},12000); ws.on('open',()=>ws.send(JSON.stringify({id:'smoke-connect',type:'connect',ip:'127.0.0.1'}))); ws.on('message',d=>{const m=JSON.parse(d); if(m.replyTo!=='smoke-connect')return; clearTimeout(timer); if(/constructor|freetype|binding|module loaded/i.test(m.error||'')){console.error(m.error);process.exit(1)} process.exit(0)}); ws.on('error',e=>{console.error(e);process.exit(1)})"
+          grep -q "SHOWDESK" smoke-index.html
+          ../node_modules/.bin/node -e "" 2>/dev/null || true
+          node -e "const WebSocket=require('../node_modules/ws'); const ws=new WebSocket('ws://127.0.0.1:47821/ws'); const timer=setTimeout(()=>{console.error('ATEM runtime smoke test timed out');process.exit(1)},12000); ws.on('open',()=>ws.send(JSON.stringify({id:'smoke-connect',type:'connect',ip:'127.0.0.1'}))); ws.on('message',d=>{const m=JSON.parse(d); if(m.replyTo!=='smoke-connect')return; clearTimeout(timer); const e=m.error||''; if(/constructor|freetype|binding|module loaded|packaged ATEM runtime|No such built-in module|Cannot find module/i.test(e)){console.error(e);process.exit(1)} process.exit(0)}); ws.on('error',e=>{console.error(e);process.exit(1)})"
           kill $APP_PID || true
+
+      - name: Create distribution archive
+        shell: bash
+        run: |
+          rm -f dist/smoke.log dist/smoke-index.html
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            powershell -NoProfile -Command "Compress-Archive -Path dist\* -DestinationPath ShowDesk-Windows-x64.zip"
+          else
+            ditto -c -k --sequesterRsrc --keepParent dist ShowDesk-macOS-arm64.zip
+          fi
+
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: |
-            dist/ShowDesk
-            dist/ShowDesk.exe
-            dist/node_modules
+          path: ShowDesk-*.zip
           if-no-files-found: error
