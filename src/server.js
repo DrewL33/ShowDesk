@@ -7,21 +7,14 @@ const os = require('node:os');
 const { createRequire } = require('node:module');
 let Atem;
 
-function prepareNativeAssets() {
-  let sea;
-  try { sea = require('node:sea'); } catch { return; }
-  if (!sea.isSea()) return;
-  const dir = path.join(os.tmpdir(), 'showdesk-native');
-  fs.mkdirSync(dir, { recursive: true });
-  const nativePath = path.join(dir, 'freetype2.node');
-  if (!fs.existsSync(nativePath)) fs.writeFileSync(nativePath, Buffer.from(sea.getAsset('freetype2.node')));
-  process.env.SHOWDESK_FREETYPE2_PATH = nativePath;
-}
-
 function loadAtem() {
   if (Atem) return Atem;
-  prepareNativeAssets();
-  const module = require('atem-connection');
+  let module;
+  try {
+    module = require('atem-connection');
+  } catch (error) {
+    throw new Error(`Unable to load packaged ATEM runtime: ${error.message || error}`);
+  }
   const AtemClass = module.Atem || module.default?.Atem || module.default;
   if (typeof AtemClass !== 'function') {
     throw new Error('ATEM connection module loaded, but its Atem constructor was not available.');
