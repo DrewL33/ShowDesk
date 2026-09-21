@@ -611,14 +611,6 @@ async function connectionInputChanged(){
 }
 async function connectAtem(){
  const ip=$("atemIp").value.trim();
- if(demoMode){
-   const d={...selectedDemoProfile()};
-   connectedDevice=d;
-   $("modelLabel").textContent=d.name+" • DEMO";
-   $("setup").classList.add("hidden");
-   applyAtemStateUpdate(buildDemoState(d));
-   return;
- }
  if(!validIpLike(ip))return;
  const btn=$("connectAtemBtn"),status=$("setupStatus");
  btn.disabled=true;btn.textContent="DISCOVERING…";status.textContent="Contacting "+ip+" and reading switcher topology, inputs, outputs, M/Es, keyers and routing…";
