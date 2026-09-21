@@ -3,8 +3,6 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { exec } = require('node:child_process');
 const { WebSocketServer } = require('ws');
-const os = require('node:os');
-const { createRequire } = require('node:module');
 let Atem;
 
 function loadAtem() {
@@ -34,10 +32,6 @@ let hasConnected = false;
 const clients = new Set();
 
 function asset(name) {
-  try {
-    const sea = require('node:sea');
-    if (sea.isSea()) return Buffer.from(sea.getAsset(name));
-  } catch {}
   return fs.readFileSync(path.join(__dirname, '..', 'public', name));
 }
 const ASSETS = {
