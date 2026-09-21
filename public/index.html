@@ -70,6 +70,22 @@
   border:1px solid rgba(92,150,210,.58)!important;
   box-shadow:inset 0 0 0 1px rgba(92,150,210,.06),0 8px 24px rgba(0,0,0,.16);
 }
+
+/* Beta 2 workspace usability */
+.showContent .standaloneDest{display:none!important}
+.inputCard.live{border:1px solid rgba(202,78,64,.68);box-shadow:inset 0 0 0 1px rgba(202,78,64,.07)}
+.inputCard.ready{border:1px solid rgba(92,150,210,.72);box-shadow:inset 0 0 0 1px rgba(92,150,210,.10)}
+.matrixViewport{height:360px;overflow:auto;border:1px solid var(--line);border-radius:7px;background:#080d11}
+.matrixViewport .matrix,.matrixModalViewport .matrix{width:max-content;min-width:100%;overflow:visible;grid-auto-rows:minmax(38px,auto)}
+.matrixViewport .mc,.matrixModalViewport .mc{min-width:112px;max-width:180px;overflow-wrap:anywhere}
+.matrixViewport .mc:first-child,.matrixModalViewport .mc:first-child{min-width:150px;position:sticky;left:0;z-index:3;background:#0a1014}
+.matrixViewport .mh,.matrixModalViewport .mh{position:sticky;top:0;z-index:4;background:#080d11}
+.matrixViewport .mh:first-child,.matrixModalViewport .mh:first-child{z-index:5}
+.matrixExpandBtn{margin-left:8px}
+.matrixModal{position:fixed;inset:0;z-index:700;background:#000b;padding:34px;place-items:center}.matrixModal:not([hidden]){display:grid}
+.matrixModalCard{width:min(1400px,96vw);height:min(850px,92vh);display:flex;flex-direction:column;background:#0d1318;border:1px solid #45545f;border-radius:12px;padding:16px;box-shadow:0 30px 100px #000c}
+.matrixModalViewport{flex:1;min-height:0;overflow:auto;border:1px solid var(--line);border-radius:7px;background:#080d11}
+@media(max-width:720px){.matrixViewport{height:300px}.matrixModal{padding:10px}.matrixModalCard{width:98vw;height:94vh}}
 </style><style>
 /* v4.2 — smooth dynamic signal branches */
 .flowDestStack .flowNode:after{display:none!important}
@@ -539,7 +555,7 @@ button,input,select,textarea {
      <div class="keys" id="showKeyers"></div>
     </div>
  </div>
- <div class="panel destPanel standaloneDest"><div class="head"><h2>DESTINATIONS</h2><span class="sub">live routing + recent changes</span></div><div class="dest" id="dest"></div></div>
+ 
  <div class="modRow lowerModRow">
   <div class="panel inputsStandalone"><div class="head"><h2>INPUTS</h2><span class="sub" id="inputCountLabel">available sources</span></div>
     <div class="inputCompact" id="inputGrid"></div>
@@ -590,6 +606,7 @@ button,input,select,textarea {
   <div class="panel"><div class="head"><h2>KEYER INSPECTOR</h2><span class="sub">state + assignment</span></div>
    <div class="inspect" id="keyerInspector"></div></div><div class="panel"><div class="head"><h2>DIAGNOSTICS</h2><span class="sub">switcher + route health</span></div><div class="diag" id="diagnostics"></div></div></div></section>
 </div>
+<div id="matrixModal" class="matrixModal" hidden><div class="matrixModalCard"><div class="head"><h2>ROUTING MATRIX</h2><span class="sub">live ATEM state</span><button class="tinyAction" onclick="closeMatrix()">CLOSE</button></div><div class="matrixModalViewport"><div class="matrix" id="routingMatrixExpanded"></div></div></div></div>
 <script>
 
 
@@ -844,13 +861,15 @@ function render(){
 }
 setInterval(()=>{let s=Math.floor((Date.now()-pgmSince)/1000),q=Math.floor((Date.now()-pvwSince)/1000);if($("pgmTime"))$("pgmTime").textContent=`LIVE ${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;if($("pvwTime"))$("pvwTime").textContent=`READY ${String(Math.floor(q/60)).padStart(2,"0")}:${String(q%60).padStart(2,"0")}`;if($("clock"))$("clock").textContent=new Date().toLocaleTimeString()},1000);
 
+function openMatrix(){const m=$("matrixModal");if(m){m.hidden=false;renderEngineering();}}
+function closeMatrix(){const m=$("matrixModal");if(m)m.hidden=true;}
 function renderEngineering(){
  const e=liveEngineering,inputs=e.inputs||[],mes=e.mixEffects||[],dsks=e.downstreamKeyers||[];
  const keys=[];mes.forEach(me=>(me.upstreamKeyers||[]).forEach(k=>keys.push({...k,label:`USK ${k.index} · M/E ${me.index}`})));dsks.forEach(k=>keys.push({...k,label:`DSK ${k.index}`}));
  if($("showKeyers"))$("showKeyers").innerHTML=keys.map(k=>`<div class="key ${k.onAir?"on":""}">${k.label} • ${k.onAir?"ON AIR":"OFF"}</div>`).join("");
  if($("pgmContext"))$("pgmContext").textContent=mes[0]?`M/E ${mes[0].index} • PROGRAM`:"—";
  if($("pvwContext"))$("pvwContext").textContent=mes[0]?`M/E ${mes[0].index} • PREVIEW`:"—";
- const mx=$("routingMatrix");if(mx){const heads=['SOURCE',...mes.flatMap(me=>[`M/E${me.index} PGM`,`M/E${me.index} PVW`]),'KEYERS','OUTPUTS'];let h=heads.map(x=>`<div class="mc mh">${x}</div>`).join('');for(const input of inputs){const ku=keys.filter(k=>k.fill===input.name||k.key===input.name).map(k=>k.label);const outs=Object.entries(actual).filter(([,v])=>v===input.name).map(([n])=>n);h+=`<div class="mc">${input.name}</div>`+mes.flatMap(me=>[`<div class="mc ${me.pgm===input.name?'mon':''}">${me.pgm===input.name?'● LIVE':'—'}</div>`,`<div class="mc ${me.pvw===input.name?'mpv':''}">${me.pvw===input.name?'● READY':'—'}</div>`]).join('')+`<div class="mc">${ku.join(' / ')||'—'}</div><div class="mc">${outs.join(' / ')||'—'}</div>`;}mx.style.gridTemplateColumns=`110px repeat(${Math.max(1,heads.length-1)},minmax(70px,1fr))`;mx.innerHTML=h||'<div class="emptyRoute">No routing state received.</div>';}
+ const mx=$("routingMatrix");if(mx){const heads=['SOURCE',...mes.flatMap(me=>[`M/E${me.index} PGM`,`M/E${me.index} PVW`]),'KEYERS','OUTPUTS'];let h=heads.map(x=>`<div class="mc mh">${x}</div>`).join('');for(const input of inputs){const ku=keys.filter(k=>k.fill===input.name||k.key===input.name).map(k=>k.label);const outs=Object.entries(actual).filter(([,v])=>v===input.name).map(([n])=>n);h+=`<div class="mc">${input.name}</div>`+mes.flatMap(me=>[`<div class="mc ${me.pgm===input.name?'mon':''}">${me.pgm===input.name?'● LIVE':'—'}</div>`,`<div class="mc ${me.pvw===input.name?'mpv':''}">${me.pvw===input.name?'● READY':'—'}</div>`]).join('')+`<div class="mc">${ku.join(' / ')||'—'}</div><div class="mc">${outs.join(' / ')||'—'}</div>`;}const cols=`150px repeat(${Math.max(1,heads.length-1)},112px)`;mx.style.gridTemplateColumns=cols;mx.innerHTML=h||'<div class="emptyRoute">No routing state received.</div>';const ex=$("routingMatrixExpanded");if(ex){ex.style.gridTemplateColumns=cols;ex.innerHTML=mx.innerHTML;}}
  if($("meBusDetail"))$("meBusDetail").innerHTML=mes.map(me=>`<div class="busrow"><div class="lab">M/E ${me.index}</div><div class="bus"><span>PROGRAM</span><b>${me.pgm}</b></div><div class="bus"><span>PREVIEW</span><b>${me.pvw}</b></div><div class="bus"><span>FTB</span><b>${me.ftb?(me.ftb.isFullyBlack?'BLACK':me.ftb.inTransition?'TRANSITION':'OFF'):'—'}</b></div></div>`).join('')||'<div class="emptyRoute">No M/E state received.</div>';
  if($("keyerInspector"))$("keyerInspector").innerHTML=keys.map(k=>`<div class="ins"><span>${k.label}</span><b class="${k.onAir?'ok':''}">${k.onAir?'ON AIR':'OFF'}</b><small>Fill: ${k.fill||'—'} · Key: ${k.key||'—'}</small></div>`).join('')||'<div class="emptyRoute">No keyer state received.</div>';
  if($("diagnostics"))$("diagnostics").innerHTML=`<div class="metric"><span>LINK</span><b class="ok">CONNECTED</b></div><div class="metric"><span>VIDEO MODE</span><b>${e.videoMode??'—'}</b></div><div class="metric"><span>MODEL</span><b>${e.productIdentifier||connectedDevice?.name||'—'}</b></div><div class="metric"><span>SOURCES REPORTED</span><b>${inputs.length}</b></div><div class="metric"><span>OUTPUTS REPORTED</span><b>${Object.keys(actual).length}</b></div><div class="metric"><span>REFERENCE</span><b id="diagReference">${baselineState.attached?baselineState.name:'NONE'}</b></div><div class="metric"><span>LAST CHANGE</span><b id="lastChange">${lastChangeText}</b></div>`;
