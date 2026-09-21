@@ -513,37 +513,6 @@ button,input,select,textarea {
 <div class="setupCard">
  <h1>SHOWDESK</h1>
  <p>Enter the ATEM switcher IP. ShowDesk will identify the connected switcher and build the workspace from its reported topology and routing.</p>
- <div class="modeToggleRow">
-  <div><b>DEMO MODE</b><span>Use simulated ATEM state without hardware</span></div>
-  <label class="switch"><input id="demoToggle" type="checkbox" onchange="setDemoMode(this.checked)"><span class="slider"></span></label>
- </div>
- <div class="field demoProfileField" id="demoProfileField" hidden>
-  <label>DEMO SWITCHER PROFILE</label>
-  <select id="demoModel" onchange="demoProfileChanged()">
-   <optgroup label="ATEM SDI">
-    <option value="sdi">ATEM SDI — 4 inputs</option>
-    <option value="sdiPro">ATEM SDI Pro ISO — 4 inputs</option>
-    <option value="sdiExtreme">ATEM SDI Extreme ISO — 8 inputs</option>
-   </optgroup>
-   <optgroup label="ATEM Television Studio">
-    <option value="tvHD8">ATEM Television Studio HD8 — 8 inputs</option>
-    <option value="tvHD8ISO">ATEM Television Studio HD8 ISO — 8 inputs</option>
-    <option value="tv4K8">ATEM Television Studio 4K8 — 8 inputs</option>
-   </optgroup>
-   <optgroup label="ATEM Constellation HD">
-    <option value="const1HD">ATEM 1 M/E Constellation HD — 10 inputs</option>
-    <option value="const2HD" selected>ATEM 2 M/E Constellation HD — 20 inputs</option>
-    <option value="const4HD">ATEM 4 M/E Constellation HD — 40 inputs</option>
-   </optgroup>
-   <optgroup label="ATEM Constellation 4K">
-    <option value="const1K">ATEM 1 M/E Constellation 4K — 10 inputs</option>
-    <option value="const2K">ATEM 2 M/E Constellation 4K — 20 inputs</option>
-    <option value="const4K">ATEM 4 M/E Constellation 4K — 40 inputs</option>
-    <option value="const4KPlus">ATEM 4 M/E Constellation 4K Plus — 80 inputs</option>
-   </optgroup>
-  </select>
-  <div class="profilePreview" id="profilePreview"></div>
- </div>
  <div class="field"><label>ATEM SWITCHER IP</label><input id="atemIp" inputmode="decimal" autocomplete="off" placeholder="192.168.1.240" oninput="connectionInputChanged()" onkeydown="if(event.key==='Enter'&&!$('connectAtemBtn').disabled)connectAtem()"></div>
  <button id="connectAtemBtn" class="connectBtn" disabled onclick="connectAtem()">CONNECT &amp; DISCOVER</button>
  <p class="safeNote" id="setupStatus">Enter the ATEM switcher IP address. ShowDesk will identify the connected switcher and build the workspace from its reported topology and routing state.</p>
@@ -595,13 +564,7 @@ button,input,select,textarea {
 
  <div class="engSummary">
   <div class="panel"><div class="head"><h2>ATTENTION</h2><span class="sub">things worth looking at</span></div>
-   <div class="attention" id="attention">
-    <div class="attentionItem good"><b>NO ROUTE MISMATCHES</b><span>All critical destinations match profile.</span></div>
-    <div class="attentionItem"><b>USK 1 ON AIR</b><span>Lower third • M/E 1</span></div>
-    <div class="attentionItem"><b>LAST CHANGE 00:12 AGO</b><span>M/E 1 Program changed to CAM 1</span></div>
-   </div>
-  </div>
-  <div class="panel referencePanel"><div class="head"><h2>SHOW REFERENCE</h2><span class="sub">expected state + reporting</span></div>
+   <div class="attention" id="attention"></div></div><div class="panel referencePanel"><div class="head"><h2>SHOW REFERENCE</h2><span class="sub">expected state + reporting</span></div>
    <div id="referenceEmpty" class="referenceEmpty"><b>NO REFERENCE ATTACHED</b><span>Import a show reference to enable expected-vs-actual comparison.</span></div>
    <div id="referenceAttached" class="referenceAttached" hidden><div><span>REFERENCE</span><b id="engReferenceName">—</b><small id="referenceMeta">—</small></div><button class="tinyAction" onclick="clearReference()">REMOVE</button></div>
    <input id="referenceFile" type="file" accept=".json,.xml,.show,.atem" hidden onchange="importReferenceFile(event)">
@@ -613,31 +576,9 @@ button,input,select,textarea {
  <div class="engLayout">
   <div class="panel">
    <div class="head"><h2>ROUTING MATRIX</h2><span class="sub">current source usage across the switcher</span></div>
-   <div class="matrix">
-    <div class="mc mh">SOURCE</div><div class="mc mh">M/E1 PGM</div><div class="mc mh">M/E1 PVW</div><div class="mc mh">M/E2 PGM</div><div class="mc mh">M/E2 PVW</div><div class="mc mh">KEYERS</div><div class="mc mh">OUTPUTS</div>
-    <div class="mc">CAM 1</div><div class="mc mon" id="mxCam1">● LIVE</div><div class="mc">—</div><div class="mc">—</div><div class="mc">—</div><div class="mc">—</div><div class="mc mroute">LED / STR / REC</div>
-    <div class="mc">CAM 2</div><div class="mc">—</div><div class="mc">—</div><div class="mc">—</div><div class="mc mpv">● READY</div><div class="mc">—</div><div class="mc">—</div>
-    <div class="mc">CAM 3</div><div class="mc">—</div><div class="mc mpv">● READY</div><div class="mc">—</div><div class="mc">—</div><div class="mc">—</div><div class="mc">DSM B</div>
-    <div class="mc">PPT</div><div class="mc">—</div><div class="mc">—</div><div class="mc mon">● ACTIVE</div><div class="mc">—</div><div class="mc">USK 2 FILL</div><div class="mc">DSM A</div>
-    <div class="mc">LOGO</div><div class="mc">—</div><div class="mc">—</div><div class="mc">—</div><div class="mc">—</div><div class="mc mon">USK 1 FILL</div><div class="mc">—</div>
-   </div>
-  </div>
-  <div class="panel"><div class="head"><h2>M/E BUS DETAIL</h2><span class="sub">switching state</span></div>
-   <div class="busrow"><div class="lab">M/E 1</div><div class="bus"><span>PROGRAM</span><b id="engPgm">CAM 1</b></div><div class="bus"><span>PREVIEW</span><b id="engPvw">CAM 3</b></div><div class="bus"><span>TRANS</span><b>MIX 0%</b></div></div>
-   <div class="busrow"><div class="lab">M/E 2</div><div class="bus"><span>PROGRAM</span><b>PPT</b></div><div class="bus"><span>PREVIEW</span><b>CAM 2</b></div><div class="bus"><span>TRANS</span><b>MIX 0%</b></div></div>
-   <div class="busrow"><div class="lab">FTB</div><div class="bus"><span>M/E 1</span><b>OFF</b></div><div class="bus"><span>M/E 2</span><b>OFF</b></div><div></div></div>
-  </div>
- </div>
-
- <div class="engLayout">
+   <div class="matrix" id="routingMatrix"></div></div><div class="panel"><div class="head"><h2>M/E BUS DETAIL</h2><span class="sub">live switching state</span></div><div id="meBusDetail"></div></div></div><div class="engLayout">
   <div class="panel"><div class="head"><h2>KEYER INSPECTOR</h2><span class="sub">state + assignment</span></div>
-   <div class="inspect"><div class="ins"><span>USK 1</span><b class="ok">ON AIR</b><small>M/E 1 • LUMA</small></div><div class="ins"><span>FILL</span><b>LOGO</b><small>Input 8</small></div><div class="ins"><span>KEY</span><b>CAM 1 KEY</b><small>Input 9</small></div><div class="ins"><span>USK 2</span><b>OFF</b><small>M/E 1 • DVE</small></div><div class="ins"><span>DSK 1</span><b>OFF</b><small>Program clean</small></div><div class="ins"><span>DSK 2</span><b>OFF</b><small>Program clean</small></div></div>
-  </div>
-  <div class="panel"><div class="head"><h2>DIAGNOSTICS</h2><span class="sub">switcher + route health</span></div>
-   <div class="diag"><div class="metric"><span>LINK</span><b class="ok">CONNECTED</b></div><div class="metric"><span>VIDEO MODE</span><b>1080p59.94</b></div><div class="metric"><span>MODEL</span><b>2 M/E CONSTELLATION HD</b></div><div class="metric"><span>INPUTS SEEN</span><b>20</b></div><div class="metric"><span>OUTPUTS SEEN</span><b>12 / 12</b></div><div class="metric"><span>REFERENCE</span><b id="diagReference">NONE</b></div><div class="metric"><span>ROUTE HEALTH</span><b id="routeMetric" class="ok">6 / 6 OK</b></div><div class="metric"><span>LAST CHANGE</span><b id="lastChange">—</b></div></div>
-  </div>
- </div>
-</section>
+   <div class="inspect" id="keyerInspector"></div></div><div class="panel"><div class="head"><h2>DIAGNOSTICS</h2><span class="sub">switcher + route health</span></div><div class="diag" id="diagnostics"></div></div></div></section>
 </div>
 <script>
 
@@ -649,7 +590,7 @@ const baselineState={attached:false,name:"",loadedAt:null,routes:{},pgm:null,pvw
 const liveState={routes:{},pgm:"—",pvw:"—",updatedAt:null};
 let expected=baselineState.routes,actual=liveState.routes,saved={},logs=[],sessionEvents=[];
 let selectedDestination=null;
-const standard=["LED WALL","STREAM","RECORD","DSM A","DSM B","LOBBY"];
+const standard=[];
 function $(id){return document.getElementById(id)}
 
 let liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],productIdentifier:null,videoMode:null};
@@ -853,7 +794,7 @@ function renderPaths(){
   const same=dests.filter(n=>n!==selectedDestination&&actual[n]===route&&route!=="UNUSED");
   related.innerHTML=`<div class="relatedTitle">OTHER DESTINATIONS FROM THIS ROUTE</div><div class="relatedList">${same.length?same.map(n=>`<button class="relatedItem" onclick="selectDestination(decodeURIComponent('${encodeURIComponent(n)}'))"><span class="relatedDot"></span><b>${n}</b><span>${route}</span></button>`).join(""):`<div class="relatedItem"><b>No shared destinations</b><span>This route currently feeds only ${selectedDestination||"the selected output"}.</span></div>`}</div><div class="routeKey"><div><i class="red"></i> Program path</div><div><i class="blue"></i> Preview path</div><div><i></i> Direct / other route</div></div>`;
  }
- const known=["CAM 1","CAM 2","CAM 3","CAM 4","PPT","STAGE INPUT","PLAYBACK","LOGO"];
+ const known=[];
  const names=Array.from({length:d.inputs},(_,i)=>known[i]||`INPUT ${i+1}`),used=new Set([pgm,pvw,...Object.values(actual).filter(v=>v&&!['PROGRAM','PREVIEW','UNUSED'].includes(v))]);
  const idle=names.filter(n=>!used.has(n));
  $("unroutedItems").innerHTML=idle.map(n=>`<span class="unroutedChip">${n}</span>`).join("");$("unroutedCount").textContent=`${idle.length} inactive`;
