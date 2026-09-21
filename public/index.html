@@ -810,7 +810,7 @@ function render(){
  const unusedDestNames=Object.keys(actual).filter(n=>actual[n]==="UNUSED");
  $("dest").innerHTML=activeDestNames.map(n=>{
    const current=actual[n]||"—", hist=window.routeHistory[n], isChanged=hist&&hist.from!==current;
-   const detail=current==="PROGRAM"?`M/E 1 • ${pgm}`:current==="PREVIEW"?`M/E 1 • ${pvw}`:current==="PPT"?"DIRECT INPUT":["BLACK","COLOR BARS","BARS","TEST"].includes(String(current).toUpperCase())?"UTILITY / DIRECT":"DIRECT ROUTE";
+   const detail=current==="PROGRAM"?`M/E 1 • ${pgm}`:current==="PREVIEW"?`M/E 1 • ${pvw}`:"DIRECT ROUTE";
    let change=`CURRENT`;
    if(isChanged){const sec=Math.max(0,Math.floor((Date.now()-hist.at)/1000));const age=sec<60?`${sec}s ago`:`${Math.floor(sec/60)}m ago`;change=`← was ${hist.from}<br>${age}`;}
    const isMismatch=mismatchNames.has(n);if(isMismatch){const mm=mismatches.find(x=>x.name===n);change=`EXPECTED ${mm.expected}<br>ACTUAL ${mm.actual}`;}
