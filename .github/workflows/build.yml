@@ -24,11 +24,16 @@ jobs:
       - run: npm install
       - run: npm run check
       - run: npm run bundle
-      - name: Stage native freetype binding
+      - name: Stage packaged ATEM runtime
         shell: bash
         run: |
-          mkdir -p dist/prebuilds
-          cp -R node_modules/@julusian/freetype2/prebuilds/* dist/prebuilds/
+          mkdir -p dist/node_modules
+          cp -R node_modules/atem-connection dist/node_modules/
+          cp -R node_modules/@julusian dist/node_modules/@julusian
+          cp -R node_modules/eventemitter3 dist/node_modules/ 2>/dev/null || true
+          cp -R node_modules/exit-hook dist/node_modules/ 2>/dev/null || true
+          cp -R node_modules/p-timeout dist/node_modules/ 2>/dev/null || true
+          cp -R node_modules/threadedclass dist/node_modules/ 2>/dev/null || true
       - run: node scripts/make-sea-config.js
       - run: node --experimental-sea-config dist/sea-config.json
       - name: Create SEA executable
@@ -76,4 +81,5 @@ jobs:
           path: |
             dist/ShowDesk
             dist/ShowDesk.exe
+            dist/node_modules
           if-no-files-found: error
