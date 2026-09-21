@@ -548,16 +548,16 @@ button,input,select,textarea {
  <button id="connectAtemBtn" class="connectBtn" disabled onclick="connectAtem()">CONNECT &amp; DISCOVER</button>
  <p class="safeNote" id="setupStatus">Enter the ATEM switcher IP address. ShowDesk will identify the connected switcher and build the workspace from its reported topology and routing state.</p>
 </div></div>
-<div class="top"><div class="brand">SHOWDESK</div><span class="demoBadge" id="demoBadge" hidden>DEMO</span><div id="modelLabel" style="font-size:9px;color:#7f8b99"></div><button id="referenceStatus" class="referenceStatus" hidden onclick="setTab('engineering')">● Referencing <span id="referenceName"></span></button><div class="spacer"></div><div class="mode"><button id="showBtn" class="on" onclick="setTab('show')">SHOW</button><button id="signalBtn" onclick="setTab('signal')">SIGNAL PATHS</button><button id="engBtn" onclick="setTab('engineering')">ENGINEERING</button></div></div>
+<div class="top"><div class="brand">SHOWDESK</div><div id="modelLabel" style="font-size:9px;color:#7f8b99"></div><button id="referenceStatus" class="referenceStatus" hidden onclick="setTab('engineering')">● Referencing <span id="referenceName"></span></button><div class="spacer"></div><div class="mode"><button id="showBtn" class="on" onclick="setTab('show')">SHOW</button><button id="signalBtn" onclick="setTab('signal')">SIGNAL PATHS</button><button id="engBtn" onclick="setTab('engineering')">ENGINEERING</button></div></div>
 <div class="wrap tab-show" id="app">
 
 <section class="showContent">
  <div class="health" id="health"><div class="dot"></div><div><b id="healthTitle">SYSTEM READY</b><div class="detail" id="healthDetail">Critical routes match the active profile</div></div><div class="spacer"></div><span id="clock"></span></div>
  <div class="showPrimary">
   <div class="panel"><div class="head"><h2>LIVE SWITCHING</h2><span class="sub">primary M/E</span></div>
-     <div class="pgmpvw"><div class="hero pgm"><span class="eyebrow">PROGRAM</span><span class="badge">ON AIR</span><div class="source" id="pgm">CAM 1</div><div class="statusContext" id="pgmContext">M/E 1 • IN 1</div><div class="timer" id="pgmTime">LIVE 00:00</div></div>
-     <div class="hero pvw"><span class="eyebrow">PREVIEW</span><span class="badge">READY</span><div class="source" id="pvw">CAM 3</div><div class="statusContext" id="pvwContext">M/E 1 • IN 3</div><div class="timer" id="pvwTime">READY 00:00</div></div></div>
-     <div class="keys"><div class="key on">USK 1 • LOWER THIRD</div><div class="key">USK 2 • OFF</div><div class="key">DSK 1 • OFF</div></div>
+     <div class="pgmpvw"><div class="hero pgm"><span class="eyebrow">PROGRAM</span><span class="badge">ON AIR</span><div class="source" id="pgm">—</div><div class="statusContext" id="pgmContext">Awaiting ATEM state</div><div class="timer" id="pgmTime">LIVE 00:00</div></div>
+     <div class="hero pvw"><span class="eyebrow">PREVIEW</span><span class="badge">READY</span><div class="source" id="pvw">—</div><div class="statusContext" id="pvwContext">Awaiting ATEM state</div><div class="timer" id="pvwTime">READY 00:00</div></div></div>
+     <div class="keys" id="showKeyers"></div>
     </div>
  </div>
  <div class="panel destPanel standaloneDest"><div class="head"><h2>DESTINATIONS</h2><span class="sub">live routing + recent changes</span></div><div class="dest" id="dest"></div></div>
@@ -644,58 +644,15 @@ button,input,select,textarea {
 
 
 let connectedDevice=null;
-let pgm="CAM 1",pvw="CAM 3",pgmSince=Date.now(),pvwSince=Date.now(),lastChangeText="—";
+let pgm="—",pvw="—",pgmSince=Date.now(),pvwSince=Date.now(),lastChangeText="—";
 const baselineState={attached:false,name:"",loadedAt:null,routes:{},pgm:null,pvw:null,metadata:{}};
-const liveState={routes:{},pgm:"CAM 1",pvw:"CAM 3",updatedAt:null};
+const liveState={routes:{},pgm:"—",pvw:"—",updatedAt:null};
 let expected=baselineState.routes,actual=liveState.routes,saved={},logs=[],sessionEvents=[];
 let selectedDestination=null;
 const standard=["LED WALL","STREAM","RECORD","DSM A","DSM B","LOBBY"];
 function $(id){return document.getElementById(id)}
 
-let demoMode=false;
 let liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],productIdentifier:null,videoMode:null};
-const demoProfiles={
- sdi:{name:"ATEM SDI",inputs:4,outputs:3,mes:1,keys:2},
- sdiPro:{name:"ATEM SDI Pro ISO",inputs:4,outputs:3,mes:1,keys:2},
- sdiExtreme:{name:"ATEM SDI Extreme ISO",inputs:8,outputs:6,mes:1,keys:6},
- tvHD8:{name:"ATEM Television Studio HD8",inputs:8,outputs:12,mes:1,keys:6},
- tvHD8ISO:{name:"ATEM Television Studio HD8 ISO",inputs:8,outputs:12,mes:1,keys:6},
- tv4K8:{name:"ATEM Television Studio 4K8",inputs:8,outputs:10,mes:1,keys:6},
- const1HD:{name:"ATEM 1 M/E Constellation HD",inputs:10,outputs:6,mes:1,keys:4},
- const2HD:{name:"ATEM 2 M/E Constellation HD",inputs:20,outputs:12,mes:2,keys:8},
- const4HD:{name:"ATEM 4 M/E Constellation HD",inputs:40,outputs:24,mes:4,keys:16},
- const1K:{name:"ATEM 1 M/E Constellation 4K",inputs:10,outputs:6,mes:1,keys:4},
- const2K:{name:"ATEM 2 M/E Constellation 4K",inputs:20,outputs:12,mes:2,keys:8},
- const4K:{name:"ATEM 4 M/E Constellation 4K",inputs:40,outputs:24,mes:4,keys:16},
- const4KPlus:{name:"ATEM 4 M/E Constellation 4K Plus",inputs:80,outputs:48,mes:4,keys:16}
-};
-function selectedDemoProfile(){return demoProfiles[$("demoModel")?.value]||demoProfiles.const2HD}
-function demoProfileChanged(){
- const d=selectedDemoProfile(),p=$("profilePreview");
- if(p)p.innerHTML=`<b>${d.inputs}</b> inputs <span>•</span> <b>${d.outputs}</b> outputs <span>•</span> <b>${d.mes}</b> M/E <span>•</span> <b>${d.keys}</b> keyers`;
-}
-function setDemoMode(on){
- demoMode=!!on;
- const f=$("demoProfileField"),badge=$("demoBadge"),ip=$("atemIp"),btn=$("connectAtemBtn");
- if(f)f.hidden=!demoMode;
- if(badge)badge.hidden=!demoMode;
- if(ip){ip.disabled=demoMode;ip.placeholder=demoMode?"Not required in Demo Mode":"192.168.1.240";}
- if(btn)btn.textContent=demoMode?"ENTER DEMO":"CONNECT TO ATEM";
- demoProfileChanged();
- connectionInputChanged();
-}
-function buildDemoState(d){
- const inputNames=["CAM 1","CAM 2","CAM 3","CAM 4","PPT","STAGE INPUT","PLAYBACK","LOGO"];
- const outputNames=["LED WALL","STREAM","RECORD","DSM A","DSM B","LOBBY"];
- const inputs=Array.from({length:d.inputs},(_,i)=>({id:i+1,name:inputNames[i]||`INPUT ${i+1}`}));
- const aux=Array.from({length:d.outputs},(_,i)=>({
-   name:outputNames[i]||`OUTPUT ${i+1}`,
-   route:i===3?"PROGRAM":i===4?"PREVIEW":i<6?"PROGRAM":"UNUSED"
- }));
- return {pgm:"CAM 1",pvw:d.inputs>=3?"CAM 3":"CAM 2",inputs,aux,
-   keys:Array.from({length:d.keys},(_,i)=>({name:`KEY ${i+1}`,on:i===0}))};
-}
-
 function toast(msg){let t=$("toast");if(!t)return;t.textContent=msg;t.classList.add("show");clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove("show"),1100)}
 document.addEventListener("click",e=>{
  const b=e.target.closest("button");if(!b||b.disabled)return;
@@ -708,8 +665,8 @@ function validIpLike(v){
 }
 async function connectionInputChanged(){
  const ip=$("atemIp").value.trim();
- $("connectAtemBtn").disabled=demoMode?false:!validIpLike(ip);
- $("setupStatus").textContent=demoMode?"Demo Mode is enabled. Choose a switcher profile and enter the simulated workspace.":(validIpLike(ip)?"Ready to connect to ATEM at "+ip+".":" — enter a valid IPv4 address. Production discovery will read the connected ATEM automatically.");
+ $("connectAtemBtn").disabled=!validIpLike(ip);
+ $("setupStatus").textContent=validIpLike(ip)?"Ready to connect to ATEM at "+ip+".":"Enter a valid IPv4 address. ShowDesk will read the connected ATEM automatically.";
 }
 async function connectAtem(){
  const ip=$("atemIp").value.trim();
@@ -749,7 +706,7 @@ async function connectAtem(){
  }
  status.style.color="";
  connectedDevice=d;
- if(Array.isArray(d.aux)) applyAtemStateUpdate({pgm:d.pgm,pvw:d.pvw,aux:d.aux,inputs:d.inputList||[]});
+ applyAtemStateUpdate(d);
  if(transport.subscribe){
    transport.subscribe((patch)=>window.ATEM_OPS?.applyStateUpdate?.(patch));
  }
@@ -760,12 +717,6 @@ async function connectAtem(){
    // with demo/default routes. A Show Reference is managed separately.
    buildME(d);addLog("SYSTEM",d.name+" discovered at "+ip);render();
 
-}
-function buildME(d){
- const holder=[...document.querySelectorAll(".eng .panel")].find(x=>x.querySelector("h2")?.textContent==="M/E BUS DETAIL");if(!holder)return;
- let rows="";for(let i=1;i<=d.mes;i++)rows+=`<div class="busrow"><div class="lab">M/E ${i}</div><div class="bus"><span>PROGRAM</span><b>${i===1?pgm:i===2?"PPT":"CAM "+(i+2)}</b></div><div class="bus"><span>PREVIEW</span><b>${i===1?pvw:"CAM "+(i+3)}</b></div><div class="bus"><span>TRANS</span><b>MIX 0%</b></div></div>`;
- holder.innerHTML=`<div class="head"><h2>M/E BUS DETAIL</h2><span class="sub">${d.mes} M/E${d.mes>1?"s":""} discovered</span></div>${rows}`;
- document.querySelectorAll(".metric").forEach(x=>{let l=x.querySelector("span")?.textContent;if(l==="INPUTS SEEN")x.querySelector("b").textContent=d.inputs;if(l==="OUTPUTS SEEN")x.querySelector("b").textContent=d.outputs+" / "+d.outputs;if(l==="MODEL")x.querySelector("b").textContent=d.name.replace("ATEM ","")});
 }
 function setTab(tab){toast(tab.toUpperCase()+" view");
  $("app").className="wrap tab-"+tab;
@@ -780,12 +731,6 @@ function rememberRouteChange(n,next){
  const prev=actual[n];
  if(prev!==next)window.routeHistory[n]={from:prev,at:Date.now()};
  actual[n]=next;
-}
-function black(n){if(!(n in actual)){toast(n+" unavailable on this demo");return;}toast("BLACK → "+n); saved[n]=actual[n];rememberRouteChange(n,"BLACK");addLog("OUTPUT",`${n} → BLACK`);render()}
-function bars(){toast("COLOR BARS → display group");["LED WALL","DSM A","DSM B","LOBBY"].filter(n=>n in actual).forEach(n=>{saved[n]=actual[n];rememberRouteChange(n,"COLOR BARS")});addLog("MACRO","COLOR BARS → display group");render()}
-function restore(){toast("Expected routes restored");Object.keys(actual).forEach(n=>rememberRouteChange(n,expected[n]));addLog("PROFILE","Expected routes restored");render()}
-function cut(){toast("M/E 1 CUT");
- let old=pgm;pgm=pvw;pvw=old;pgmSince=pvwSince=Date.now();addLog("M/E 1",`PROGRAM ${old} → ${pgm}`);render()
 }
 function getMismatches(){
  if(!baselineState.attached)return [];
@@ -875,9 +820,9 @@ async function exportLogReport(){
  }catch(err){if(err?.name!=="AbortError")toast("Export failed");}
 }
 function renderInputs(){
- const d=connectedDevice,names=["CAM 1","CAM 2","CAM 3","CAM 4","PPT","STAGE INPUT","PLAYBACK","LOGO"];
- $("inputGrid").innerHTML=Array.from({length:d.inputs},(_,i)=>{let n=names[i]||`INPUT ${i+1}`,c=n===pgm?"live":n===pvw?"ready":"";return `<div class="inputCard ${c}"><span class="inum">IN ${i+1}</span><b>${n}</b></div>`}).join("");
- $("inputCountLabel").textContent=`${d.inputs} physical inputs`;
+  const inputs=liveEngineering.inputs||[];
+  $("inputGrid").innerHTML=inputs.map(x=>{const n=x.name||`INPUT ${x.id}`,c=n===pgm?"live":n===pvw?"ready":"";return `<div class="inputCard ${c}"><span class="inum">ID ${x.id}</span><b>${n}</b></div>`}).join("");
+  $("inputCountLabel").textContent=`${inputs.length} sources reported`;
 }
 function selectDestination(name){selectedDestination=name;renderPaths()}
 function renderDestinationRail(){
@@ -902,7 +847,7 @@ function renderPaths(){
  else if(route==="PREVIEW"){source=pvw;through="M/E 1 · PREVIEW";routeClass="preview"}
  else if(route==="UNUSED"){source="NO SOURCE";through="NOT ROUTED"}
  if(inspector){
-  inspector.innerHTML=selectedDestination?`<div class="routeHeader"><span>SELECTED DESTINATION</span><h3>${selectedDestination}</h3><small>${route==="UNUSED"?"No active feed":"Live route · "+route}</small></div><div class="routeChain"><div class="chainNode ${routeClass} ${mismatch?"mismatch":""}"><span>DESTINATION</span><b>${selectedDestination}</b></div><div class="chainLine"></div><div class="chainNode ${routeClass}"><span>RECEIVING</span><b>${route}</b></div><div class="chainLine"></div><div class="chainNode"><span>THROUGH</span><b>${through}</b></div><div class="chainLine"></div><div class="chainNode"><span>SOURCE</span><b>${source}</b></div></div>${mismatch?`<div class="routeMismatch"><b>REFERENCE MISMATCH</b><br>Expected ${baselineState.routes[selectedDestination]} · Actual ${route}</div>`:""}`:`<div class="emptyRoute"><b>No destinations discovered</b>Connect to a switcher to inspect routing.</div>`;
+  inspector.innerHTML=selectedDestination?`<div class="routeHeader"><span>SELECTED DESTINATION</span><h3>${selectedDestination}</h3><small>${route==="UNUSED"?"No active feed":"Live route · "+route}</small></div><div class="routeChain"><div class="chainNode ${routeClass}"><span>SOURCE</span><b>${source}</b></div><div class="chainLine"></div><div class="chainNode"><span>THROUGH</span><b>${through}</b></div><div class="chainLine"></div><div class="chainNode ${routeClass}"><span>ROUTE</span><b>${route}</b></div><div class="chainLine"></div><div class="chainNode ${routeClass} ${mismatch?"mismatch":""}"><span>DESTINATION</span><b>${selectedDestination}</b></div></div>${mismatch?`<div class="routeMismatch"><b>REFERENCE MISMATCH</b><br>Expected ${baselineState.routes[selectedDestination]} · Actual ${route}</div>`:""}`:`<div class="emptyRoute"><b>No destinations discovered</b>Connect to a switcher to inspect routing.</div>`;
  }
  if(related){
   const same=dests.filter(n=>n!==selectedDestination&&actual[n]===route&&route!=="UNUSED");
@@ -956,7 +901,23 @@ function render(){
 }
 setInterval(()=>{let s=Math.floor((Date.now()-pgmSince)/1000),q=Math.floor((Date.now()-pvwSince)/1000);if($("pgmTime"))$("pgmTime").textContent=`LIVE ${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;if($("pvwTime"))$("pvwTime").textContent=`READY ${String(Math.floor(q/60)).padStart(2,"0")}:${String(q%60).padStart(2,"0")}`;if($("clock"))$("clock").textContent=new Date().toLocaleTimeString()},1000);
 
+function renderEngineering(){
+ const e=liveEngineering,inputs=e.inputs||[],mes=e.mixEffects||[],dsks=e.downstreamKeyers||[];
+ const keys=[];mes.forEach(me=>(me.upstreamKeyers||[]).forEach(k=>keys.push({...k,label:`USK ${k.index} · M/E ${me.index}`})));dsks.forEach(k=>keys.push({...k,label:`DSK ${k.index}`}));
+ if($("showKeyers"))$("showKeyers").innerHTML=keys.map(k=>`<div class="key ${k.onAir?"on":""}">${k.label} • ${k.onAir?"ON AIR":"OFF"}</div>`).join("");
+ if($("pgmContext"))$("pgmContext").textContent=mes[0]?`M/E ${mes[0].index} • PROGRAM`:"—";
+ if($("pvwContext"))$("pvwContext").textContent=mes[0]?`M/E ${mes[0].index} • PREVIEW`:"—";
+ const mx=$("routingMatrix");if(mx){const heads=['SOURCE',...mes.flatMap(me=>[`M/E${me.index} PGM`,`M/E${me.index} PVW`]),'KEYERS','OUTPUTS'];let h=heads.map(x=>`<div class="mc mh">${x}</div>`).join('');for(const input of inputs){const ku=keys.filter(k=>k.fill===input.name||k.key===input.name).map(k=>k.label);const outs=Object.entries(actual).filter(([,v])=>v===input.name).map(([n])=>n);h+=`<div class="mc">${input.name}</div>`+mes.flatMap(me=>[`<div class="mc ${me.pgm===input.name?'mon':''}">${me.pgm===input.name?'● LIVE':'—'}</div>`,`<div class="mc ${me.pvw===input.name?'mpv':''}">${me.pvw===input.name?'● READY':'—'}</div>`]).join('')+`<div class="mc">${ku.join(' / ')||'—'}</div><div class="mc">${outs.join(' / ')||'—'}</div>`;}mx.style.gridTemplateColumns=`110px repeat(${Math.max(1,heads.length-1)},minmax(70px,1fr))`;mx.innerHTML=h||'<div class="emptyRoute">No routing state received.</div>';}
+ if($("meBusDetail"))$("meBusDetail").innerHTML=mes.map(me=>`<div class="busrow"><div class="lab">M/E ${me.index}</div><div class="bus"><span>PROGRAM</span><b>${me.pgm}</b></div><div class="bus"><span>PREVIEW</span><b>${me.pvw}</b></div><div class="bus"><span>FTB</span><b>${me.ftb?(me.ftb.isFullyBlack?'BLACK':me.ftb.inTransition?'TRANSITION':'OFF'):'—'}</b></div></div>`).join('')||'<div class="emptyRoute">No M/E state received.</div>';
+ if($("keyerInspector"))$("keyerInspector").innerHTML=keys.map(k=>`<div class="ins"><span>${k.label}</span><b class="${k.onAir?'ok':''}">${k.onAir?'ON AIR':'OFF'}</b><small>Fill: ${k.fill||'—'} · Key: ${k.key||'—'}</small></div>`).join('')||'<div class="emptyRoute">No keyer state received.</div>';
+ if($("diagnostics"))$("diagnostics").innerHTML=`<div class="metric"><span>LINK</span><b class="ok">CONNECTED</b></div><div class="metric"><span>VIDEO MODE</span><b>${e.videoMode??'—'}</b></div><div class="metric"><span>MODEL</span><b>${e.productIdentifier||connectedDevice?.name||'—'}</b></div><div class="metric"><span>SOURCES REPORTED</span><b>${inputs.length}</b></div><div class="metric"><span>OUTPUTS REPORTED</span><b>${Object.keys(actual).length}</b></div><div class="metric"><span>REFERENCE</span><b id="diagReference">${baselineState.attached?baselineState.name:'NONE'}</b></div><div class="metric"><span>LAST CHANGE</span><b id="lastChange">${lastChangeText}</b></div>`;
+}
 function applyAtemStateUpdate(patch={}){
+   if(Array.isArray(patch.inputs)) liveEngineering.inputs=patch.inputs;
+   if(Array.isArray(patch.mixEffects)) liveEngineering.mixEffects=patch.mixEffects;
+   if(Array.isArray(patch.downstreamKeyers)) liveEngineering.downstreamKeyers=patch.downstreamKeyers;
+   if(patch.productIdentifier!==undefined) liveEngineering.productIdentifier=patch.productIdentifier;
+   if(patch.videoMode!==undefined) liveEngineering.videoMode=patch.videoMode;
    if(Array.isArray(patch.inputs)) liveEngineering.inputs=patch.inputs;
    if(Array.isArray(patch.mixEffects)) liveEngineering.mixEffects=patch.mixEffects;
    if(Array.isArray(patch.downstreamKeyers)) liveEngineering.downstreamKeyers=patch.downstreamKeyers;
@@ -993,7 +954,7 @@ window.ATEM_OPS=Object.assign(window.ATEM_OPS||{},{applyStateUpdate:applyAtemSta
 })();
 
 
-setDemoMode(false);restorePersistedReference();updateReferenceUI();
+restorePersistedReference();updateReferenceUI();
 </script><div id="toast" class="toast"></div><script src="/transport.js"></script>
 </body>
 </html>
