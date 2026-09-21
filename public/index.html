@@ -728,8 +728,25 @@ async function connectAtem(){
    setConnectionStatus("ATEM network transport is not installed. Connect the production ATEM transport service, then try again.",true);
    return;
  }
- const d=await transport.connect(ip);
- if(!d){setConnectionStatus("No ATEM responded at "+ip+".",true);return;}
+ let d;
+ try{
+   d=await transport.connect(ip);
+ }catch(error){
+   const message=error?.message||String(error);
+   status.textContent="Unable to connect to ATEM at "+ip+". "+message;
+   status.style.color="var(--amber)";
+   btn.disabled=false;
+   btn.textContent="TRY AGAIN";
+   return;
+ }
+ if(!d){
+   status.textContent="Unable to connect to ATEM at "+ip+".";
+   status.style.color="var(--amber)";
+   btn.disabled=false;
+   btn.textContent="TRY AGAIN";
+   return;
+ }
+ status.style.color="";
  connectedDevice=d;
  if(Array.isArray(d.aux)) applyAtemStateUpdate({pgm:d.pgm,pvw:d.pvw,aux:d.aux,inputs:d.inputList||[]});
  if(transport.subscribe){
