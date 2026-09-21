@@ -827,7 +827,7 @@ function render(){
  const mismatches=getMismatches(), mismatchNames=new Set(mismatches.filter(x=>x.type==="ROUTE").map(x=>x.name));
  const activeDestNames=Object.keys(actual).filter(n=>actual[n]!=="UNUSED");
  const unusedDestNames=Object.keys(actual).filter(n=>actual[n]==="UNUSED");
- $("dest").innerHTML=activeDestNames.map(n=>{
+ const destEl=$("dest"); if(destEl) destEl.innerHTML=activeDestNames.map(n=>{
    const current=actual[n]||"—", hist=window.routeHistory[n], isChanged=hist&&hist.from!==current;
    const detail=current==="PROGRAM"?`M/E 1 • ${pgm}`:current==="PREVIEW"?`M/E 1 • ${pvw}`:"DIRECT ROUTE";
    let change=`CURRENT`;
@@ -835,7 +835,7 @@ function render(){
    const isMismatch=mismatchNames.has(n);if(isMismatch){const mm=mismatches.find(x=>x.name===n);change=`EXPECTED ${mm.expected}<br>ACTUAL ${mm.actual}`;}
    return `<div class="drow ${isMismatch?"mismatch":isChanged?"changed":"quiet"}"><b>${n}</b><div class="destRoute"><strong>${current}</strong><small>${detail}</small></div><div class="changeState">${change}</div></div>`;
  }).join("")+(unusedDestNames.length?`<button class="unusedDestSummary" onclick="setTab('signal')"><strong>${unusedDestNames.length} UNUSED OUTPUT${unusedDestNames.length===1?"":"S"}</strong><span>View in Signal Paths →</span></button>`:"");
- $("dest").classList.toggle("manyDestinations",activeDestNames.length>8);
+ if(destEl) destEl.classList.toggle("manyDestinations",activeDestNames.length>8);
  $("healthTitle").textContent=mismatches.length?"REFERENCE MISMATCH":changed.length?"ROUTING CHANGES":"SYSTEM READY";
  $("healthDetail").textContent=mismatches.length?`${mismatches.length} live state item${mismatches.length===1?" differs":"s differ"} from the attached reference`:changed.length?`${changed.length} destination route${changed.length>1?"s have":" has"} changed during this session`:`${total} destinations currently routed`;
  if($("routeMetric")) $("routeMetric").textContent=mismatches.length?`${mismatches.length} MISMATCH${mismatches.length===1?"":"ES"}`:`${total} ACTIVE`; if($("routeMetric")) $("routeMetric").className=mismatches.length?"bad":"ok";
