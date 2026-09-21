@@ -104,11 +104,25 @@ async function connectAtem(ip) {
   });
   instance.on('error', (error) => console.error('[ATEM]', error));
 
+  // connect() only establishes the socket. The library creates an empty state
+  // immediately, then emits "connected" after the ATEM's InitComplete packet.
+  // Do not treat the initial empty state as a fully discovered switcher.
+  let initResolve;
+  let initReject;
+  const initComplete = new Promise((resolve, reject) => {
+    initResolve = resolve;
+    initReject = reject;
+  });
+  const onConnected = () => initResolve();
+  const onInitDisconnect = () => initReject(new Error(`ATEM at ${ip} disconnected before initialization completed.`));
+  instance.once('connected', onConnected);
+  instance.once('disconnected', onInitDisconnect);
+
   try {
     await timeout(instance.connect(ip), CONNECT_TIMEOUT_MS, `Connection to ATEM at ${ip} timed out after ${CONNECT_TIMEOUT_MS / 1000} seconds.`);
-    const deadline = Date.now() + STATE_TIMEOUT_MS;
-    while (!instance.state && Date.now() < deadline) await new Promise(r => setTimeout(r, 100));
-    if (!instance.state) throw new Error(`ATEM at ${ip} responded, but switcher state was not received within ${STATE_TIMEOUT_MS / 1000} seconds.`);
+    await timeout(initComplete, STATE_TIMEOUT_MS, `ATEM at ${ip} responded, but switcher initialization did not complete within ${STATE_TIMEOUT_MS / 1000} seconds.`);
+    instance.removeListener('disconnected', onInitDisconnect);
+    if (!instance.state) throw new Error(`ATEM at ${ip} initialized without switcher state.`);
     if (atem !== instance) throw new Error('ATEM connection attempt was cancelled.');
     hasConnected = true;
     lastState = instance.state;
