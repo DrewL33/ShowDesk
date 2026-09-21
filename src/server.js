@@ -7,7 +7,12 @@ let Atem;
 
 function loadAtem() {
   if (Atem) return Atem;
-  Atem = require('atem-connection').Atem;
+  const module = require('atem-connection');
+  const AtemClass = module.Atem || module.default?.Atem || module.default;
+  if (typeof AtemClass !== 'function') {
+    throw new Error('ATEM connection module loaded, but its Atem constructor was not available.');
+  }
+  Atem = AtemClass;
   return Atem;
 }
 
