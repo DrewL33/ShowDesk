@@ -41,6 +41,7 @@ const ASSETS = {
 };
 
 function inputName(state, id) {
+  if (id === undefined || id === null) return '—';
   const input = state?.inputs?.[id];
   return input?.longName || input?.shortName || input?.externalPortType || `INPUT ${id}`;
 }
@@ -49,18 +50,45 @@ function normalizeState(state) {
   const inputs = Object.entries(state.inputs || {}).map(([id, x]) => ({
     id: Number(id), name: x.longName || x.shortName || `INPUT ${id}`, shortName: x.shortName || ''
   }));
-  const me0 = state.video?.mixEffects?.[0];
+  const mixEffects = (state.video?.mixEffects || []).filter(Boolean).map((me, i) => ({
+    index: i + 1,
+    pgm: inputName(state, me.programInput),
+    pvw: inputName(state, me.previewInput),
+    transition: me.transitionPosition ? {
+      inTransition: !!me.transitionPosition.inTransition,
+      position: me.transitionPosition.handlePosition ?? null
+    } : null,
+    ftb: me.fadeToBlack ? { isFullyBlack: !!me.fadeToBlack.isFullyBlack, inTransition: !!me.fadeToBlack.inTransition } : null,
+    upstreamKeyers: (me.upstreamKeyers || []).filter(Boolean).map((keyer, k) => ({
+      index: k + 1,
+      onAir: !!keyer.onAir,
+      type: keyer.mixEffectKeyType ?? keyer.type ?? null,
+      fill: inputName(state, keyer.fillSource),
+      key: inputName(state, keyer.cutSource)
+    }))
+  }));
+  const downstreamKeyers = (state.video?.downstreamKeyers || []).filter(Boolean).map((keyer, i) => ({
+    index: i + 1,
+    onAir: !!keyer.onAir,
+    fill: inputName(state, keyer.sources?.fillSource ?? keyer.fillSource),
+    key: inputName(state, keyer.sources?.cutSource ?? keyer.cutSource)
+  }));
   const auxRaw = state.video?.auxilliaries || [];
   const aux = auxRaw.map((source, i) => ({ name: `OUTPUT ${i + 1}`, route: inputName(state, source), sourceId: source }));
-  return { pgm: inputName(state, me0?.programInput), pvw: inputName(state, me0?.previewInput), inputs, aux };
+  const me0 = mixEffects[0];
+  return {
+    pgm: me0?.pgm || '—', pvw: me0?.pvw || '—', inputs, aux, mixEffects, downstreamKeyers,
+    productIdentifier: state.info?.productIdentifier || null,
+    videoMode: state.settings?.videoMode ?? null
+  };
 }
 function discovery(state) {
-  const normalized = normalizeState(state) || { inputs: [], aux: [] };
+  const normalized = normalizeState(state) || { inputs: [], aux: [], mixEffects: [], downstreamKeyers: [] };
   return {
-    name: state?.info?.productIdentifier || 'ATEM Switcher', ip: currentIp,
+    name: normalized.productIdentifier || 'ATEM Switcher', ip: currentIp,
     inputs: normalized.inputs.length, outputs: normalized.aux.length,
-    mes: state?.info?.mixEffects || state?.video?.mixEffects?.length || 1,
-    keys: state?.info?.mixEffects ? state.info.mixEffects * 4 : 4,
+    mes: normalized.mixEffects.length,
+    keys: normalized.mixEffects.reduce((n, me) => n + me.upstreamKeyers.length, 0) + normalized.downstreamKeyers.length,
     inputList: normalized.inputs, ...normalized
   };
 }
