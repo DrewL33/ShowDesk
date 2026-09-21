@@ -649,7 +649,7 @@ async function connectAtem(){
  }
  status.style.color="";
  connectedDevice=d;
- applyAtemStateUpdate(d);
+ try{ applyAtemStateUpdate(d); }catch(error){ console.error("[ShowDesk initial render]",error); status.textContent="ATEM connected, but ShowDesk could not render switcher state. "+(error?.message||String(error)); status.style.color="var(--amber)"; btn.disabled=false; btn.textContent="TRY AGAIN"; return; }
  if(transport.subscribe){
    transport.subscribe((patch)=>window.ATEM_OPS?.applyStateUpdate?.(patch));
  }
@@ -658,7 +658,7 @@ async function connectAtem(){
    btn.textContent="CONNECT TO ATEM";
    // Live ATEM state remains authoritative after discovery. Do not replace it
    // with demo/default routes. A Show Reference is managed separately.
-   buildME(d);addLog("SYSTEM",d.name+" discovered at "+ip);render();
+   addLog("SYSTEM",d.name+" discovered at "+ip);render();
 
 }
 function setTab(tab){toast(tab.toUpperCase()+" view");
@@ -821,9 +821,9 @@ function render(){
  $("dest").classList.toggle("manyDestinations",activeDestNames.length>8);
  $("healthTitle").textContent=mismatches.length?"REFERENCE MISMATCH":changed.length?"ROUTING CHANGES":"SYSTEM READY";
  $("healthDetail").textContent=mismatches.length?`${mismatches.length} live state item${mismatches.length===1?" differs":"s differ"} from the attached reference`:changed.length?`${changed.length} destination route${changed.length>1?"s have":" has"} changed during this session`:`${total} destinations currently routed`;
- $("routeMetric").textContent=mismatches.length?`${mismatches.length} MISMATCH${mismatches.length===1?"":"ES"}`:`${total} ACTIVE`; $("routeMetric").className=mismatches.length?"bad":"ok";
- $("engIssues").textContent=`${mismatches.length} mismatch${mismatches.length===1?"":"es"}`;
- $("attention").innerHTML=(mismatches.length?mismatches.slice(0,5).map(x=>`<div class="attentionItem mismatch"><b>${x.name} MISMATCH</b><span>Expected ${x.expected} • Actual ${x.actual}</span></div>`).join(""):`<div class="attentionItem good"><b>${baselineState.attached?"REFERENCE MATCHES":"LIVE STATE STABLE"}</b><span>${baselineState.attached?"No defined reference expectations currently differ.":"Attach a show reference to enable expected-vs-actual verification."}</span></div>`)+(lastChangeText!=="—"?`<div class="attentionItem"><b>LAST CHANGE</b><span>${lastChangeText}</span></div>`:"");
+ if($("routeMetric")) $("routeMetric").textContent=mismatches.length?`${mismatches.length} MISMATCH${mismatches.length===1?"":"ES"}`:`${total} ACTIVE`; if($("routeMetric")) $("routeMetric").className=mismatches.length?"bad":"ok";
+ if($("engIssues")) $("engIssues").textContent=`${mismatches.length} mismatch${mismatches.length===1?"":"es"}`;
+ if($("attention")) $("attention").innerHTML=(mismatches.length?mismatches.slice(0,5).map(x=>`<div class="attentionItem mismatch"><b>${x.name} MISMATCH</b><span>Expected ${x.expected} • Actual ${x.actual}</span></div>`).join(""):`<div class="attentionItem good"><b>${baselineState.attached?"REFERENCE MATCHES":"LIVE STATE STABLE"}</b><span>${baselineState.attached?"No defined reference expectations currently differ.":"Attach a show reference to enable expected-vs-actual verification."}</span></div>`)+(lastChangeText!=="—"?`<div class="attentionItem"><b>LAST CHANGE</b><span>${lastChangeText}</span></div>`:"");
  if($("lastChange"))$("lastChange").textContent=lastChangeText;
  renderInputs();
  const ig=$("inputGrid");
@@ -840,7 +840,7 @@ function render(){
      if($("inputCountLabel"))$("inputCountLabel").textContent=`${visibleLimit} / ${cards.length} inputs shown`;
    }
  }
- renderPaths();renderLog();updateReferenceUI()
+ renderPaths();renderEngineering();renderLog();updateReferenceUI()
 }
 setInterval(()=>{let s=Math.floor((Date.now()-pgmSince)/1000),q=Math.floor((Date.now()-pvwSince)/1000);if($("pgmTime"))$("pgmTime").textContent=`LIVE ${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;if($("pvwTime"))$("pvwTime").textContent=`READY ${String(Math.floor(q/60)).padStart(2,"0")}:${String(q%60).padStart(2,"0")}`;if($("clock"))$("clock").textContent=new Date().toLocaleTimeString()},1000);
 
@@ -861,11 +861,7 @@ function applyAtemStateUpdate(patch={}){
    if(Array.isArray(patch.downstreamKeyers)) liveEngineering.downstreamKeyers=patch.downstreamKeyers;
    if(patch.productIdentifier!==undefined) liveEngineering.productIdentifier=patch.productIdentifier;
    if(patch.videoMode!==undefined) liveEngineering.videoMode=patch.videoMode;
-   if(Array.isArray(patch.inputs)) liveEngineering.inputs=patch.inputs;
-   if(Array.isArray(patch.mixEffects)) liveEngineering.mixEffects=patch.mixEffects;
-   if(Array.isArray(patch.downstreamKeyers)) liveEngineering.downstreamKeyers=patch.downstreamKeyers;
-   if(patch.productIdentifier!==undefined) liveEngineering.productIdentifier=patch.productIdentifier;
-   if(patch.videoMode!==undefined) liveEngineering.videoMode=patch.videoMode;
+
   if(patch.pgm!==undefined){const prevPgm=pgm;pgm=typeof patch.pgm==="object"?(patch.pgm.name||patch.pgm.label||String(patch.pgm.id||patch.pgm)):patch.pgm;pgmSince=Date.now();if(prevPgm!==pgm)recordEvent("STATE",`PROGRAM: ${prevPgm} → ${pgm}`,{from:prevPgm,to:pgm});}
   if(patch.pvw!==undefined){const prevPvw=pvw;pvw=typeof patch.pvw==="object"?(patch.pvw.name||patch.pvw.label||String(patch.pvw.id||patch.pvw)):patch.pvw;pvwSince=Date.now();if(prevPvw!==pvw)recordEvent("STATE",`PREVIEW: ${prevPvw} → ${pvw}`,{from:prevPvw,to:pvw});}
   liveState.pgm=pgm;liveState.pvw=pvw;liveState.updatedAt=new Date().toISOString();
