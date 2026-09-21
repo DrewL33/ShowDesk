@@ -132,30 +132,43 @@ async function connectAtem(ip) {
   });
   instance.on('error', (error) => console.error('[ATEM]', error));
 
-  // connect() only establishes the socket. The library creates an empty state
-  // immediately, then emits "connected" after the ATEM's InitComplete packet.
-  // Do not treat the initial empty state as a fully discovered switcher.
-  let initResolve;
-  let initReject;
-  const initComplete = new Promise((resolve, reject) => {
-    initResolve = resolve;
-    initReject = reject;
+  // Some ATEM models/library versions can populate usable state before the
+  // high-level "connected" event arrives. Discovery should wait for usable
+  // topology/state, not one particular event ordering.
+  let stateResolve;
+  let stateReject;
+  const usableState = new Promise((resolve, reject) => {
+    stateResolve = resolve;
+    stateReject = reject;
   });
-  const onConnected = () => initResolve();
-  const onInitDisconnect = () => initReject(new Error(`ATEM at ${ip} disconnected before initialization completed.`));
+  const hasUsableState = state => !!state && (
+    Object.keys(state.inputs || {}).length > 0 ||
+    (state.video?.mixEffects || []).filter(Boolean).length > 0 ||
+    (state.video?.auxilliaries || []).length > 0 ||
+    !!state.info?.productIdentifier
+  );
+  const onDiscoveryState = state => { if (hasUsableState(state)) stateResolve(state); };
+  const onConnected = () => { if (hasUsableState(instance.state)) stateResolve(instance.state); };
+  const onInitDisconnect = () => stateReject(new Error(`ATEM at ${ip} disconnected before discovery completed.`));
+  instance.on('stateChanged', onDiscoveryState);
   instance.once('connected', onConnected);
   instance.once('disconnected', onInitDisconnect);
 
   try {
     await timeout(instance.connect(ip), CONNECT_TIMEOUT_MS, `Connection to ATEM at ${ip} timed out after ${CONNECT_TIMEOUT_MS / 1000} seconds.`);
-    await timeout(initComplete, STATE_TIMEOUT_MS, `ATEM at ${ip} responded, but switcher initialization did not complete within ${STATE_TIMEOUT_MS / 1000} seconds.`);
+    const discoveredState = hasUsableState(instance.state)
+      ? instance.state
+      : await timeout(usableState, STATE_TIMEOUT_MS, `ATEM at ${ip} responded, but usable switcher state was not received within ${STATE_TIMEOUT_MS / 1000} seconds.`);
+    instance.removeListener('stateChanged', onDiscoveryState);
     instance.removeListener('disconnected', onInitDisconnect);
-    if (!instance.state) throw new Error(`ATEM at ${ip} initialized without switcher state.`);
+    if (!discoveredState) throw new Error(`ATEM at ${ip} initialized without switcher state.`);
     if (atem !== instance) throw new Error('ATEM connection attempt was cancelled.');
     hasConnected = true;
-    lastState = instance.state;
-    return discovery(instance.state);
+    lastState = discoveredState;
+    return discovery(discoveredState);
   } catch (error) {
+    instance.removeListener('stateChanged', onDiscoveryState);
+    instance.removeListener('disconnected', onInitDisconnect);
     if (atem === instance) {
       atem = null; currentIp = null; lastState = null; hasConnected = false;
     }
