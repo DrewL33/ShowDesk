@@ -96,7 +96,18 @@ function normalizeState(state) {
       capabilityMixEffects: capabilities.mixEffects ?? null
     },
     productIdentifier: state.info?.productIdentifier || null,
-    videoMode: state.settings?.videoMode ?? null
+    videoMode: state.settings?.videoMode ?? null,
+    debug: {
+      info: state.info || null,
+      settings: state.settings || null,
+      inputCount: Object.keys(state.inputs || {}).length,
+      inputIds: Object.keys(state.inputs || {}).map(Number),
+      mixEffects: (state.video?.mixEffects || []).filter(Boolean).map((me, i) => ({
+        index: i + 1, programInput: me.programInput ?? null, previewInput: me.previewInput ?? null,
+        upstreamKeyerCount: (me.upstreamKeyers || []).filter(Boolean).length
+      })),
+      auxilliaries: auxRaw.map((source, i) => ({ index: i + 1, sourceId: source }))
+    }
   };
 }
 function discovery(state) {
