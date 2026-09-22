@@ -48,7 +48,13 @@ function inputName(state, id) {
 function normalizeState(state) {
   if (!state) return null;
   const inputs = Object.entries(state.inputs || {}).map(([id, x]) => ({
-    id: Number(id), name: x.longName || x.shortName || `INPUT ${id}`, shortName: x.shortName || ''
+    id: Number(id),
+    name: x.longName || x.shortName || null,
+    shortName: x.shortName || '',
+    externalPortType: x.externalPortType ?? null,
+    internalPortType: x.internalPortType ?? null,
+    sourceAvailability: x.sourceAvailability ?? null,
+    meAvailability: x.meAvailability ?? null
   }));
   const mixEffects = (state.video?.mixEffects || []).filter(Boolean).map((me, i) => ({
     index: i + 1,
@@ -74,10 +80,21 @@ function normalizeState(state) {
     key: inputName(state, keyer.sources?.cutSource ?? keyer.cutSource)
   }));
   const auxRaw = state.video?.auxilliaries || [];
-  const aux = auxRaw.map((source, i) => ({ name: `OUTPUT ${i + 1}`, route: inputName(state, source), sourceId: source }));
+  // ATEM auxilliaries are routing buses, not a trustworthy inventory of physical
+  // BNC outputs. Keep that distinction explicit so ShowDesk never calls an
+  // unreported physical connector "unused".
+  const aux = auxRaw.map((source, i) => ({ name: `AUX ${i + 1}`, route: inputName(state, source), sourceId: source }));
+  const capabilities = state.info?.capabilities || {};
   const me0 = mixEffects[0];
   return {
     pgm: me0?.pgm || '—', pvw: me0?.pvw || '—', inputs, aux, mixEffects, downstreamKeyers,
+    topology: {
+      reportedSources: inputs.length,
+      reportedAuxBuses: aux.length,
+      capabilitySources: capabilities.sources ?? null,
+      capabilityAuxBuses: capabilities.auxilliaries ?? null,
+      capabilityMixEffects: capabilities.mixEffects ?? null
+    },
     productIdentifier: state.info?.productIdentifier || null,
     videoMode: state.settings?.videoMode ?? null
   };
@@ -86,7 +103,7 @@ function discovery(state) {
   const normalized = normalizeState(state) || { inputs: [], aux: [], mixEffects: [], downstreamKeyers: [] };
   return {
     name: normalized.productIdentifier || 'ATEM Switcher', ip: currentIp,
-    inputs: normalized.inputs.length, outputs: normalized.aux.length,
+    inputs: normalized.inputs.length, outputs: normalized.topology?.capabilityAuxBuses ?? normalized.aux.length,
     mes: normalized.mixEffects.length,
     keys: normalized.mixEffects.reduce((n, me) => n + me.upstreamKeyers.length, 0) + normalized.downstreamKeyers.length,
     inputList: normalized.inputs, ...normalized
