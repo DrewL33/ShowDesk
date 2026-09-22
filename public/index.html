@@ -561,9 +561,9 @@ button,input,select,textarea {
 </section>
 
 <section class="signalPage">
- <div class="flowSummary"><div><span>ACTIVE SOURCES</span><b id="flowSources">—</b></div><div><span>M/E BUSES</span><b id="flowMes">—</b></div><div><span>DESTINATIONS</span><b id="flowDests">—</b></div><div><span>ROUTE ISSUES</span><b id="flowIssues">0</b></div></div>
+ <div class="flowSummary"><div><span>ACTIVE SOURCES</span><b id="flowSources">—</b></div><div><span>M/E BUSES</span><b id="flowMes">—</b></div><div><span>DESTINATIONS</span><b id="flowDests">—</b></div><div><span>ASSIGNMENT ISSUES</span><b id="flowIssues">0</b></div></div>
  <div class="panel destinationWorkspace">
-  <div class="head"><h2>DESTINATION SIGNAL PATH</h2><span class="sub">LIVE SWITCHER ROUTING</span><span class="routeLive">ROUTING LIVE</span></div>
+  <div class="head"><h2>DESTINATION SIGNAL PATH</h2><span class="sub">LIVE SWITCHER ASSIGNMENTS</span><span class="routeLive">STATE LIVE</span></div>
   <div class="destQuickTabs" id="destQuickTabs"></div>
   <div class="destinationLayout">
    <aside class="destinationRail">
@@ -793,7 +793,7 @@ function renderDestinationRail(){
  const list=$("destinationRailList");if(!list)return;
  const q=($("destinationSearch")?.value||"").trim().toLowerCase();
  const dests=Object.keys(actual).filter(n=>!q||n.toLowerCase().includes(q)||String(actual[n]).toLowerCase().includes(q));
- list.innerHTML=dests.map(n=>{const route=actual[n]||"UNUSED",cls=n===selectedDestination?"on ":"";return `<button class="destinationItem ${cls}${route==="PREVIEW"?"previewRoute":""}" onclick="selectDestination(decodeURIComponent('${encodeURIComponent(n)}'))"><b>${n}</b><span>${route}</span><small>${route==="UNUSED"?"No active route":"LIVE ROUTE"}</small></button>`}).join("")||`<div class="emptyRoute"><b>No destinations found</b>Try another search.</div>`;
+ list.innerHTML=dests.map(n=>{const assigned=actual[n]||"UNKNOWN",cls=n===selectedDestination?"on ":"";return `<button class="destinationItem ${cls}${assigned==="PREVIEW"?"previewRoute":""}" onclick="selectDestination(decodeURIComponent('${encodeURIComponent(n)}'))"><b>${n}</b><span>${assigned}</span><small>${assigned==="UNKNOWN"?"Assignment unknown":"ASSIGNED SOURCE"}</small></button>`}).join("")||`<div class="emptyRoute"><b>No destinations found</b>Try another search.</div>`;
 }
 function renderPaths(){
  const d=connectedDevice;if(!d)return;
@@ -806,16 +806,16 @@ function renderPaths(){
  const route=selectedDestination?actual[selectedDestination]:null;
  const inspector=$("routeInspector"),related=$("relatedPanel");
  const mismatch=baselineState.attached&&selectedDestination&&baselineState.routes[selectedDestination]!==undefined&&baselineState.routes[selectedDestination]!==route;
- let source=route,through="DIRECT / AUX ROUTE",routeClass="";
+ let source=route,through="DIRECT ASSIGNMENT",routeClass="";
  if(route==="PROGRAM"){source=pgm;through="M/E 1 · PROGRAM";routeClass="program"}
  else if(route==="PREVIEW"){source=pvw;through="M/E 1 · PREVIEW";routeClass="preview"}
  else if(route==="UNUSED"){source="NO SOURCE";through="NOT ROUTED"}
  if(inspector){
-  inspector.innerHTML=selectedDestination?`<div class="routeHeader"><span>SELECTED DESTINATION</span><h3>${selectedDestination}</h3><small>${route==="UNUSED"?"No active feed":"Live route · "+route}</small></div><div class="routeChain"><div class="chainNode ${routeClass}"><span>SOURCE</span><b>${source}</b></div><div class="chainLine"></div><div class="chainNode"><span>THROUGH</span><b>${through}</b></div><div class="chainLine"></div><div class="chainNode ${routeClass}"><span>ROUTE</span><b>${route}</b></div><div class="chainLine"></div><div class="chainNode ${routeClass} ${mismatch?"mismatch":""}"><span>DESTINATION</span><b>${selectedDestination}</b></div></div>${mismatch?`<div class="routeMismatch"><b>REFERENCE MISMATCH</b><br>Expected ${baselineState.routes[selectedDestination]} · Actual ${route}</div>`:""}`:`<div class="emptyRoute"><b>No destinations discovered</b>Connect to a switcher to inspect routing.</div>`;
+  inspector.innerHTML=selectedDestination?`<div class="routeHeader"><span>SELECTED DESTINATION</span><h3>${selectedDestination}</h3><small>${route==="UNUSED"?"No active feed":"Assigned source · "+route}</small></div><div class="routeChain"><div class="chainNode ${routeClass}"><span>SOURCE</span><b>${source}</b></div><div class="chainLine"></div><div class="chainNode"><span>THROUGH</span><b>${through}</b></div><div class="chainLine"></div><div class="chainNode ${routeClass}"><span>ASSIGNED SOURCE</span><b>${route}</b></div><div class="chainLine"></div><div class="chainNode ${routeClass} ${mismatch?"mismatch":""}"><span>DESTINATION</span><b>${selectedDestination}</b></div></div>${mismatch?`<div class="routeMismatch"><b>REFERENCE MISMATCH</b><br>Expected ${baselineState.routes[selectedDestination]} · Actual ${route}</div>`:""}`:`<div class="emptyRoute"><b>No destinations discovered</b>Connect to a switcher to inspect routing.</div>`;
  }
  if(related){
   const same=dests.filter(n=>n!==selectedDestination&&actual[n]===route&&route!=="UNUSED");
-  related.innerHTML=`<div class="relatedTitle">OTHER DESTINATIONS FROM THIS ROUTE</div><div class="relatedList">${same.length?same.map(n=>`<button class="relatedItem" onclick="selectDestination(decodeURIComponent('${encodeURIComponent(n)}'))"><span class="relatedDot"></span><b>${n}</b><span>${route}</span></button>`).join(""):`<div class="relatedItem"><b>No shared destinations</b><span>This route currently feeds only ${selectedDestination||"the selected output"}.</span></div>`}</div><div class="routeKey"><div><i class="red"></i> Program path</div><div><i class="blue"></i> Preview path</div><div><i></i> Direct / other route</div></div>`;
+  related.innerHTML=`<div class="relatedTitle">OTHER DESTINATIONS WITH THIS SOURCE</div><div class="relatedList">${same.length?same.map(n=>`<button class="relatedItem" onclick="selectDestination(decodeURIComponent('${encodeURIComponent(n)}'))"><span class="relatedDot"></span><b>${n}</b><span>${route}</span></button>`).join(""):`<div class="relatedItem"><b>No shared destinations</b><span>This source is currently assigned only to ${selectedDestination||"the selected destination"}.</span></div>`}</div><div class="routeKey"><div><i class="red"></i> Program path</div><div><i class="blue"></i> Preview path</div><div><i></i> Direct / other assignment</div></div>`;
  }
  const topo=liveEngineering.topology||{};
  if($("topologyItems"))$("topologyItems").innerHTML=[
@@ -881,7 +881,7 @@ function renderEngineering(){
  if($("meBusDetail"))$("meBusDetail").innerHTML=mes.map(me=>`<div class="busrow"><div class="lab">M/E ${me.index}</div><div class="bus"><span>PROGRAM</span><b>${me.pgm}</b></div><div class="bus"><span>PREVIEW</span><b>${me.pvw}</b></div><div class="bus"><span>FTB</span><b>${me.ftb?(me.ftb.isFullyBlack?'BLACK':me.ftb.inTransition?'TRANSITION':'OFF'):'—'}</b></div></div>`).join('')||'<div class="emptyRoute">No M/E state received.</div>';
  if($("keyerInspector"))$("keyerInspector").innerHTML=keys.map(k=>`<div class="ins"><span>${k.label}</span><b class="${k.onAir?'ok':''}">${k.onAir?'ON AIR':'OFF'}</b><small>Fill: ${k.fill||'—'} · Key: ${k.key||'—'}</small></div>`).join('')||'<div class="emptyRoute">No keyer state received.</div>';
  renderDebug();
- if($("diagnostics"))$("diagnostics").innerHTML=`<div class="metric"><span>LINK</span><b class="ok">CONNECTED</b></div><div class="metric"><span>VIDEO MODE</span><b>${e.videoMode??'—'}</b></div><div class="metric"><span>MODEL</span><b>${e.productIdentifier||connectedDevice?.name||'—'}</b></div><div class="metric"><span>SOURCES REPORTED</span><b>${inputs.length}</b></div><div class="metric"><span>OUTPUTS REPORTED</span><b>${Object.keys(actual).length}</b></div><div class="metric"><span>REFERENCE</span><b id="diagReference">${baselineState.attached?baselineState.name:'NONE'}</b></div><div class="metric"><span>LAST CHANGE</span><b id="lastChange">${lastChangeText}</b></div>`;
+ if($("diagnostics"))$("diagnostics").innerHTML=`<div class="metric"><span>LINK</span><b class="ok">CONNECTED</b></div><div class="metric"><span>VIDEO MODE</span><b>${e.videoMode??'—'}</b></div><div class="metric"><span>MODEL</span><b>${e.productIdentifier||connectedDevice?.name||'—'}</b></div><div class="metric"><span>SOURCES REPORTED</span><b>${inputs.length}</b></div><div class="metric"><span>AUX BUSES REPORTED</span><b>${(e.topology||{}).reportedAuxBuses??Object.keys(actual).length}</b></div><div class="metric"><span>REFERENCE</span><b id="diagReference">${baselineState.attached?baselineState.name:'NONE'}</b></div><div class="metric"><span>LAST CHANGE</span><b id="lastChange">${lastChangeText}</b></div>`;
 }
 function applyAtemStateUpdate(patch={}){
    if(Array.isArray(patch.inputs)) liveEngineering.inputs=patch.inputs;
@@ -898,7 +898,7 @@ function applyAtemStateUpdate(patch={}){
   if(Array.isArray(patch.aux)){
     const next={};
     patch.aux.forEach((x,i)=>{
-      const name=x.name||x.label||standard[i]||`OUTPUT ${i+1}`;
+      const name=x.name||x.label||standard[i]||`AUX ${i+1}`;
       next[name]=x.route||x.source||x.value||"UNUSED";
     });
     const prev={...actual};
