@@ -12,9 +12,9 @@ jobs:
       matrix:
         include:
           - os: macos-14
-            artifact: ShowDesk-Beta2-Build001-macOS-arm64
+            artifact: ShowDesk-Beta2-Build002-macOS-arm64
           - os: windows-latest
-            artifact: ShowDesk-Beta2-Build001-Windows-x64
+            artifact: ShowDesk-Beta2-Build002-Windows-x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -23,6 +23,13 @@ jobs:
           node-version: '22'
       - run: npm install
       - run: npm run check
+      - name: Validate browser connection wiring
+        shell: bash
+        run: |
+          grep -q 'onclick="connectAtem()"' public/index.html
+          grep -q 'window.__showDeskConnectInvoked' public/index.html
+          grep -q 'transport.connect(ip)' public/index.html
+          grep -q 'class="matrixViewport"><div class="matrix" id="routingMatrix"' public/index.html
       - run: npm run bundle
 
       - name: Package Node runtime
@@ -77,9 +84,9 @@ jobs:
         run: |
           rm -f dist/smoke.log dist/smoke-index.html
           if [ "$RUNNER_OS" = "Windows" ]; then
-            powershell -NoProfile -Command "Compress-Archive -Path dist\* -DestinationPath ShowDesk-Beta2-Build001-Windows-x64.zip"
+            powershell -NoProfile -Command "Compress-Archive -Path dist\* -DestinationPath ShowDesk-Beta2-Build002-Windows-x64.zip"
           else
-            ditto -c -k --sequesterRsrc --keepParent dist ShowDesk-Beta2-Build001-macOS-arm64.zip
+            ditto -c -k --sequesterRsrc --keepParent dist ShowDesk-Beta2-Build002-macOS-arm64.zip
           fi
 
       - uses: actions/upload-artifact@v4
