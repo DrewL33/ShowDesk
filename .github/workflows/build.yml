@@ -36,13 +36,23 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           const html = fs.readFileSync('public/index.html', 'utf8');
-          const scripts = [...html.matchAll(/<script>([\\s\\S]*?)<\\/script>/g)].map(m => m[1]);
+          const open = '<script>';
+          const close = '</script>';
+          const scripts = [];
+          let pos = 0;
+          while ((pos = html.indexOf(open, pos)) !== -1) {
+            const from = pos + open.length;
+            const to = html.indexOf(close, from);
+            if (to === -1) throw new Error('Unclosed inline script tag');
+            scripts.push(html.slice(from, to));
+            pos = to + close.length;
+          }
           if (!scripts.length) throw new Error('No inline application JavaScript found');
           scripts.forEach((source, i) => {
             try { new Function(source); }
-            catch (error) { throw new Error(`Inline script ${i + 1} failed to parse: ${error.message}`); }
+            catch (error) { throw new Error('Inline script ' + (i + 1) + ' failed to parse: ' + error.message); }
           });
-          console.log(`Validated ${scripts.length} inline application script(s)`);
+          console.log('Validated ' + scripts.length + ' inline application script(s)');
           NODE
       - run: npm run bundle
 
