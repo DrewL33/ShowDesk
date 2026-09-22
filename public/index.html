@@ -545,7 +545,7 @@ button,input,select,textarea {
 <section class="showContent">
  <div class="health" id="health"><div class="dot"></div><div><b id="healthTitle">SYSTEM READY</b><div class="detail" id="healthDetail">Critical routes match the active profile</div></div><div class="spacer"></div><span id="clock"></span></div>
  <div class="showPrimary">
-  <div class="panel"><div class="head"><h2>LIVE SWITCHING</h2><span class="sub">primary M/E</span></div>
+  <div class="panel"><div class="head"><h2>LIVE SWITCHING</h2><span class="sub">selected M/E · read only</span></div><div class="meSelector" id="meSelector"></div>
      <div class="pgmpvw"><div class="hero pgm"><span class="eyebrow">PROGRAM</span><span class="badge">ON AIR</span><div class="source" id="pgm">—</div><div class="statusContext" id="pgmContext">Awaiting ATEM state</div><div class="timer" id="pgmTime">LIVE 00:00</div></div>
      <div class="hero pvw"><span class="eyebrow">PREVIEW</span><span class="badge">READY</span><div class="source" id="pvw">—</div><div class="statusContext" id="pvwContext">Awaiting ATEM state</div><div class="timer" id="pvwTime">READY 00:00</div></div></div>
      <div class="keys" id="showKeyers"></div>
@@ -612,10 +612,11 @@ const baselineState={attached:false,name:"",loadedAt:null,routes:{},pgm:null,pvw
 const liveState={routes:{},pgm:"—",pvw:"—",updatedAt:null};
 let expected=baselineState.routes,actual=liveState.routes,saved={},logs=[],sessionEvents=[];
 let selectedDestination=null;
+let selectedMeIndex=1;
 const standard=[];
 function $(id){return document.getElementById(id)}
 
-let liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],productIdentifier:null,videoMode:null};
+let liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],productIdentifier:null,videoMode:null,topology:{}};
 function toast(msg){let t=$("toast");if(!t)return;t.textContent=msg;t.classList.add("show");clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove("show"),1100)}
 document.addEventListener("click",e=>{
  const b=e.target.closest("button");if(!b||b.disabled)return;
@@ -677,6 +678,8 @@ async function connectAtem(){
    addLog("SYSTEM",d.name+" discovered at "+ip);render();
 
 }
+function selectME(index){selectedMeIndex=Number(index)||1;render()}
+function selectedME(){return (liveEngineering.mixEffects||[]).find(me=>me.index===selectedMeIndex)||(liveEngineering.mixEffects||[])[0]||null}
 function setTab(tab){toast(tab.toUpperCase()+" view");
  $("app").className="wrap tab-"+tab;
  $("showBtn").classList.toggle("on",tab==="show");$("signalBtn").classList.toggle("on",tab==="signal");$("engBtn").classList.toggle("on",tab==="engineering");
@@ -779,8 +782,8 @@ async function exportLogReport(){
  }catch(err){if(err?.name!=="AbortError")toast("Export failed");}
 }
 function renderInputs(){
-  const inputs=liveEngineering.inputs||[];
-  $("inputGrid").innerHTML=inputs.map(x=>{const n=x.name||`INPUT ${x.id}`,c=n===pgm?"live":n===pvw?"ready":"";return `<div class="inputCard ${c}"><span class="inum">ID ${x.id}</span><b>${n}</b></div>`}).join("");
+  const inputs=liveEngineering.inputs||[],me=selectedME(),selectedPgm=me?.pgm||"—",selectedPvw=me?.pvw||"—";
+  $("inputGrid").innerHTML=inputs.map(x=>{const n=x.name||`SOURCE ${x.id}`,c=n===selectedPgm?"live":n===selectedPvw?"ready":"";return `<div class="inputCard ${c}"><span class="inum">ID ${x.id}</span><b>${n}</b></div>`}).join("");
   $("inputCountLabel").textContent=`${inputs.length} sources reported`;
 }
 function selectDestination(name){selectedDestination=name;renderPaths()}
@@ -812,15 +815,20 @@ function renderPaths(){
   const same=dests.filter(n=>n!==selectedDestination&&actual[n]===route&&route!=="UNUSED");
   related.innerHTML=`<div class="relatedTitle">OTHER DESTINATIONS FROM THIS ROUTE</div><div class="relatedList">${same.length?same.map(n=>`<button class="relatedItem" onclick="selectDestination(decodeURIComponent('${encodeURIComponent(n)}'))"><span class="relatedDot"></span><b>${n}</b><span>${route}</span></button>`).join(""):`<div class="relatedItem"><b>No shared destinations</b><span>This route currently feeds only ${selectedDestination||"the selected output"}.</span></div>`}</div><div class="routeKey"><div><i class="red"></i> Program path</div><div><i class="blue"></i> Preview path</div><div><i></i> Direct / other route</div></div>`;
  }
- const known=[];
- const names=Array.from({length:d.inputs},(_,i)=>known[i]||`INPUT ${i+1}`),used=new Set([pgm,pvw,...Object.values(actual).filter(v=>v&&!['PROGRAM','PREVIEW','UNUSED'].includes(v))]);
- const idle=names.filter(n=>!used.has(n));
- $("unroutedItems").innerHTML=idle.map(n=>`<span class="unroutedChip">${n}</span>`).join("");$("unroutedCount").textContent=`${idle.length} inactive`;
- const unused=dests.filter(n=>actual[n]==="UNUSED");$("unusedOutputItems").innerHTML=unused.map(n=>`<span class="unroutedChip">${n}</span>`).join("");$("unusedOutputCount").textContent=`${unused.length} unused`;
+ const topo=liveEngineering.topology||{};
+ if($("topologyItems"))$("topologyItems").innerHTML=[
+   `<span class="unroutedChip">${topo.reportedSources??d.inputs??"—"} sources reported</span>`,
+   `<span class="unroutedChip">${topo.reportedAuxBuses??d.outputs??"—"} AUX buses reported</span>`,
+   `<span class="unroutedChip">${(liveEngineering.mixEffects||[]).length} M/E buses reported</span>`
+ ].join("");
+ if($("topologySummary"))$("topologySummary").textContent="No physical output count inferred from AUX state";
  $("flowSources").textContent=new Set(active.map(n=>actual[n]==="PROGRAM"?pgm:actual[n]==="PREVIEW"?pvw:actual[n])).size;$("flowMes").textContent=d.mes;$("flowDests").textContent=active.length;$("flowIssues").textContent=baselineState.attached?getMismatches().length:"—";
 }
 function render(){
- if($("pgm"))$("pgm").textContent=pgm;if($("pvw"))$("pvw").textContent=pvw;
+ const activeMe=selectedME(),displayPgm=activeMe?.pgm||pgm,displayPvw=activeMe?.pvw||pvw;
+ if($("pgm"))$("pgm").textContent=displayPgm;if($("pvw"))$("pvw").textContent=displayPvw;
+ const meSelector=$("meSelector");if(meSelector)meSelector.innerHTML=(liveEngineering.mixEffects||[]).map(me=>`<button class="tinyAction ${me.index===selectedMeIndex?"primaryAction":""}" onclick="selectME(${me.index})">M/E ${me.index}</button>`).join("");
+
  let total=Object.keys(actual).filter(n=>actual[n]!=="UNUSED").length;
  const changed=Object.keys(actual).filter(n=>window.routeHistory[n]&&window.routeHistory[n].from!==actual[n]);
  const mismatches=getMismatches(), mismatchNames=new Set(mismatches.filter(x=>x.type==="ROUTE").map(x=>x.name));
@@ -864,8 +872,9 @@ function renderEngineering(){
  const e=liveEngineering,inputs=e.inputs||[],mes=e.mixEffects||[],dsks=e.downstreamKeyers||[];
  const keys=[];mes.forEach(me=>(me.upstreamKeyers||[]).forEach(k=>keys.push({...k,label:`USK ${k.index} · M/E ${me.index}`})));dsks.forEach(k=>keys.push({...k,label:`DSK ${k.index}`}));
  if($("showKeyers"))$("showKeyers").innerHTML=keys.map(k=>`<div class="key ${k.onAir?"on":""}">${k.label} • ${k.onAir?"ON AIR":"OFF"}</div>`).join("");
- if($("pgmContext"))$("pgmContext").textContent=mes[0]?`M/E ${mes[0].index} • PROGRAM`:"—";
- if($("pvwContext"))$("pvwContext").textContent=mes[0]?`M/E ${mes[0].index} • PREVIEW`:"—";
+ const selected=selectedME();
+ if($("pgmContext"))$("pgmContext").textContent=selected?`M/E ${selected.index} • PROGRAM`:"—";
+ if($("pvwContext"))$("pvwContext").textContent=selected?`M/E ${selected.index} • PREVIEW`:"—";
  const mx=$("routingMatrix");if(mx){const heads=['SOURCE',...mes.flatMap(me=>[`M/E${me.index} PGM`,`M/E${me.index} PVW`]),'KEYERS','OUTPUTS'];let h=heads.map(x=>`<div class="mc mh">${x}</div>`).join('');for(const input of inputs){const ku=keys.filter(k=>k.fill===input.name||k.key===input.name).map(k=>k.label);const outs=Object.entries(actual).filter(([,v])=>v===input.name).map(([n])=>n);h+=`<div class="mc">${input.name}</div>`+mes.flatMap(me=>[`<div class="mc ${me.pgm===input.name?'mon':''}">${me.pgm===input.name?'● LIVE':'—'}</div>`,`<div class="mc ${me.pvw===input.name?'mpv':''}">${me.pvw===input.name?'● READY':'—'}</div>`]).join('')+`<div class="mc">${ku.join(' / ')||'—'}</div><div class="mc">${outs.join(' / ')||'—'}</div>`;}const cols=`125px repeat(${Math.max(1,heads.length-1)},88px)`;mx.style.gridTemplateColumns=cols;mx.innerHTML=h||'<div class="emptyRoute">No routing state received.</div>';}
  if($("meBusDetail"))$("meBusDetail").innerHTML=mes.map(me=>`<div class="busrow"><div class="lab">M/E ${me.index}</div><div class="bus"><span>PROGRAM</span><b>${me.pgm}</b></div><div class="bus"><span>PREVIEW</span><b>${me.pvw}</b></div><div class="bus"><span>FTB</span><b>${me.ftb?(me.ftb.isFullyBlack?'BLACK':me.ftb.inTransition?'TRANSITION':'OFF'):'—'}</b></div></div>`).join('')||'<div class="emptyRoute">No M/E state received.</div>';
  if($("keyerInspector"))$("keyerInspector").innerHTML=keys.map(k=>`<div class="ins"><span>${k.label}</span><b class="${k.onAir?'ok':''}">${k.onAir?'ON AIR':'OFF'}</b><small>Fill: ${k.fill||'—'} · Key: ${k.key||'—'}</small></div>`).join('')||'<div class="emptyRoute">No keyer state received.</div>';
@@ -877,6 +886,7 @@ function applyAtemStateUpdate(patch={}){
    if(Array.isArray(patch.downstreamKeyers)) liveEngineering.downstreamKeyers=patch.downstreamKeyers;
    if(patch.productIdentifier!==undefined) liveEngineering.productIdentifier=patch.productIdentifier;
    if(patch.videoMode!==undefined) liveEngineering.videoMode=patch.videoMode;
+   if(patch.topology!==undefined) liveEngineering.topology=patch.topology||{};
 
   if(patch.pgm!==undefined){const prevPgm=pgm;pgm=typeof patch.pgm==="object"?(patch.pgm.name||patch.pgm.label||String(patch.pgm.id||patch.pgm)):patch.pgm;pgmSince=Date.now();if(prevPgm!==pgm)recordEvent("STATE",`PROGRAM: ${prevPgm} → ${pgm}`,{from:prevPgm,to:pgm});}
   if(patch.pvw!==undefined){const prevPvw=pvw;pvw=typeof patch.pvw==="object"?(patch.pvw.name||patch.pvw.label||String(patch.pvw.id||patch.pvw)):patch.pvw;pvwSince=Date.now();if(prevPvw!==pvw)recordEvent("STATE",`PREVIEW: ${prevPvw} → ${pvw}`,{from:prevPvw,to:pvw});}
