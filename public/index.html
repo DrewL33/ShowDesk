@@ -598,7 +598,7 @@ button,input,select,textarea {
  <div class="engLayout">
   <div class="panel">
    <div class="head"><h2>ROUTING MATRIX</h2><span class="sub">current source usage across the switcher</span></div>
-   <div class="matrix" id="routingMatrix"></div></div><div class="panel"><div class="head"><h2>M/E BUS DETAIL</h2><span class="sub">live switching state</span></div><div id="meBusDetail"></div></div></div><div class="engLayout">
+   <div class="matrixViewport"><div class="matrix" id="routingMatrix"></div></div></div><div class="panel"><div class="head"><h2>M/E BUS DETAIL</h2><span class="sub">live switching state</span></div><div id="meBusDetail"></div></div></div><div class="engLayout">
   <div class="panel"><div class="head"><h2>KEYER INSPECTOR</h2><span class="sub">state + assignment</span></div>
    <div class="inspect" id="keyerInspector"></div></div><div class="panel"><div class="head"><h2>DIAGNOSTICS</h2><span class="sub">switcher + route health</span></div><div class="diag" id="diagnostics"></div></div></div></section>
 </div>
@@ -633,17 +633,21 @@ async function connectionInputChanged(){
 }
 async function connectAtem(){
  const ip=$("atemIp").value.trim();
+ window.__showDeskConnectInvoked=(window.__showDeskConnectInvoked||0)+1;
  if(!validIpLike(ip))return;
  const btn=$("connectAtemBtn"),status=$("setupStatus");
  btn.disabled=true;btn.textContent="DISCOVERING…";status.textContent="Contacting "+ip+" and reading switcher topology, inputs, outputs, M/Es, keyers and routing…";
  const transport=window.ATEM_TRANSPORT;
+ status.dataset.phase="transport";
  if(!transport||typeof transport.connect!=="function"){
    setConnectionStatus("ATEM network transport is not installed. Connect the production ATEM transport service, then try again.",true);
    return;
  }
  let d;
  try{
+   status.dataset.phase="request";
    d=await transport.connect(ip);
+   status.dataset.phase="response";
  }catch(error){
    const message=error?.message||String(error);
    status.textContent="Unable to connect to ATEM at "+ip+". "+message;
@@ -906,6 +910,7 @@ window.ATEM_OPS=Object.assign(window.ATEM_OPS||{},{applyStateUpdate:applyAtemSta
 
 
 restorePersistedReference();updateReferenceUI();
+window.addEventListener("error",e=>{const s=$("setupStatus"),b=$("connectAtemBtn");if(s&&!$("setup").classList.contains("hidden")){s.textContent="ShowDesk browser error: "+(e.message||"Unknown error");s.style.color="var(--amber)";if(b){b.disabled=false;b.textContent="TRY AGAIN";}}});
 </script><div id="toast" class="toast"></div><script src="/transport.js"></script>
 </body>
 </html>
