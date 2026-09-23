@@ -83,7 +83,16 @@ function normalizeState(state) {
   // ATEM auxilliaries are routing buses, not a trustworthy inventory of physical
   // BNC outputs. Keep that distinction explicit so ShowDesk never calls an
   // unreported physical connector "unused".
-  const aux = auxRaw.map((source, i) => ({ name: `AUX ${i + 1}`, route: inputName(state, source), sourceId: source }));
+  const auxEntries = Object.entries(auxRaw).map(([key, source]) => ({
+    rawKey: key,
+    rawIndex: Number(key),
+    name: `AUX ${Number(key) + 1}`,
+    route: inputName(state, source),
+    sourceId: source
+  }));
+  // Do not infer physical output connectors from these values. They are exposed
+  // as raw ATEM AUX bus state so a physical switcher can be compared 1:1.
+  const aux = auxEntries;
   const capabilities = state.info?.capabilities || {};
   const me0 = mixEffects[0];
   return {
@@ -106,7 +115,13 @@ function normalizeState(state) {
         index: i + 1, programInput: me.programInput ?? null, previewInput: me.previewInput ?? null,
         upstreamKeyerCount: (me.upstreamKeyers || []).filter(Boolean).length
       })),
-      auxilliaries: auxRaw.map((source, i) => ({ index: i + 1, sourceId: source }))
+      auxilliaries: Object.entries(auxRaw).map(([key, source]) => ({
+        rawKey: key,
+        rawIndex: Number(key),
+        displayedAuxIfZeroBased: Number(key) + 1,
+        sourceId: source,
+        resolvedSource: inputName(state, source)
+      }))
     }
   };
 }
