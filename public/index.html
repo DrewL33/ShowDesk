@@ -561,23 +561,15 @@ button,input,select,textarea {
 </section>
 
 <section class="signalPage">
- <div class="flowSummary"><div><span>ACTIVE SOURCES</span><b id="flowSources">—</b></div><div><span>M/E BUSES</span><b id="flowMes">—</b></div><div><span>DESTINATIONS</span><b id="flowDests">—</b></div><div><span>ASSIGNMENT ISSUES</span><b id="flowIssues">0</b></div></div>
- <div class="panel destinationWorkspace">
-  <div class="head"><h2>DESTINATION SIGNAL PATH</h2><span class="sub">LIVE SWITCHER ASSIGNMENTS</span><span class="routeLive">STATE LIVE</span></div>
-  <div class="destQuickTabs" id="destQuickTabs"></div>
-  <div class="destinationLayout">
-   <aside class="destinationRail">
-    <div class="railLabel">DESTINATIONS</div>
-    <input id="destinationSearch" class="destinationSearch" type="search" placeholder="Search destinations…" oninput="renderDestinationRail()">
-    <div id="destinationRailList" class="destinationRailList"></div>
-   </aside>
-   <main class="routeInspector" id="routeInspector"></main>
-   <aside class="relatedPanel" id="relatedPanel"></aside>
-  </div>
+ <div class="flowSummary"><div><span>REPORTED SOURCES</span><b id="flowSources">—</b></div><div><span>M/E BUSES</span><b id="flowMes">—</b></div><div><span>KNOWN ASSIGNMENTS</span><b id="flowDests">—</b></div><div><span>REFERENCE ISSUES</span><b id="flowIssues">—</b></div></div>
+ <div class="panel">
+  <div class="head"><h2>SIGNAL PATH TREE</h2><span class="sub">SOURCE → PROCESSING / BUS → KNOWN DESTINATION</span><span class="routeLive">READ ONLY</span></div>
+  <div class="flowLegend"><span><i class="red"></i>Program</span><span><i class="blue"></i>Preview</span><span><i></i>Keyer / AUX assignment</span></div>
+  <div class="flowMap"><div id="signalTree"></div></div>
  </div>
  <div class="signalUtilityRow compactUtilities">
-  <div class="unroutedBox"><div class="unroutedHead"><b>UNUSED SOURCES</b><span id="unroutedCount">0 inactive</span></div><div class="unroutedItems" id="unroutedItems"></div></div>
-  <div class="unroutedBox"><div class="unroutedHead"><b>UNUSED OUTPUTS</b><span id="unusedOutputCount">0 unused</span></div><div class="unroutedItems" id="unusedOutputItems"></div></div>
+  <div class="unroutedBox"><div class="unroutedHead"><b>TOPOLOGY NOTE</b><span>authoritative state only</span></div><div class="unroutedItems"><span class="unroutedChip">AUX assignment ≠ physical output</span><span class="unroutedChip">Unknown connector mapping stays unknown</span></div></div>
+  <div class="unroutedBox"><div class="unroutedHead"><b>TRACE RULE</b><span>no inferred cables</span></div><div class="unroutedItems"><span class="unroutedChip">OUTPUT appears only when physical output identity is known</span></div></div>
  </div>
 </section>
 
@@ -789,42 +781,31 @@ function renderInputs(){
   $("inputCountLabel").textContent=`${inputs.length} sources reported`;
 }
 function selectDestination(name){selectedDestination=name;renderPaths()}
-function renderDestinationRail(){
- const list=$("destinationRailList");if(!list)return;
- const q=($("destinationSearch")?.value||"").trim().toLowerCase();
- const dests=Object.keys(actual).filter(n=>!q||n.toLowerCase().includes(q)||String(actual[n]).toLowerCase().includes(q));
- list.innerHTML=dests.map(n=>{const assigned=actual[n]||"UNKNOWN",cls=n===selectedDestination?"on ":"";return `<button class="destinationItem ${cls}${assigned==="PREVIEW"?"previewRoute":""}" onclick="selectDestination(decodeURIComponent('${encodeURIComponent(n)}'))"><b>${n}</b><span>${assigned}</span><small>${assigned==="UNKNOWN"?"Assignment unknown":"ASSIGNED SOURCE"}</small></button>`}).join("")||`<div class="emptyRoute"><b>No destinations found</b>Try another search.</div>`;
-}
 function renderPaths(){
  const d=connectedDevice;if(!d)return;
- const dests=Object.keys(actual);
- if(!selectedDestination||!dests.includes(selectedDestination)||actual[selectedDestination]==="UNUSED") selectedDestination=dests.find(n=>actual[n]!=="UNUSED")||dests[0]||null;
- const active=dests.filter(n=>actual[n]!=="UNUSED");
- const quick=$("destQuickTabs");
- if(quick){quick.innerHTML=(dests.length<=8?dests:active.slice(0,6)).map(n=>`<button class="destQuickTab ${n===selectedDestination?"on":""}" onclick="selectDestination(decodeURIComponent('${encodeURIComponent(n)}'))">${n}</button>`).join("");}
- renderDestinationRail();
- const route=selectedDestination?actual[selectedDestination]:null;
- const inspector=$("routeInspector"),related=$("relatedPanel");
- const mismatch=baselineState.attached&&selectedDestination&&baselineState.routes[selectedDestination]!==undefined&&baselineState.routes[selectedDestination]!==route;
- let source=route,through="DIRECT ASSIGNMENT",routeClass="";
- if(route==="PROGRAM"){source=pgm;through="M/E 1 · PROGRAM";routeClass="program"}
- else if(route==="PREVIEW"){source=pvw;through="M/E 1 · PREVIEW";routeClass="preview"}
- else if(route==="UNUSED"){source="NO SOURCE";through="NOT ROUTED"}
- if(inspector){
-  inspector.innerHTML=selectedDestination?`<div class="routeHeader"><span>SELECTED DESTINATION</span><h3>${selectedDestination}</h3><small>${route==="UNUSED"?"No active feed":"Assigned source · "+route}</small></div><div class="routeChain"><div class="chainNode ${routeClass}"><span>SOURCE</span><b>${source}</b></div><div class="chainLine"></div><div class="chainNode"><span>THROUGH</span><b>${through}</b></div><div class="chainLine"></div><div class="chainNode ${routeClass}"><span>ASSIGNED SOURCE</span><b>${route}</b></div><div class="chainLine"></div><div class="chainNode ${routeClass} ${mismatch?"mismatch":""}"><span>DESTINATION</span><b>${selectedDestination}</b></div></div>${mismatch?`<div class="routeMismatch"><b>REFERENCE MISMATCH</b><br>Expected ${baselineState.routes[selectedDestination]} · Actual ${route}</div>`:""}`:`<div class="emptyRoute"><b>No destinations discovered</b>Connect to a switcher to inspect routing.</div>`;
- }
- if(related){
-  const same=dests.filter(n=>n!==selectedDestination&&actual[n]===route&&route!=="UNUSED");
-  related.innerHTML=`<div class="relatedTitle">OTHER DESTINATIONS WITH THIS SOURCE</div><div class="relatedList">${same.length?same.map(n=>`<button class="relatedItem" onclick="selectDestination(decodeURIComponent('${encodeURIComponent(n)}'))"><span class="relatedDot"></span><b>${n}</b><span>${route}</span></button>`).join(""):`<div class="relatedItem"><b>No shared destinations</b><span>This source is currently assigned only to ${selectedDestination||"the selected destination"}.</span></div>`}</div><div class="routeKey"><div><i class="red"></i> Program path</div><div><i class="blue"></i> Preview path</div><div><i></i> Direct / other assignment</div></div>`;
+ const inputs=liveEngineering.inputs||[],mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[];
+ const aux=Object.entries(actual);
+ const tree=$("signalTree");
+ if(tree){
+  const rows=inputs.map(input=>{
+   const name=input.name||("SOURCE "+input.id),branches=[];
+   mes.forEach(me=>{
+    if(me.pgm===name)branches.push({kind:"program",label:"M/E "+me.index+" · PROGRAM"});
+    if(me.pvw===name)branches.push({kind:"preview",label:"M/E "+me.index+" · PREVIEW"});
+    (me.upstreamKeyers||[]).forEach(k=>{if(k.fill===name||k.key===name)branches.push({kind:"direct",label:"M/E "+me.index+" · USK "+k.index+" · "+(k.fill===name?"FILL":"KEY")})});
+   });
+   dsks.forEach(k=>{if(k.fill===name||k.key===name)branches.push({kind:"direct",label:"DSK "+k.index+" · "+(k.fill===name?"FILL":"KEY")})});
+   aux.forEach(([dest,assigned])=>{if(assigned===name)branches.push({kind:"direct",label:dest+" · ASSIGNED SOURCE"})});
+   if(!branches.length)return "";
+   return `<div class="flowStage" style="margin-bottom:12px"><div class="flowNode source"><small>SOURCE ${input.id}</small><b>${name}</b></div><div class="flowLine"></div><div class="flowNode bus"><small>KNOWN ATEM USE</small><b>${branches.length} path${branches.length===1?"":"s"}</b></div><div class="flowBranch"></div><div class="flowDestStack">${branches.map(b=>`<div class="flowNode ${b.kind}"><small>${b.kind==="program"?"PROGRAM":b.kind==="preview"?"PREVIEW":"ASSIGNMENT / PROCESSING"}</small><b>${b.label}</b></div>`).join("")}</div></div>`;
+  }).filter(Boolean);
+  tree.innerHTML=rows.join("")||'<div class="emptyRoute"><b>No active signal paths reported</b>ShowDesk will only draw paths supported by current ATEM state.</div>';
  }
  const topo=liveEngineering.topology||{};
- if($("topologyItems"))$("topologyItems").innerHTML=[
-   `<span class="unroutedChip">${topo.reportedSources??d.inputs??"—"} sources reported</span>`,
-   `<span class="unroutedChip">${topo.reportedAuxBuses??d.outputs??"—"} AUX buses reported</span>`,
-   `<span class="unroutedChip">${(liveEngineering.mixEffects||[]).length} M/E buses reported</span>`
- ].join("");
- if($("topologySummary"))$("topologySummary").textContent="No physical output count inferred from AUX state";
- $("flowSources").textContent=new Set(active.map(n=>actual[n]==="PROGRAM"?pgm:actual[n]==="PREVIEW"?pvw:actual[n])).size;$("flowMes").textContent=d.mes;$("flowDests").textContent=active.length;$("flowIssues").textContent=baselineState.attached?getMismatches().length:"—";
+ if($("flowSources"))$("flowSources").textContent=topo.reportedSources??inputs.length;
+ if($("flowMes"))$("flowMes").textContent=mes.length;
+ if($("flowDests"))$("flowDests").textContent=aux.length;
+ if($("flowIssues"))$("flowIssues").textContent=baselineState.attached?getMismatches().length:"—";
 }
 function render(){
  const activeMe=selectedME(),displayPgm=activeMe?.pgm||pgm,displayPvw=activeMe?.pvw||pvw;
