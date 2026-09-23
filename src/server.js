@@ -86,17 +86,21 @@ function normalizeState(state) {
   const auxDestinations = Object.values(state.inputs || {})
     .filter(x => Number(x.internalPortType) === 129)
     .sort((a, b) => Number(a.inputId) - Number(b.inputId));
-  const auxNumberByBusId = new Map(auxDestinations.map((x, i) => [Number(x.inputId), i + 1]));
+  // The protocol AUX state is indexed by destination ordinal, while the matching
+  // destination descriptors use a separate inputId namespace (for example 8001+).
+  // Pair them by the ATEM-reported destination order and preserve the descriptor name.
   const auxEntries = Object.entries(auxRaw).map(([key, source]) => {
     const busId = Number(key);
-    const auxNumber = auxNumberByBusId.get(busId);
+    const destination = auxDestinations[busId] || null;
+    const destinationName = destination?.longName || destination?.shortName || null;
     return {
       rawKey: key,
       rawIndex: busId,
       busId,
-      destinationType: auxNumber ? 'aux' : 'routing-bus',
-      destinationNumber: auxNumber ?? null,
-      name: auxNumber ? `AUX ${auxNumber}` : `ATEM ROUTING BUS ${key}`,
+      destinationId: destination ? Number(destination.inputId) : null,
+      destinationType: destination ? 'auxiliary-destination' : 'routing-bus',
+      destinationNumber: busId + 1,
+      name: destinationName || `ATEM ROUTING BUS ${key}`,
       route: inputName(state, source),
       sourceId: source
     };
@@ -123,7 +127,7 @@ function normalizeState(state) {
       settings: state.settings || null,
       inputCount: Object.keys(state.inputs || {}).length,
       inputIds: Object.keys(state.inputs || {}).map(Number),
-      auxiliaryDestinations: auxDestinations.map((x, i) => ({ auxNumber: i + 1, protocolBusId: Number(x.inputId), longName: x.longName || null, shortName: x.shortName || null, internalPortType: x.internalPortType, externalPortType: x.externalPortType })),
+      auxiliaryDestinations: auxDestinations.map((x, i) => ({ routingBusId: i, destinationId: Number(x.inputId), displayName: x.longName || x.shortName || null, longName: x.longName || null, shortName: x.shortName || null, internalPortType: x.internalPortType, externalPortType: x.externalPortType })),
       mixEffects: (state.video?.mixEffects || []).filter(Boolean).map((me, i) => ({
         index: i + 1, programInput: me.programInput ?? null, previewInput: me.previewInput ?? null,
         upstreamKeyerCount: (me.upstreamKeyers || []).filter(Boolean).length
@@ -141,7 +145,7 @@ function normalizeState(state) {
         infoKeys: Object.keys(state.info || {}),
         settingsKeys: Object.keys(state.settings || {}),
         videoKeys: Object.keys(state.video || {}),
-        note: 'Software Control AUX numbering is resolved from ATEM input descriptors whose internalPortType is Auxiliary (129); inputId is matched to the protocol AUX bus id.'
+        note: 'Routing bus ordinals are paired with ATEM Auxiliary (129) destination descriptors in ATEM-reported order; descriptor names are preserved as the user-facing destination identity.'
       }
     }
   };
