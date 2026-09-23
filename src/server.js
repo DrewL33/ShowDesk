@@ -80,19 +80,27 @@ function normalizeState(state) {
     key: inputName(state, keyer.sources?.cutSource ?? keyer.cutSource)
   }));
   const auxRaw = state.video?.auxilliaries || [];
-  // ATEM auxilliaries are routing buses, not a trustworthy inventory of physical
-  // BNC outputs. Keep that distinction explicit so ShowDesk never calls an
-  // unreported physical connector "unused".
-  const auxEntries = Object.entries(auxRaw).map(([key, source]) => ({
-    rawKey: key,
-    rawIndex: Number(key),
-    // atem-connection exposes these routing slots under video.auxilliaries.
-    // On this Constellation the count matches the 24 routable SDI outputs,
-    // but we still do not claim a physical connector identity without metadata.
-    // The protocol bus id is authoritative. Do not convert it to a user-facing\n    // AUX/output number until the switcher exposes enough metadata to prove that mapping.\n    name: `ATEM ROUTING BUS ${key}`,\n    busId: Number(key),
-    route: inputName(state, source),
-    sourceId: source
-  }));
+  // ATEM exposes output destinations as input descriptors with InternalPortType.Auxiliary (129).
+  // Their inputId is the protocol AUX bus id used by state.video.auxilliaries.
+  // Resolve user-facing AUX identity from that authoritative metadata instead of array position.
+  const auxDestinations = Object.values(state.inputs || {})
+    .filter(x => Number(x.internalPortType) === 129)
+    .sort((a, b) => Number(a.inputId) - Number(b.inputId));
+  const auxNumberByBusId = new Map(auxDestinations.map((x, i) => [Number(x.inputId), i + 1]));
+  const auxEntries = Object.entries(auxRaw).map(([key, source]) => {
+    const busId = Number(key);
+    const auxNumber = auxNumberByBusId.get(busId);
+    return {
+      rawKey: key,
+      rawIndex: busId,
+      busId,
+      destinationType: auxNumber ? 'aux' : 'routing-bus',
+      destinationNumber: auxNumber ?? null,
+      name: auxNumber ? `AUX ${auxNumber}` : `ATEM ROUTING BUS ${key}`,
+      route: inputName(state, source),
+      sourceId: source
+    };
+  });
   // Do not infer physical output connectors from these values. They are exposed
   // as raw ATEM AUX bus state so a physical switcher can be compared 1:1.
   const aux = auxEntries;
@@ -114,7 +122,7 @@ function normalizeState(state) {
       info: state.info || null,
       settings: state.settings || null,
       inputCount: Object.keys(state.inputs || {}).length,
-      inputIds: Object.keys(state.inputs || {}).map(Number),
+      inputIds: Object.keys(state.inputs || {}).map(Number),\n      auxiliaryDestinations: auxDestinations.map((x, i) => ({ auxNumber: i + 1, protocolBusId: Number(x.inputId), longName: x.longName || null, shortName: x.shortName || null, internalPortType: x.internalPortType, externalPortType: x.externalPortType })),
       mixEffects: (state.video?.mixEffects || []).filter(Boolean).map((me, i) => ({
         index: i + 1, programInput: me.programInput ?? null, previewInput: me.previewInput ?? null,
         upstreamKeyerCount: (me.upstreamKeyers || []).filter(Boolean).length
@@ -132,7 +140,7 @@ function normalizeState(state) {
         infoKeys: Object.keys(state.info || {}),
         settingsKeys: Object.keys(state.settings || {}),
         videoKeys: Object.keys(state.video || {}),
-        note: 'Values are ATEM protocol bus IDs. They are not converted to Software Control AUX/output numbers until authoritative mapping metadata is available.'
+        note: 'Software Control AUX numbering is resolved from ATEM input descriptors whose internalPortType is Auxiliary (129); inputId is matched to the protocol AUX bus id.'
       }
     }
   };
