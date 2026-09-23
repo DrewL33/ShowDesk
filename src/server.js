@@ -86,7 +86,10 @@ function normalizeState(state) {
   const auxEntries = Object.entries(auxRaw).map(([key, source]) => ({
     rawKey: key,
     rawIndex: Number(key),
-    name: `AUX ${Number(key) + 1}`,
+    // atem-connection exposes these routing slots under video.auxilliaries.
+    // On this Constellation the count matches the 24 routable SDI outputs,
+    // but we still do not claim a physical connector identity without metadata.
+    name: `ROUTING SLOT ${Number(key) + 1}`,
     route: inputName(state, source),
     sourceId: source
   }));
@@ -99,6 +102,7 @@ function normalizeState(state) {
     pgm: me0?.pgm || '—', pvw: me0?.pvw || '—', inputs, aux, mixEffects, downstreamKeyers,
     topology: {
       reportedSources: inputs.length,
+      reportedRoutingSlots: aux.length,
       reportedAuxBuses: aux.length,
       capabilitySources: capabilities.sources ?? null,
       capabilityAuxBuses: capabilities.auxilliaries ?? null,
@@ -121,7 +125,15 @@ function normalizeState(state) {
         displayedAuxIfZeroBased: Number(key) + 1,
         sourceId: source,
         resolvedSource: inputName(state, source)
-      }))
+      })),
+      outputInvestigation: {
+        routingSlotCount: Object.keys(auxRaw).length,
+        capabilities: capabilities,
+        infoKeys: Object.keys(state.info || {}),
+        settingsKeys: Object.keys(state.settings || {}),
+        videoKeys: Object.keys(state.video || {}),
+        note: 'Routing slots are not labeled as physical OUTPUT or Software Control AUX until authoritative mapping metadata is found.'
+      }
     }
   };
 }
