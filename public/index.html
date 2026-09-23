@@ -601,6 +601,8 @@ const liveState={routes:{},pgm:"—",pvw:"—",updatedAt:null};
 let expected=baselineState.routes,actual=liveState.routes,saved={},logs=[],sessionEvents=[];
 let selectedDestination=null;
 let selectedMeIndex=1;
+const signalTreeOpen=new Set(["group:physical"]);
+function rememberSignalTreeState(){document.querySelectorAll("#signalTree details[data-tree-key]").forEach(el=>{const k=el.dataset.treeKey;if(el.open)signalTreeOpen.add(k);else signalTreeOpen.delete(k)})}
 const standard=[];
 function $(id){return document.getElementById(id)}
 
@@ -779,14 +781,15 @@ function renderInputs(){
 function selectDestination(name){selectedDestination=name;renderPaths()}
 function renderPaths(){
  const d=connectedDevice;if(!d)return;
+ rememberSignalTreeState();
  const inputs=liveEngineering.inputs||[],mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[];
  const q=($("signalSearch")?.value||"").trim().toLowerCase();
  const branchesFor=input=>{const name=input.name||("SOURCE "+input.id),out=[];mes.forEach(me=>{if(me.pgm===name)out.push({kind:"program",label:"M/E "+me.index+" · PROGRAM"});if(me.pvw===name)out.push({kind:"preview",label:"M/E "+me.index+" · PREVIEW"});(me.upstreamKeyers||[]).forEach(k=>{if(k.fill===name||k.key===name)out.push({kind:"direct",label:"M/E "+me.index+" · USK "+k.index+" · "+(k.fill===name?"FILL":"KEY")})})});dsks.forEach(k=>{if(k.fill===name||k.key===name)out.push({kind:"direct",label:"DSK "+k.index+" · "+(k.fill===name?"FILL":"KEY")})});/* AUX branches are intentionally withheld until raw AUX bus indexing is validated against the physical ATEM. */return out};
  const classified=inputs.map(input=>{const name=input.name||("SOURCE "+input.id),physical=Number(input.id)>0&&Number(input.id)<1000;return {input,name,physical,branches:branchesFor(input)}}).filter(x=>!q||[x.name,"input "+x.input.id,"source "+x.input.id,...x.branches.map(b=>b.label)].join(" ").toLowerCase().includes(q));
- const renderSource=x=>`<details class="treeSource" ${q?"open":""}><summary><small>${x.physical?"INPUT "+x.input.id:"INTERNAL "+x.input.id}</small><b>${x.name}</b><em>${x.branches.length} path${x.branches.length===1?"":"s"}</em></summary><div class="treeBranches">${x.branches.length?x.branches.map(b=>`<div class="treeBranch ${b.kind}"><small>${b.kind==="program"?"PROGRAM":b.kind==="preview"?"PREVIEW":"ASSIGNMENT / PROCESSING"}</small><b>${b.label}</b></div>`).join(""):'<div class="treeBranch"><small>STATE</small><b>No current path reported</b></div>'}</div></details>`;
+ const renderSource=x=>{const key="source:"+x.input.id,open=q||signalTreeOpen.has(key);return `<details class="treeSource" data-tree-key="${key}" ${open?"open":""}><summary><small>${x.physical?"INPUT "+x.input.id:"INTERNAL "+x.input.id}</small><b>${x.name}</b><em>${x.branches.length} path${x.branches.length===1?"":"s"}</em></summary><div class="treeBranches">${x.branches.length?x.branches.map(b=>`<div class="treeBranch ${b.kind}"><small>${b.kind==="program"?"PROGRAM":b.kind==="preview"?"PREVIEW":"ASSIGNMENT / PROCESSING"}</small><b>${b.label}</b></div>`).join(""):'<div class="treeBranch"><small>STATE</small><b>No current path reported</b></div>'}</div></details>`};
  const physical=classified.filter(x=>x.physical),internal=classified.filter(x=>!x.physical),tree=$("signalTree");
- if(tree)tree.innerHTML=`<details class="treeGroup" open><summary>PHYSICAL INPUTS <span>${physical.length}</span></summary><div class="treeGroupBody">${physical.map(renderSource).join("")||'<div class="emptyRoute">No matching physical inputs.</div>'}</div></details><details class="treeGroup" ${q?"open":""}><summary>INTERNAL SOURCES <span>${internal.length}</span></summary><div class="treeGroupBody">${internal.map(renderSource).join("")||'<div class="emptyRoute">No matching internal sources.</div>'}</div></details>`;
- const topo=liveEngineering.topology||{};if($("flowSources"))$("flowSources").textContent=topo.reportedSources??inputs.length;if($("flowMes"))$("flowMes").textContent=mes.length;if($("flowDests"))$("flowDests").textContent="VALIDATING";if($("flowIssues"))$("flowIssues").textContent=baselineState.attached?getMismatches().length:"—";
+ if(tree)tree.innerHTML=`<details class="treeGroup" data-tree-key="group:physical" ${signalTreeOpen.has("group:physical")||q?"open":""}><summary>PHYSICAL INPUTS <span>${physical.length}</span></summary><div class="treeGroupBody">${physical.map(renderSource).join("")||'<div class="emptyRoute">No matching physical inputs.</div>'}</div></details><details class="treeGroup" data-tree-key="group:internal" ${signalTreeOpen.has("group:internal")||q?"open":""}><summary>INTERNAL SOURCES <span>${internal.length}</span></summary><div class="treeGroupBody">${internal.map(renderSource).join("")||'<div class="emptyRoute">No matching internal sources.</div>'}</div></details>`;
+ const topo=liveEngineering.topology||{};if($("flowSources"))$("flowSources").textContent=topo.reportedSources??inputs.length;if($("flowMes"))$("flowMes").textContent=mes.length;if($("flowDests"))$("flowDests").textContent=(liveEngineering.topology?.reportedAuxBuses??"—");if($("flowIssues"))$("flowIssues").textContent=baselineState.attached?getMismatches().length:"—";
 }
 function render(){
  const activeMe=selectedME(),displayPgm=activeMe?.pgm||pgm,displayPvw=activeMe?.pvw||pvw;
