@@ -89,7 +89,7 @@ function normalizeState(state) {
     // atem-connection exposes these routing slots under video.auxilliaries.
     // On this Constellation the count matches the 24 routable SDI outputs,
     // but we still do not claim a physical connector identity without metadata.
-    name: `ROUTING SLOT ${Number(key) + 1}`,
+    // The protocol bus id is authoritative. Do not convert it to a user-facing\n    // AUX/output number until the switcher exposes enough metadata to prove that mapping.\n    name: `ATEM ROUTING BUS ${key}`,\n    busId: Number(key),
     route: inputName(state, source),
     sourceId: source
   }));
@@ -122,7 +122,7 @@ function normalizeState(state) {
       auxilliaries: Object.entries(auxRaw).map(([key, source]) => ({
         rawKey: key,
         rawIndex: Number(key),
-        displayedAuxIfZeroBased: Number(key) + 1,
+        protocolBusId: Number(key),
         sourceId: source,
         resolvedSource: inputName(state, source)
       })),
@@ -132,7 +132,7 @@ function normalizeState(state) {
         infoKeys: Object.keys(state.info || {}),
         settingsKeys: Object.keys(state.settings || {}),
         videoKeys: Object.keys(state.video || {}),
-        note: 'Routing slots are not labeled as physical OUTPUT or Software Control AUX until authoritative mapping metadata is found.'
+        note: 'Values are ATEM protocol bus IDs. They are not converted to Software Control AUX/output numbers until authoritative mapping metadata is available.'
       }
     }
   };
