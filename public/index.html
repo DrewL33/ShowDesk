@@ -606,7 +606,7 @@ function rememberSignalTreeState(){document.querySelectorAll("#signalTree detail
 const standard=[];
 function $(id){return document.getElementById(id)}
 
-let liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],productIdentifier:null,videoMode:null,topology:{},debug:null};
+let liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],routing:[],productIdentifier:null,videoMode:null,topology:{},debug:null};
 function toggleDebug(){const el=$("atemDebug");if(!el)return;el.hidden=!el.hidden;if(!el.hidden)renderDebug()}
 function renderDebug(){const el=$("atemDebug");if(!el)return;el.textContent=JSON.stringify({productIdentifier:liveEngineering.productIdentifier,videoMode:liveEngineering.videoMode,topology:liveEngineering.topology,inputs:liveEngineering.inputs,mixEffects:liveEngineering.mixEffects,downstreamKeyers:liveEngineering.downstreamKeyers,auxRoutes:{...actual},rawExposedState:liveEngineering.debug},null,2)}
 function toast(msg){let t=$("toast");if(!t)return;t.textContent=msg;t.classList.add("show");clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove("show"),1100)}
@@ -783,11 +783,11 @@ function renderPaths(){
  const d=connectedDevice;if(!d)return;
  rememberSignalTreeState();
  const inputs=liveEngineering.inputs||[],mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[];
- const routing=(liveEngineering.debug?.auxilliaries||[]);
+ const routing=(liveEngineering.routing||[]);
  const q=($("signalSearch")?.value||"").trim().toLowerCase();
  const byName=new Map(inputs.map(x=>[x.name||("SOURCE "+x.id),x]));
  const meProgramSourceName=me=>{const candidates=inputs.filter(x=>Number(x.id)>=10000&&((x.name||"").toLowerCase().includes("m/e "+me.index)||(x.shortName||"").toLowerCase().includes("me"+me.index)));return candidates.find(x=>(x.name||"").toLowerCase().includes("program"))?.name||candidates[0]?.name||null};
- const directUses=name=>{const out=[];mes.forEach(me=>{if(me.pgm===name)out.push({kind:"program",label:"M/E "+me.index+" · PROGRAM",me});if(me.pvw===name)out.push({kind:"preview",label:"M/E "+me.index+" · PREVIEW"});(me.upstreamKeyers||[]).forEach(k=>{if(k.fill===name||k.key===name)out.push({kind:"direct",label:"M/E "+me.index+" · USK "+k.index+" · "+(k.fill===name?"FILL":"KEY")})})});dsks.forEach(k=>{if(k.fill===name||k.key===name)out.push({kind:"direct",label:"DSK "+k.index+" · "+(k.fill===name?"FILL":"KEY")})});routing.forEach(r=>{if(r.resolvedSource===name)out.push({kind:"route",label:"ATEM ROUTING BUS "+(r.protocolBusId??r.rawIndex),sub:"Software Control AUX/output identity not yet resolved"})});return out};
+ const directUses=name=>{const out=[];mes.forEach(me=>{if(me.pgm===name)out.push({kind:"program",label:"M/E "+me.index+" · PROGRAM",me});if(me.pvw===name)out.push({kind:"preview",label:"M/E "+me.index+" · PREVIEW"});(me.upstreamKeyers||[]).forEach(k=>{if(k.fill===name||k.key===name)out.push({kind:"direct",label:"M/E "+me.index+" · USK "+k.index+" · "+(k.fill===name?"FILL":"KEY")})})});dsks.forEach(k=>{if(k.fill===name||k.key===name)out.push({kind:"direct",label:"DSK "+k.index+" · "+(k.fill===name?"FILL":"KEY")})});routing.forEach(r=>{if((r.route||r.resolvedSource)===name)out.push({kind:"route",label:r.name||("ATEM ROUTING BUS "+(r.busId??r.protocolBusId??r.rawIndex)),sub:"Software Control AUX/output identity not yet resolved"})});return out};
  const descendants=(name,visited=new Set())=>{if(visited.has(name))return[];const next=new Set(visited);next.add(name);return directUses(name).map(use=>{if(!use.me||use.kind!=="program")return {...use,children:[]};const internal=meProgramSourceName(use.me);return {...use,children:internal?descendants(internal,next):[]}})};
  const renderBranch=(b,depth=0)=>`<div class="treeBranch ${b.kind}"><small>${b.kind==="program"?"PROGRAM":b.kind==="preview"?"PREVIEW":b.kind==="route"?"ATEM ROUTING":"ASSIGNMENT / PROCESSING"}</small><b>${b.label}</b>${b.sub?`<small>${b.sub}</small>`:""}${b.children?.length?`<div class="treeNested">${b.children.map(x=>renderBranch(x,depth+1)).join("")}</div>`:""}</div>`;
  const classified=inputs.map(input=>{const name=input.name||("SOURCE "+input.id),physical=Number(input.id)>0&&Number(input.id)<1000,branches=descendants(name);return {input,name,physical,branches}}).filter(x=>!q||[x.name,"input "+x.input.id,"source "+x.input.id,...x.branches.map(b=>b.label)].join(" ").toLowerCase().includes(q));
@@ -856,7 +856,7 @@ function renderEngineering(){
 function applyAtemStateUpdate(patch={}){
    if(Array.isArray(patch.inputs)) liveEngineering.inputs=patch.inputs;
    if(Array.isArray(patch.mixEffects)) liveEngineering.mixEffects=patch.mixEffects;
-   if(Array.isArray(patch.downstreamKeyers)) liveEngineering.downstreamKeyers=patch.downstreamKeyers;
+   if(Array.isArray(patch.downstreamKeyers)) liveEngineering.downstreamKeyers=patch.downstreamKeyers;\n   if(Array.isArray(patch.aux)) liveEngineering.routing=patch.aux;
    if(patch.productIdentifier!==undefined) liveEngineering.productIdentifier=patch.productIdentifier;
    if(patch.videoMode!==undefined) liveEngineering.videoMode=patch.videoMode;
    if(patch.topology!==undefined) liveEngineering.topology=patch.topology||{};
