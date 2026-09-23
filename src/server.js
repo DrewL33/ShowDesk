@@ -122,7 +122,8 @@ function normalizeState(state) {
       info: state.info || null,
       settings: state.settings || null,
       inputCount: Object.keys(state.inputs || {}).length,
-      inputIds: Object.keys(state.inputs || {}).map(Number),\n      auxiliaryDestinations: auxDestinations.map((x, i) => ({ auxNumber: i + 1, protocolBusId: Number(x.inputId), longName: x.longName || null, shortName: x.shortName || null, internalPortType: x.internalPortType, externalPortType: x.externalPortType })),
+      inputIds: Object.keys(state.inputs || {}).map(Number),
+      auxiliaryDestinations: auxDestinations.map((x, i) => ({ auxNumber: i + 1, protocolBusId: Number(x.inputId), longName: x.longName || null, shortName: x.shortName || null, internalPortType: x.internalPortType, externalPortType: x.externalPortType })),
       mixEffects: (state.video?.mixEffects || []).filter(Boolean).map((me, i) => ({
         index: i + 1, programInput: me.programInput ?? null, previewInput: me.previewInput ?? null,
         upstreamKeyerCount: (me.upstreamKeyers || []).filter(Boolean).length
