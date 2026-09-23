@@ -856,7 +856,8 @@ function renderEngineering(){
 function applyAtemStateUpdate(patch={}){
    if(Array.isArray(patch.inputs)) liveEngineering.inputs=patch.inputs;
    if(Array.isArray(patch.mixEffects)) liveEngineering.mixEffects=patch.mixEffects;
-   if(Array.isArray(patch.downstreamKeyers)) liveEngineering.downstreamKeyers=patch.downstreamKeyers;\n   if(Array.isArray(patch.aux)) liveEngineering.routing=patch.aux;
+   if(Array.isArray(patch.downstreamKeyers)) liveEngineering.downstreamKeyers=patch.downstreamKeyers;
+   if(Array.isArray(patch.aux)) liveEngineering.routing=patch.aux;
    if(patch.productIdentifier!==undefined) liveEngineering.productIdentifier=patch.productIdentifier;
    if(patch.videoMode!==undefined) liveEngineering.videoMode=patch.videoMode;
    if(patch.topology!==undefined) liveEngineering.topology=patch.topology||{};
