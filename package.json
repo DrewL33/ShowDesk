@@ -6,8 +6,9 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "check": "node --check src/server.js && node --check public/transport.js",
-    "bundle": "node scripts/package-runtime.js"
+    "check": "node --check src/server.js && node --check public/transport.js && npm test",
+    "bundle": "node scripts/package-runtime.js",
+    "test": "node tests/signal-paths.test.js"
   },
   "dependencies": {
     "atem-connection": "^3.5.0",
