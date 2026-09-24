@@ -40,7 +40,8 @@ const ASSETS = {
   '/transport.js': ['transport.js', 'text/javascript; charset=utf-8']
 };
 
-const { normalizeState } = require('./atem-state');\nfunction discovery(state) {
+const { normalizeState } = require('./atem-state');
+function discovery(state) {
   const normalized = normalizeState(state) || { inputs: [], aux: [], mixEffects: [], downstreamKeyers: [] };
   return {
     name: normalized.productIdentifier || 'ATEM Switcher', ip: currentIp,
