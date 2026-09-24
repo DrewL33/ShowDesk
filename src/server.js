@@ -59,7 +59,9 @@ function normalizeState(state) {
   const mixEffects = (state.video?.mixEffects || []).filter(Boolean).map((me, i) => ({
     index: i + 1,
     pgm: inputName(state, me.programInput),
+    pgmId: me.programInput ?? null,
     pvw: inputName(state, me.previewInput),
+    pvwId: me.previewInput ?? null,
     transition: me.transitionPosition ? {
       inTransition: !!me.transitionPosition.inTransition,
       position: me.transitionPosition.handlePosition ?? null
@@ -70,14 +72,18 @@ function normalizeState(state) {
       onAir: !!keyer.onAir,
       type: keyer.mixEffectKeyType ?? keyer.type ?? null,
       fill: inputName(state, keyer.fillSource),
-      key: inputName(state, keyer.cutSource)
+      fillId: keyer.fillSource ?? null,
+      key: inputName(state, keyer.cutSource),
+      keyId: keyer.cutSource ?? null
     }))
   }));
   const downstreamKeyers = (state.video?.downstreamKeyers || []).filter(Boolean).map((keyer, i) => ({
     index: i + 1,
     onAir: !!keyer.onAir,
     fill: inputName(state, keyer.sources?.fillSource ?? keyer.fillSource),
-    key: inputName(state, keyer.sources?.cutSource ?? keyer.cutSource)
+    fillId: keyer.sources?.fillSource ?? keyer.fillSource ?? null,
+    key: inputName(state, keyer.sources?.cutSource ?? keyer.cutSource),
+    keyId: keyer.sources?.cutSource ?? keyer.cutSource ?? null
   }));
   const auxRaw = state.video?.auxilliaries || [];
   // ATEM exposes output destinations as input descriptors with InternalPortType.Auxiliary (129).
