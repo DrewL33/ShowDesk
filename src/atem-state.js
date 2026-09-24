@@ -1,4 +1,6 @@
-'use strict';\n\nfunction inputName(state, id) {
+'use strict';
+
+function inputName(state, id) {
   if (id === undefined || id === null) return '—';
   const input = state?.inputs?.[id];
   return input?.longName || input?.shortName || input?.externalPortType || `INPUT ${id}`;
@@ -114,4 +116,5 @@ function normalizeState(state) {
     }
   };
 }
-\nmodule.exports = { inputName, normalizeState };\n
+
+module.exports = { inputName, normalizeState };
