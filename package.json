@@ -6,7 +6,7 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "check": "node --check src/server.js && node --check public/transport.js && npm test",
+    "check": "node --check src/server.js && node --check src/atem-state.js && node --check public/transport.js && node --check public/signal-paths.js && npm test",
     "bundle": "node scripts/package-runtime.js",
     "test": "node tests/signal-paths.test.js"
   },
