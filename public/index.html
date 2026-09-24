@@ -785,35 +785,7 @@ function renderPaths(){
  const inputs=liveEngineering.inputs||[],mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
  const q=($("signalSearch")?.value||"").trim().toLowerCase();
  const byId=new Map(inputs.map(x=>[Number(x.id),x]));
- const meOutputFor=me=>{
-   const candidates=inputs.filter(x=>Number(x.internalPortType)===128);
-   const exact=candidates.find(x=>Number(x.meAvailability)===Math.pow(2,me.index-1));
-   if(exact)return exact;
-   return candidates.find(x=>{const n=((x.name||"")+" "+(x.shortName||"")).toLowerCase();return n.includes("m/e "+me.index)||n.includes("me "+me.index)||n.includes("me"+me.index)})||null;
- };
- const directUses=id=>{
-   const out=[];
-   mes.forEach(me=>{
-     if(Number(me.pgmId)===Number(id))out.push({kind:"program",label:"M/E "+me.index+" · PROGRAM",me,ftb:me.ftb});
-     if(Number(me.pvwId)===Number(id))out.push({kind:"preview",label:"M/E "+me.index+" · PREVIEW"});
-     (me.upstreamKeyers||[]).forEach(k=>{
-       if(Number(k.fillId)===Number(id)||Number(k.keyId)===Number(id))out.push({kind:"direct",label:"M/E "+me.index+" · USK "+k.index+" · "+(Number(k.fillId)===Number(id)?"FILL":"KEY")})
-     })
-   });
-   dsks.forEach(k=>{if(Number(k.fillId)===Number(id)||Number(k.keyId)===Number(id))out.push({kind:"direct",label:"DSK "+k.index+" · "+(Number(k.fillId)===Number(id)?"FILL":"KEY")})});
-   routing.forEach(r=>{if(Number(r.sourceId)===Number(id))out.push({kind:"route",label:r.name||("ATEM ROUTING BUS "+(r.busId??r.protocolBusId??r.rawIndex)),sub:""})});
-   return out
- };
- const descendants=(id,visited=new Set())=>{
-   const n=Number(id);if(visited.has(n))return[];
-   const next=new Set(visited);next.add(n);
-   return directUses(n).map(use=>{
-     if(!use.me||use.kind!=="program")return {...use,children:[]};
-     const internal=meOutputFor(use.me);
-     return {...use,children:internal?descendants(internal.id,next):[]}
-   })
- };
- const renderBranch=(b,depth=0)=>`<div class="treeBranchGroup"><div class="treeBranch ${b.kind}"><small>${b.kind==="program"?"PROGRAM":b.kind==="preview"?"PREVIEW":b.kind==="route"?"ATEM ROUTING":"ASSIGNMENT / PROCESSING"}</small><b>${b.label}</b>${b.ftb&&(b.ftb.isFullyBlack||b.ftb.inTransition)?'<span class="branchFtb">FTB</span>':""}${b.sub?`<small>${b.sub}</small>`:""}</div>${b.children?.length?`<div class="treeNested">${b.children.map(x=>renderBranch(x,depth+1)).join("")}</div>`:""}</div>`;
+ const descendants=window.ShowDeskSignalPaths.createSignalPathTracer({inputs,mixEffects:mes,downstreamKeyers:dsks,routing}).descendants;\n const renderBranch=(b,depth=0)=>`<div class="treeBranchGroup"><div class="treeBranch ${b.kind}"><small>${b.kind==="program"?"PROGRAM":b.kind==="preview"?"PREVIEW":b.kind==="route"?"ATEM ROUTING":"ASSIGNMENT / PROCESSING"}</small><b>${b.label}</b>${b.ftb&&(b.ftb.isFullyBlack||b.ftb.inTransition)?'<span class="branchFtb">FTB</span>':""}${b.sub?`<small>${b.sub}</small>`:""}</div>${b.children?.length?`<div class="treeNested">${b.children.map(x=>renderBranch(x,depth+1)).join("")}</div>`:""}</div>`;
  const classified=inputs.map(input=>{const name=input.name||("SOURCE "+input.id),physical=Number(input.internalPortType)===0&&Number(input.id)>0,branches=descendants(input.id);return {input,name,physical,branches}}).filter(x=>!q||[x.name,"input "+x.input.id,"source "+x.input.id,...x.branches.map(b=>b.label)].join(" ").toLowerCase().includes(q));
  const renderSource=x=>{const key="source:"+x.input.id,open=q||signalTreeOpen.has(key);return `<details class="treeSource" data-tree-key="${key}" ${open?"open":""}><summary><small>${x.physical?"ATEM INPUT "+x.input.id:"INTERNAL "+x.input.id}</small><b>${x.name}</b><em>${x.branches.length} path${x.branches.length===1?"":"s"}</em></summary><div class="treeBranches">${x.branches.length?x.branches.map(renderBranch).join(""):'<div class="treeBranch idlePath"><small>STATE</small><b>NO ACTIVE PATH</b><small>Signal path will appear when this source is in use.</small></div>'}</div></details>`};
  const physical=classified.filter(x=>x.physical),internal=classified.filter(x=>!x.physical),tree=$("signalTree");
@@ -923,6 +895,6 @@ window.ATEM_OPS=Object.assign(window.ATEM_OPS||{},{applyStateUpdate:applyAtemSta
 
 restorePersistedReference();updateReferenceUI();
 window.addEventListener("error",e=>{const s=$("setupStatus"),b=$("connectAtemBtn");if(s&&!$("setup").classList.contains("hidden")){s.textContent="ShowDesk browser error: "+(e.message||"Unknown error");s.style.color="var(--amber)";if(b){b.disabled=false;b.textContent="TRY AGAIN";}}});
-</script><div id="toast" class="toast"></div><script src="/transport.js"></script>
+</script><div id="toast" class="toast"></div><script src="/transport.js"></script>\n<script src="/signal-paths.js"></script>
 </body>
 </html>
