@@ -2,7 +2,7 @@ name: Build ShowDesk
 on:
   workflow_dispatch:
   push:
-    branches: ['main', 'beta']
+    branches: ['main', 'beta', 'tauri-migration']
     tags: ['v*']
 
 jobs:
