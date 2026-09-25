@@ -186,6 +186,20 @@ function renderInputs(){
   $("inputCountLabel").textContent=`${inputs.length} sources reported`;
 }
 function selectDestination(name){selectedDestination=name;renderPaths()}
+function drawSignalConnectors(){
+ document.querySelectorAll(".treeBranches").forEach(root=>{
+  let svg=root.querySelector(":scope > .signalConnectors");
+  if(!svg){svg=document.createElementNS("http://www.w3.org/2000/svg","svg");svg.setAttribute("class","signalConnectors");root.prepend(svg)}
+  const rr=root.getBoundingClientRect(),groups=[...root.querySelectorAll(".treeBranchGroup")];
+  svg.setAttribute("viewBox",`0 0 ${Math.max(1,root.clientWidth)} ${Math.max(1,root.scrollHeight)}`);svg.innerHTML="";
+  const path=d=>{const p=document.createElementNS("http://www.w3.org/2000/svg","path");p.setAttribute("d",d);svg.appendChild(p)};
+  const top=groups.filter(g=>!g.dataset.parentBranch);
+  if(top.length){const boxes=top.map(g=>g.querySelector(":scope > .treeBranch").getBoundingClientRect()),x=5,ys=boxes.map(b=>b.top-rr.top+b.height/2);path(`M ${x} ${Math.min(...ys)} V ${Math.max(...ys)}`);boxes.forEach((b,i)=>path(`M ${x} ${ys[i]} H ${b.left-rr.left}`))}
+  groups.filter(g=>g.dataset.parentBranch).forEach(g=>{const child=g.querySelector(":scope > .treeBranch"),parent=document.getElementById(g.dataset.parentBranch);if(!child||!parent)return;const p=parent.getBoundingClientRect(),b=child.getBoundingClientRect(),sx=p.left-rr.left+24,sy=p.bottom-rr.top,ey=b.top-rr.top+b.height/2,ex=b.left-rr.left;if(ey<sy)return;path(`M ${sx} ${sy} V ${ey} H ${ex}`)});
+ });
+}
+let signalConnectorResizeBound=false;
+function scheduleSignalConnectors(){requestAnimationFrame(()=>requestAnimationFrame(drawSignalConnectors));if(!signalConnectorResizeBound){window.addEventListener("resize",scheduleSignalConnectors);signalConnectorResizeBound=true}}
 function renderPaths(){
  const d=connectedDevice;if(!d)return;
  rememberSignalTreeState();
@@ -193,11 +207,13 @@ function renderPaths(){
  const q=($("signalSearch")?.value||"").trim().toLowerCase();
  const byId=new Map(inputs.map(x=>[Number(x.id),x]));
  const descendants=window.ShowDeskSignalPaths.createSignalPathTracer({inputs,mixEffects:mes,downstreamKeyers:dsks,routing}).descendants;
- const renderBranch=(b,depth=0)=>`<div class="treeBranchGroup"><div class="treeBranch ${b.kind}"><small>${b.kind==="program"?"PROGRAM":b.kind==="preview"?"PREVIEW":b.kind==="route"?"ATEM ROUTING":"ASSIGNMENT / PROCESSING"}</small><b>${b.label}</b>${b.ftb&&(b.ftb.isFullyBlack||b.ftb.inTransition)?'<span class="branchFtb">FTB</span>':""}${b.sub?`<small>${b.sub}</small>`:""}</div>${b.children?.length?`<div class="treeNested">${b.children.map(x=>renderBranch(x,depth+1)).join("")}</div>`:""}</div>`;
+ let branchSequence=0;
+ const renderBranch=(b,depth=0,parentId="")=>{const id="signal-branch-"+(++branchSequence);return `<div class="treeBranchGroup" data-branch-group="${id}" data-parent-branch="${parentId}"><div class="treeBranch ${b.kind}" id="${id}"><small>${b.kind==="program"?"PROGRAM":b.kind==="preview"?"PREVIEW":b.kind==="route"?"ATEM ROUTING":"ASSIGNMENT / PROCESSING"}</small><b>${b.label}</b>${b.ftb&&(b.ftb.isFullyBlack||b.ftb.inTransition)?'<span class="branchFtb">FTB</span>':""}${b.sub?`<small>${b.sub}</small>`:""}</div>${b.children?.length?`<div class="treeNested">${b.children.map(x=>renderBranch(x,depth+1,id)).join("")}</div>`:""}</div>`};
  const classified=inputs.map(input=>{const name=input.name||("SOURCE "+input.id),physical=Number(input.internalPortType)===0&&Number(input.id)>0,branches=descendants(input.id);return {input,name,physical,branches}}).filter(x=>!q||[x.name,"input "+x.input.id,"source "+x.input.id,...x.branches.map(b=>b.label)].join(" ").toLowerCase().includes(q));
  const renderSource=x=>{const key="source:"+x.input.id,open=q||signalTreeOpen.has(key);return `<details class="treeSource" data-tree-key="${key}" ${open?"open":""}><summary><small>${x.physical?"ATEM INPUT "+x.input.id:"INTERNAL "+x.input.id}</small><b>${x.name}</b><em>${x.branches.length} path${x.branches.length===1?"":"s"}</em></summary><div class="treeBranches">${x.branches.length?x.branches.map(renderBranch).join(""):'<div class="treeBranch idlePath"><small>STATE</small><b>NO ACTIVE PATH</b><small>Signal path will appear when this source is in use.</small></div>'}</div></details>`};
  const physical=classified.filter(x=>x.physical),internal=classified.filter(x=>!x.physical),tree=$("signalTree");
  if(tree)tree.innerHTML=`<details class="treeGroup" data-tree-key="group:physical" ${signalTreeOpen.has("group:physical")||q?"open":""}><summary>PHYSICAL INPUTS <span>${physical.length}</span></summary><div class="treeGroupBody">${physical.map(renderSource).join("")||'<div class="emptyRoute">No matching physical inputs.</div>'}</div></details><details class="treeGroup" data-tree-key="group:internal" ${signalTreeOpen.has("group:internal")||q?"open":""}><summary>INTERNAL SOURCES <span>${internal.length}</span></summary><div class="treeGroupBody">${internal.map(renderSource).join("")||'<div class="emptyRoute">No matching internal sources.</div>'}</div></details>`;
+ scheduleSignalConnectors();
  const topo=liveEngineering.topology||{};if($("flowSources"))$("flowSources").textContent=topo.reportedSources??inputs.length;if($("flowMes"))$("flowMes").textContent=mes.length;if($("flowDests"))$("flowDests").textContent=routing.length;if($("flowIssues"))$("flowIssues").textContent=baselineState.attached?getMismatches().length:"—";
 }
 function render(){
