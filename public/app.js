@@ -194,7 +194,7 @@ function drawSignalConnectors(){
   svg.setAttribute("viewBox",`0 0 ${Math.max(1,root.clientWidth)} ${Math.max(1,root.scrollHeight)}`);svg.innerHTML="";
   const path=d=>{const p=document.createElementNS("http://www.w3.org/2000/svg","path");p.setAttribute("d",d);svg.appendChild(p)};
   const top=groups.filter(g=>!g.dataset.parentBranch);
-  if(top.length){const boxes=top.map(g=>g.querySelector(":scope > .treeBranch").getBoundingClientRect()),x=5,ys=boxes.map(b=>b.top-rr.top+b.height/2);path(`M ${x} ${Math.min(...ys)} V ${Math.max(...ys)}`);boxes.forEach((b,i)=>path(`M ${x} ${ys[i]} H ${b.left-rr.left}`))}
+  if(top.length){const boxes=top.map(g=>g.querySelector(":scope > .treeBranch").getBoundingClientRect()),x=5,ys=boxes.map(b=>b.top-rr.top+b.height/2),trunkTop=Math.max(0,Math.min(...ys)-22);path(`M ${x} ${trunkTop} V ${Math.max(...ys)}`);boxes.forEach((b,i)=>path(`M ${x} ${ys[i]} H ${b.left-rr.left}`))}
   groups.filter(g=>g.dataset.parentBranch).forEach(g=>{const child=g.querySelector(":scope > .treeBranch"),parent=document.getElementById(g.dataset.parentBranch);if(!child||!parent)return;const p=parent.getBoundingClientRect(),b=child.getBoundingClientRect(),sx=p.left-rr.left+24,sy=p.bottom-rr.top,ey=b.top-rr.top+b.height/2,ex=b.left-rr.left;if(ey<sy)return;path(`M ${sx} ${sy} V ${ey} H ${ex}`)});
  });
 }
