@@ -12,9 +12,9 @@ jobs:
       matrix:
         include:
           - os: macos-14
-            artifact: ShowDesk-Beta2-Build025-macOS-arm64
+            artifact: ShowDesk-Beta2-Build026-macOS-arm64
           - os: windows-latest
-            artifact: ShowDesk-Beta2-Build025-Windows-x64
+            artifact: ShowDesk-Beta2-Build026-Windows-x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -117,9 +117,10 @@ jobs:
             <key>CFBundleName</key><string>ShowDesk</string>
             <key>CFBundleDisplayName</key><string>ShowDesk</string>
             <key>CFBundleIdentifier</key><string>app.showdesk.beta</string>
-            <key>CFBundleVersion</key><string>25</string>
-            <key>CFBundleShortVersionString</key><string>0.1.0-beta.2.25</string>
+            <key>CFBundleVersion</key><string>26</string>
+            <key>CFBundleShortVersionString</key><string>0.1.0-beta.2.26</string>
             <key>CFBundleExecutable</key><string>ShowDesk</string>
+            <key>LSUIElement</key><true/>
             <key>LSMinimumSystemVersion</key><string>11.0</string>
             <key>NSHighResolutionCapable</key><true/>
           </dict></plist>
@@ -127,8 +128,37 @@ jobs:
           cat > "$CONTENTS/MacOS/ShowDesk" <<'EOF'
           #!/bin/sh
           CONTENTS="$(cd "$(dirname "$0")/.." && pwd)"
-          cd "$CONTENTS/Resources/app"
-          exec "$CONTENTS/MacOS/showdesk-node" ./src/server.js
+          APPDIR="$CONTENTS/Resources/app"
+          URL="http://127.0.0.1:47821/"
+          HEALTH="$URL"
+          LOG="$HOME/Library/Logs/ShowDesk.log"
+          mkdir -p "$(dirname "$LOG")"
+
+          # The browser is the UI for this beta shell. Keep the .app itself out
+          # of the Dock so macOS does not treat the Node server as a GUI app.
+          if /usr/bin/curl --silent --fail --max-time 1 "$HEALTH" >/dev/null 2>&1; then
+            if [ "$SHOWDESK_NO_OPEN" != "1" ]; then /usr/bin/open "$URL"; fi
+            exit 0
+          fi
+
+          cd "$APPDIR"
+          SHOWDESK_NO_OPEN=1 "$CONTENTS/MacOS/showdesk-node" ./src/server.js >>"$LOG" 2>&1 &
+          SERVER_PID=$!
+
+          i=0
+          while [ $i -lt 40 ]; do
+            if /usr/bin/curl --silent --fail --max-time 1 "$HEALTH" >/dev/null 2>&1; then
+              if [ "$SHOWDESK_NO_OPEN" != "1" ]; then /usr/bin/open "$URL"; fi
+              exit 0
+            fi
+            if ! /bin/kill -0 "$SERVER_PID" 2>/dev/null; then
+              exit 1
+            fi
+            /bin/sleep 0.1
+            i=$((i+1))
+          done
+          /bin/kill "$SERVER_PID" 2>/dev/null || true
+          exit 1
           EOF
           chmod +x "$CONTENTS/MacOS/ShowDesk" "$CONTENTS/MacOS/showdesk-node"
           plutil -lint "$CONTENTS/Info.plist"
@@ -141,20 +171,22 @@ jobs:
         env:
           SHOWDESK_NO_OPEN: '1'
         run: |
-          package/ShowDesk.app/Contents/MacOS/ShowDesk > app-smoke.log 2>&1 &
-          APP_PID=$!
-          sleep 3
+          package/ShowDesk.app/Contents/MacOS/ShowDesk > app-smoke.log 2>&1
           curl --fail --silent --show-error http://127.0.0.1:47821/ | grep -q SHOWDESK || { cat app-smoke.log; exit 1; }
-          kill $APP_PID || true
+          # A second launch must reuse the existing server rather than starting
+          # another foreground application instance.
+          package/ShowDesk.app/Contents/MacOS/ShowDesk >> app-smoke.log 2>&1
+          curl --fail --silent --show-error http://127.0.0.1:47821/ | grep -q SHOWDESK || { cat app-smoke.log; exit 1; }
+          pkill -f 'ShowDesk.app/Contents/MacOS/showdesk-node.*src/server.js' || true
 
       - name: Create distribution archive
         shell: bash
         run: |
           rm -f dist/smoke.log dist/smoke-index.html dist/smoke-app.js dist/smoke-styles.css dist/smoke-reference-parser.js
           if [ "$RUNNER_OS" = "Windows" ]; then
-            powershell -NoProfile -Command "Compress-Archive -Path dist\* -DestinationPath ShowDesk-Beta2-Build025-Windows-x64.zip"
+            powershell -NoProfile -Command "Compress-Archive -Path dist\* -DestinationPath ShowDesk-Beta2-Build026-Windows-x64.zip"
           else
-            ditto -c -k --sequesterRsrc --keepParent package/ShowDesk.app ShowDesk-Beta2-Build025-macOS-arm64.zip
+            ditto -c -k --sequesterRsrc --keepParent package/ShowDesk.app ShowDesk-Beta2-Build026-macOS-arm64.zip
           fi
 
       - uses: actions/upload-artifact@v4
