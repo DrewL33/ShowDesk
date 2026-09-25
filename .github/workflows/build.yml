@@ -36,6 +36,9 @@ jobs:
           node --check public/app.js
           grep -q 'src="/app.js"' public/index.html
           grep -q 'href="/styles.css"' public/index.html
+      - name: Build portable application tree
+        run: npm run bundle
+
       - name: Package Node runtime
         shell: bash
         run: |
