@@ -123,6 +123,11 @@ function normalizeReferenceObject(obj){
  return {routes,pgm:obj.pgm||obj.program||obj.baseline?.pgm||null,pvw:obj.pvw||obj.preview||obj.baseline?.pvw||null,metadata:obj.metadata||{}};
 }
 function parseXmlReference(text){
+ const nativeParser=window.ShowDeskReferenceParser?.parseAtemSoftwareControlXml;
+ if(/<Profile\b/i.test(text)){
+   if(typeof nativeParser!=="function")throw new Error("ATEM reference parser is not available.");
+   return nativeParser(text);
+ }
  const doc=new DOMParser().parseFromString(text,"application/xml");
  if(doc.querySelector("parsererror"))throw new Error("Invalid XML");
  const routes={};
@@ -166,7 +171,7 @@ async function importReferenceFile(event){
    baselineState.attached=true;baselineState.name=file.name;baselineState.loadedAt=new Date().toISOString();baselineState.pgm=ref.pgm;baselineState.pvw=ref.pvw;baselineState.metadata=ref.metadata||{};
    Object.keys(baselineState.routes).forEach(k=>delete baselineState.routes[k]);Object.assign(baselineState.routes,ref.routes);
    recordEvent("REFERENCE",`Reference attached: ${file.name}`,{routes:Object.keys(ref.routes).length});persistReference();updateReferenceUI();render();toast("Reference attached");
- }catch(err){toast("Reference not imported");alert("ShowDesk could not use this reference file. "+err.message+"\n\nFor now, import JSON containing routes/outputs/aux, or XML with output/aux/route elements that identify a destination and source.");}
+ }catch(err){toast("Reference not imported");alert("ShowDesk could not use this reference file. "+err.message+"\n\nImport an ATEM Software Control XML profile, ShowDesk JSON reference, or compatible XML reference.");}
  event.target.value="";
 }
 function clearReference(){
