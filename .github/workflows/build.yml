@@ -12,9 +12,9 @@ jobs:
       matrix:
         include:
           - os: macos-14
-            artifact: ShowDesk-Beta2-Build023-macOS-arm64
+            artifact: ShowDesk-Beta2-Build024-macOS-arm64
           - os: windows-latest
-            artifact: ShowDesk-Beta2-Build023-Windows-x64
+            artifact: ShowDesk-Beta2-Build024-Windows-x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -115,8 +115,8 @@ jobs:
             <key>CFBundleName</key><string>ShowDesk</string>
             <key>CFBundleDisplayName</key><string>ShowDesk</string>
             <key>CFBundleIdentifier</key><string>app.showdesk.beta</string>
-            <key>CFBundleVersion</key><string>23</string>
-            <key>CFBundleShortVersionString</key><string>0.1.0-beta.2.23</string>
+            <key>CFBundleVersion</key><string>24</string>
+            <key>CFBundleShortVersionString</key><string>0.1.0-beta.2.24</string>
             <key>CFBundleExecutable</key><string>ShowDesk</string>
             <key>LSMinimumSystemVersion</key><string>11.0</string>
             <key>NSHighResolutionCapable</key><true/>
@@ -150,9 +150,9 @@ jobs:
         run: |
           rm -f dist/smoke.log dist/smoke-index.html dist/smoke-app.js dist/smoke-styles.css
           if [ "$RUNNER_OS" = "Windows" ]; then
-            powershell -NoProfile -Command "Compress-Archive -Path dist\* -DestinationPath ShowDesk-Beta2-Build023-Windows-x64.zip"
+            powershell -NoProfile -Command "Compress-Archive -Path dist\* -DestinationPath ShowDesk-Beta2-Build024-Windows-x64.zip"
           else
-            ditto -c -k --sequesterRsrc --keepParent package/ShowDesk.app ShowDesk-Beta2-Build023-macOS-arm64.zip
+            ditto -c -k --sequesterRsrc --keepParent package/ShowDesk.app ShowDesk-Beta2-Build024-macOS-arm64.zip
           fi
 
       - uses: actions/upload-artifact@v4
