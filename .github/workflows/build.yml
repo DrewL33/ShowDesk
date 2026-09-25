@@ -12,9 +12,9 @@ jobs:
       matrix:
         include:
           - os: macos-14
-            artifact: ShowDesk-Beta2-Build020-macOS-arm64
+            artifact: ShowDesk-Beta2-Build021-macOS-arm64
           - os: windows-latest
-            artifact: ShowDesk-Beta2-Build020-Windows-x64
+            artifact: ShowDesk-Beta2-Build021-Windows-x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -95,9 +95,9 @@ jobs:
         run: |
           rm -f dist/smoke.log dist/smoke-index.html dist/smoke-app.js dist/smoke-styles.css
           if [ "$RUNNER_OS" = "Windows" ]; then
-            powershell -NoProfile -Command "Compress-Archive -Path dist\* -DestinationPath ShowDesk-Beta2-Build020-Windows-x64.zip"
+            powershell -NoProfile -Command "Compress-Archive -Path dist\* -DestinationPath ShowDesk-Beta2-Build021-Windows-x64.zip"
           else
-            ditto -c -k --sequesterRsrc --keepParent dist ShowDesk-Beta2-Build020-macOS-arm64.zip
+            ditto -c -k --sequesterRsrc --keepParent dist ShowDesk-Beta2-Build021-macOS-arm64.zip
           fi
 
       - uses: actions/upload-artifact@v4
