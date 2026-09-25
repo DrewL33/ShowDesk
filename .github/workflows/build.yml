@@ -100,6 +100,14 @@ jobs:
           cp dist/runtime/node "$CONTENTS/MacOS/showdesk-node"
           cp -R dist/src dist/public dist/package.json "$CONTENTS/Resources/app/"
           ditto --noqtn dist/node_modules "$CONTENTS/Resources/app/node_modules"
+          # codesign rejects dependency symlinks that resolve outside the .app bundle.
+          # Replace symlinks with their resolved contents so the bundle is self-contained.
+          find "$CONTENTS/Resources/app/node_modules" -type l | while read -r link; do
+            target="$(readlink "$link")"
+            resolved="$(cd "$(dirname "$link")" && cd "$(dirname "$target")" && pwd)/$(basename "$target")"
+            rm "$link"
+            if [ -d "$resolved" ]; then cp -R "$resolved" "$link"; else cp "$resolved" "$link"; fi
+          done
           cat > "$CONTENTS/Info.plist" <<'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
