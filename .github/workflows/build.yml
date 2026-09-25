@@ -6,6 +6,23 @@ on:
     tags: ['v*']
 
 jobs:
+  tauri-shell:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm install
+      - run: npm run check
+      - name: Build Tauri desktop shell
+        run: npm run tauri:build
+
   build:
     strategy:
       fail-fast: false
