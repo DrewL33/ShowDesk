@@ -98,7 +98,8 @@ jobs:
           CONTENTS="$APP/Contents"
           mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources/app"
           cp dist/runtime/node "$CONTENTS/MacOS/showdesk-node"
-          cp -R dist/src dist/public dist/node_modules dist/package.json "$CONTENTS/Resources/app/"
+          cp -R dist/src dist/public dist/package.json "$CONTENTS/Resources/app/"
+          ditto --noqtn dist/node_modules "$CONTENTS/Resources/app/node_modules"
           cat > "$CONTENTS/Info.plist" <<'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
