@@ -12,9 +12,9 @@ jobs:
       matrix:
         include:
           - os: macos-14
-            artifact: ShowDesk-Beta2-Build022-macOS-arm64
+            artifact: ShowDesk-Beta2-Build023-macOS-arm64
           - os: windows-latest
-            artifact: ShowDesk-Beta2-Build022-Windows-x64
+            artifact: ShowDesk-Beta2-Build023-Windows-x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -90,14 +90,60 @@ jobs:
           node -e "const WebSocket=require('../node_modules/ws'); const ws=new WebSocket('ws://127.0.0.1:47821/ws'); const timer=setTimeout(()=>{console.error('ATEM runtime smoke test timed out');process.exit(1)},12000); ws.on('open',()=>ws.send(JSON.stringify({id:'smoke-connect',type:'connect',ip:'127.0.0.1'}))); ws.on('message',d=>{const m=JSON.parse(d); if(m.replyTo!=='smoke-connect')return; clearTimeout(timer); const e=m.error||''; if(/constructor|freetype|binding|module loaded|packaged ATEM runtime|No such built-in module|Cannot find module/i.test(e)){console.error(e);process.exit(1)} process.exit(0)}); ws.on('error',e=>{console.error(e);process.exit(1)})"
           kill $APP_PID || true
 
+      - name: Create macOS application bundle
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          APP="package/ShowDesk.app"
+          CONTENTS="$APP/Contents"
+          mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources/app"
+          cp dist/runtime/node "$CONTENTS/MacOS/showdesk-node"
+          cp -R dist/src dist/public dist/node_modules dist/package.json "$CONTENTS/Resources/app/"
+          cat > "$CONTENTS/Info.plist" <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CFBundleName</key><string>ShowDesk</string>
+            <key>CFBundleDisplayName</key><string>ShowDesk</string>
+            <key>CFBundleIdentifier</key><string>app.showdesk.beta</string>
+            <key>CFBundleVersion</key><string>23</string>
+            <key>CFBundleShortVersionString</key><string>0.1.0-beta.2.23</string>
+            <key>CFBundleExecutable</key><string>ShowDesk</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict></plist>
+          EOF
+          cat > "$CONTENTS/MacOS/ShowDesk" <<'EOF'
+          #!/bin/sh
+          CONTENTS="$(cd "$(dirname "$0")/.." && pwd)"
+          cd "$CONTENTS/Resources/app"
+          exec "$CONTENTS/MacOS/showdesk-node" ./src/server.js
+          EOF
+          chmod +x "$CONTENTS/MacOS/ShowDesk" "$CONTENTS/MacOS/showdesk-node"
+          plutil -lint "$CONTENTS/Info.plist"
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+      - name: Smoke test macOS application bundle
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          SHOWDESK_NO_OPEN: '1'
+        run: |
+          package/ShowDesk.app/Contents/MacOS/ShowDesk > app-smoke.log 2>&1 &
+          APP_PID=$!
+          sleep 3
+          curl --fail --silent --show-error http://127.0.0.1:47821/ | grep -q SHOWDESK || { cat app-smoke.log; exit 1; }
+          kill $APP_PID || true
+
       - name: Create distribution archive
         shell: bash
         run: |
           rm -f dist/smoke.log dist/smoke-index.html dist/smoke-app.js dist/smoke-styles.css
           if [ "$RUNNER_OS" = "Windows" ]; then
-            powershell -NoProfile -Command "Compress-Archive -Path dist\* -DestinationPath ShowDesk-Beta2-Build022-Windows-x64.zip"
+            powershell -NoProfile -Command "Compress-Archive -Path dist\* -DestinationPath ShowDesk-Beta2-Build023-Windows-x64.zip"
           else
-            ditto -c -k --sequesterRsrc --keepParent dist ShowDesk-Beta2-Build022-macOS-arm64.zip
+            ditto -c -k --sequesterRsrc --keepParent package/ShowDesk.app ShowDesk-Beta2-Build023-macOS-arm64.zip
           fi
 
       - uses: actions/upload-artifact@v4
