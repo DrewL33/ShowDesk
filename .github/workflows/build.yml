@@ -79,6 +79,10 @@ jobs:
             exit 1
           fi
           grep -q "SHOWDESK" smoke-index.html
+          curl --fail --silent --show-error http://127.0.0.1:47821/app.js > smoke-app.js
+          grep -q "window.__showDeskConnectInvoked" smoke-app.js
+          curl --fail --silent --show-error http://127.0.0.1:47821/styles.css > smoke-styles.css
+          grep -q -- "--sd-canvas" smoke-styles.css
           ../node_modules/.bin/node -e "" 2>/dev/null || true
           node -e "const WebSocket=require('../node_modules/ws'); const ws=new WebSocket('ws://127.0.0.1:47821/ws'); const timer=setTimeout(()=>{console.error('ATEM runtime smoke test timed out');process.exit(1)},12000); ws.on('open',()=>ws.send(JSON.stringify({id:'smoke-connect',type:'connect',ip:'127.0.0.1'}))); ws.on('message',d=>{const m=JSON.parse(d); if(m.replyTo!=='smoke-connect')return; clearTimeout(timer); const e=m.error||''; if(/constructor|freetype|binding|module loaded|packaged ATEM runtime|No such built-in module|Cannot find module/i.test(e)){console.error(e);process.exit(1)} process.exit(0)}); ws.on('error',e=>{console.error(e);process.exit(1)})"
           kill $APP_PID || true
@@ -86,7 +90,7 @@ jobs:
       - name: Create distribution archive
         shell: bash
         run: |
-          rm -f dist/smoke.log dist/smoke-index.html
+          rm -f dist/smoke.log dist/smoke-index.html dist/smoke-app.js dist/smoke-styles.css
           if [ "$RUNNER_OS" = "Windows" ]; then
             powershell -NoProfile -Command "Compress-Archive -Path dist\* -DestinationPath ShowDesk-Beta2-Build020-Windows-x64.zip"
           else
