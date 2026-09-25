@@ -39,6 +39,7 @@ const ASSETS = {
   '/index.html': ['index.html', 'text/html; charset=utf-8'],
   '/transport.js': ['transport.js', 'text/javascript; charset=utf-8'],
   '/signal-paths.js': ['signal-paths.js', 'text/javascript; charset=utf-8'],
+  '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
   '/styles.css': ['styles.css', 'text/css; charset=utf-8']
 };
 
