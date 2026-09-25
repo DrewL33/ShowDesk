@@ -8,7 +8,9 @@
     "start": "node src/server.js",
     "check": "node --check src/server.js && node --check src/atem-state.js && node --check src/static-assets.js && node --check public/transport.js && node --check public/signal-paths.js && node --check public/reference-parser.js && node --check public/app.js && npm test",
     "bundle": "node scripts/package-runtime.js",
-    "test": "node tests/signal-paths.test.js && node tests/atem-state.test.js && node tests/reference-parser.test.js"
+    "test": "node tests/signal-paths.test.js && node tests/atem-state.test.js && node tests/reference-parser.test.js",
+    "tauri": "tauri",
+    "tauri:build": "tauri build"
   },
   "dependencies": {
     "atem-connection": "^3.5.0",
@@ -16,6 +18,7 @@
   },
   "devDependencies": {
     "esbuild": "^0.25.0",
-    "postject": "^1.0.0-alpha.6"
+    "postject": "^1.0.0-alpha.6",
+    "@tauri-apps/cli": "^2.0.0"
   }
 }
