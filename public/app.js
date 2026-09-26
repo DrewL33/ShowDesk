@@ -324,3 +324,54 @@ window.ATEM_OPS=Object.assign(window.ATEM_OPS||{},{applyStateUpdate:applyAtemSta
 
 restorePersistedReference();updateReferenceUI();
 window.addEventListener("error",e=>{const s=$("setupStatus"),b=$("connectAtemBtn");if(s&&!$("setup").classList.contains("hidden")){s.textContent="ShowDesk browser error: "+(e.message||"Unknown error");s.style.color="var(--amber)";if(b){b.disabled=false;b.textContent="TRY AGAIN";}}});
+
+
+/* Native desktop updater. Browser builds ignore this path entirely. */
+function tauriInvoke(){
+  return window.__TAURI_INTERNALS__?.invoke || null;
+}
+function showUpdateDialog(version){
+  const dialog=$("updateDialog"),title=$("updateTitle"),message=$("updateMessage"),install=$("updateInstallBtn");
+  if(!dialog)return;
+  if(title)title.textContent="UPDATE AVAILABLE";
+  if(message)message.textContent=version?`ShowDesk ${version} is ready to install.`:"A new ShowDesk update is ready to install.";
+  if(install){install.disabled=false;install.textContent="UPDATE & RESTART";}
+  dialog.hidden=false;
+}
+function dismissShowDeskUpdate(){const dialog=$("updateDialog");if(dialog)dialog.hidden=true}
+async function checkForShowDeskUpdate(manual=false){
+  const invoke=tauriInvoke();
+  if(!invoke)return;
+  const btn=$("updateCheckBtn");
+  if(manual&&btn){btn.disabled=true;btn.textContent="CHECKING…";}
+  try{
+    const result=await invoke("check_for_update");
+    if(result?.available)showUpdateDialog(result.version);
+    else if(manual&&typeof toast==="function")toast("SHOWDESK IS UP TO DATE");
+  }catch(error){
+    if(manual&&typeof toast==="function")toast("UPDATE CHECK FAILED");
+    console.error("ShowDesk update check failed:",error);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent="CHECK FOR UPDATES";}
+  }
+}
+async function installShowDeskUpdate(){
+  const invoke=tauriInvoke(),install=$("updateInstallBtn");
+  if(!invoke||!install)return;
+  install.disabled=true;install.textContent="DOWNLOADING UPDATE…";
+  try{
+    await invoke("install_update");
+  }catch(error){
+    install.disabled=false;install.textContent="TRY UPDATE AGAIN";
+    if($("updateMessage"))$("updateMessage").textContent="The update could not be installed. ShowDesk is still running normally.";
+    console.error("ShowDesk update install failed:",error);
+  }
+}
+window.checkForShowDeskUpdate=checkForShowDeskUpdate;
+window.dismissShowDeskUpdate=dismissShowDeskUpdate;
+window.installShowDeskUpdate=installShowDeskUpdate;
+document.addEventListener("DOMContentLoaded",()=>{
+  if(!tauriInvoke())return;
+  const btn=$("updateCheckBtn");if(btn)btn.hidden=false;
+  setTimeout(()=>checkForShowDeskUpdate(false),1200);
+});
