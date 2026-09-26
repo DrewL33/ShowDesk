@@ -20,6 +20,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: npm install
       - run: npm run check
+      - name: Generate native icons from selected ShowDesk SD artwork
+        run: npx tauri icon src-tauri/icons/icon.png
       - name: Build Tauri desktop shell
         run: npm run tauri:build
 
