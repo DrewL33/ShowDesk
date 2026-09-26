@@ -14,7 +14,10 @@
   },
   "dependencies": {
     "atem-connection": "^3.5.0",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-updater": "^2.0.0",
+    "@tauri-apps/plugin-process": "^2.0.0"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",
