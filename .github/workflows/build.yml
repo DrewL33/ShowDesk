@@ -24,13 +24,28 @@ jobs:
         run: npx tauri icon src-tauri/icons/icon.png
       - name: Build Tauri desktop shell
         run: npm run tauri:build
+      - name: Verify and package native macOS Build027
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          APP="src-tauri/target/release/bundle/macos/ShowDesk.app"
+          test -d "$APP"
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          spctl --assess --type execute --verbose=4 "$APP" || true
+          rm -f src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build027-Native-macOS.zip
+          ditto -c -k --sequesterRsrc --keepParent "$APP" src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build027-Native-macOS.zip
+          rm -rf /tmp/showdesk-verify
+          mkdir -p /tmp/showdesk-verify
+          ditto -x -k src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build027-Native-macOS.zip /tmp/showdesk-verify
+          codesign --verify --deep --strict --verbose=2 /tmp/showdesk-verify/ShowDesk.app
       - name: Upload native Build027
         uses: actions/upload-artifact@v4
         with:
           name: ShowDesk-Beta2-Build027-Native-${{ runner.os }}
           path: |
             src-tauri/target/release/bundle/dmg/*.dmg
-            src-tauri/target/release/bundle/macos/*.app
+            src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build027-Native-macOS.zip
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
