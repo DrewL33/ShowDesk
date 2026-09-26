@@ -33,6 +33,18 @@ jobs:
           codesign --force --deep --sign - "$APP"
           codesign --verify --deep --strict --verbose=2 "$APP"
           spctl --assess --type execute --verbose=4 "$APP" || true
+          DMG="src-tauri/target/release/bundle/dmg/ShowDesk-Beta2-Build027-Native-macOS.dmg"
+          rm -f "$DMG"
+          STAGE="$(mktemp -d)"
+          cp -R "$APP" "$STAGE/ShowDesk.app"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create -volname "ShowDesk" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+          rm -rf "$STAGE"
+          MOUNT="$(mktemp -d)"
+          hdiutil attach "$DMG" -readonly -nobrowse -mountpoint "$MOUNT"
+          codesign --verify --deep --strict --verbose=2 "$MOUNT/ShowDesk.app"
+          hdiutil detach "$MOUNT"
+          rmdir "$MOUNT"
           rm -f src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build027-Native-macOS.zip
           ditto -c -k --sequesterRsrc --keepParent "$APP" src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build027-Native-macOS.zip
           rm -rf /tmp/showdesk-verify
@@ -44,7 +56,7 @@ jobs:
         with:
           name: ShowDesk-Beta2-Build027-Native-${{ runner.os }}
           path: |
-            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/dmg/ShowDesk-Beta2-Build027-Native-macOS.dmg
             src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build027-Native-macOS.zip
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/nsis/*.exe
