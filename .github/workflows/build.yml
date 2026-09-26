@@ -23,6 +23,9 @@ jobs:
       - name: Generate native icons from selected ShowDesk SD artwork
         run: npx tauri icon src-tauri/icons/icon.png
       - name: Build Tauri desktop shell
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run tauri:build
       - name: Verify and package native macOS Build027
         if: runner.os == 'macOS'
