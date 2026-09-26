@@ -2,21 +2,75 @@ name: Build ShowDesk
 on:
   workflow_dispatch:
   push:
-    branches: ['main']
+    branches: ['main', 'beta', 'tauri-migration']
     tags: ['v*']
 
 jobs:
+  tauri-shell:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm install
+      - run: npm run check
+      - name: Generate native icons from selected ShowDesk SD artwork
+        run: npx tauri icon src-tauri/icons/icon.png
+      - name: Build Tauri desktop shell
+        run: npm run tauri:build
+      - name: Verify and package native macOS Build027
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          APP="src-tauri/target/release/bundle/macos/ShowDesk.app"
+          test -d "$APP"
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          spctl --assess --type execute --verbose=4 "$APP" || true
+          DMG="src-tauri/target/release/bundle/dmg/ShowDesk-Beta2-Build027-Native-macOS.dmg"
+          rm -f "$DMG"
+          STAGE="$(mktemp -d)"
+          cp -R "$APP" "$STAGE/ShowDesk.app"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create -volname "ShowDesk" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+          rm -rf "$STAGE"
+          MOUNT="$(mktemp -d)"
+          hdiutil attach "$DMG" -readonly -nobrowse -mountpoint "$MOUNT"
+          codesign --verify --deep --strict --verbose=2 "$MOUNT/ShowDesk.app"
+          hdiutil detach "$MOUNT"
+          rmdir "$MOUNT"
+          rm -f src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build027-Native-macOS.zip
+          ditto -c -k --sequesterRsrc --keepParent "$APP" src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build027-Native-macOS.zip
+          rm -rf /tmp/showdesk-verify
+          mkdir -p /tmp/showdesk-verify
+          ditto -x -k src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build027-Native-macOS.zip /tmp/showdesk-verify
+          codesign --verify --deep --strict --verbose=2 /tmp/showdesk-verify/ShowDesk.app
+      - name: Upload native Build027
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShowDesk-Beta2-Build027-Native-${{ runner.os }}
+          path: |
+            src-tauri/target/release/bundle/dmg/ShowDesk-Beta2-Build027-Native-macOS.dmg
+            src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build027-Native-macOS.zip
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
   build:
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: macos-14
-            artifact: ShowDesk-macOS-arm64
-          - os: macos-13
-            artifact: ShowDesk-macOS-x64
+            artifact: ShowDesk-Beta2-Build026-macOS-arm64
           - os: windows-latest
-            artifact: ShowDesk-Windows-x64
+            artifact: ShowDesk-Beta2-Build026-Windows-x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -25,56 +79,174 @@ jobs:
           node-version: '22'
       - run: npm install
       - run: npm run check
-      - run: npm run bundle
-      - name: Stage native freetype binding
+      - name: Validate browser connection wiring
         shell: bash
         run: |
-          mkdir -p dist/prebuilds
-          cp -R node_modules/@julusian/freetype2/prebuilds/* dist/prebuilds/
-      - run: node scripts/make-sea-config.js
-      - run: node --experimental-sea-config dist/sea-config.json
-      - name: Create SEA executable
+          grep -q 'onclick="connectAtem()"' public/index.html
+          grep -q 'window.__showDeskConnectInvoked' public/app.js
+          grep -q 'transport.connect(ip)' public/app.js
+          grep -q 'class="matrixViewport"><div class="matrix" id="routingMatrix"' public/index.html
+      - name: Validate extracted browser application
+        shell: bash
+        run: |
+          node --check public/app.js
+          grep -q 'src="/app.js"' public/index.html
+          grep -q 'href="/styles.css"' public/index.html
+      - name: Build portable application tree
+        run: npm run bundle
+
+      - name: Package Node runtime
+        shell: bash
+        run: |
+          mkdir -p dist/runtime
+          node -e "require('fs').copyFileSync(process.execPath, process.platform === 'win32' ? 'dist/runtime/node.exe' : 'dist/runtime/node')"
+          if [ "$RUNNER_OS" != "Windows" ]; then chmod +x dist/runtime/node; fi
+
+      - name: Create launchers
         shell: bash
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
-            node -e "require('fs').copyFileSync(process.execPath, 'dist/ShowDesk.exe')"
-            npx postject dist/ShowDesk.exe NODE_SEA_BLOB dist/sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
+            cat > dist/ShowDesk.cmd <<'EOF'
+          @echo off
+          cd /d "%~dp0"
+          runtime\node.exe src\server.js
+          EOF
           else
-            cp "$(command -v node)" dist/ShowDesk
-            if [ "$RUNNER_OS" = "macOS" ]; then
-              codesign --remove-signature dist/ShowDesk || true
-              npx postject dist/ShowDesk NODE_SEA_BLOB dist/sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 --macho-segment-name NODE_SEA
-            else
-              npx postject dist/ShowDesk NODE_SEA_BLOB dist/sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
-            fi
+            cat > dist/ShowDesk <<'EOF'
+          #!/bin/sh
+          cd "$(dirname "$0")"
+          exec ./runtime/node ./src/server.js
+          EOF
+            chmod +x dist/ShowDesk
           fi
-      - name: Ad-hoc sign macOS build
-        if: runner.os == 'macOS'
-        run: codesign --force --sign - dist/ShowDesk
-      - name: Smoke test packaged executable
+
+      - name: Smoke test packaged runtime
         shell: bash
         env:
           SHOWDESK_NO_OPEN: '1'
         run: |
+          cd dist
           if [ "$RUNNER_OS" = "Windows" ]; then
-            ./dist/ShowDesk.exe > dist/smoke.log 2>&1 &
-            APP_PID=$!
+            ./runtime/node.exe src/server.js > smoke.log 2>&1 &
           else
-            ./dist/ShowDesk > dist/smoke.log 2>&1 &
-            APP_PID=$!
+            ./runtime/node src/server.js > smoke.log 2>&1 &
           fi
+          APP_PID=$!
           sleep 3
-          if ! curl --fail --silent --show-error http://127.0.0.1:47821/ > dist/smoke-index.html; then
-            echo "----- ShowDesk smoke log -----"
-            cat dist/smoke.log || true
+          if ! curl --fail --silent --show-error http://127.0.0.1:47821/ > smoke-index.html; then
+            cat smoke.log || true
             exit 1
           fi
-          grep -q "SHOWDESK" dist/smoke-index.html
+          grep -q "SHOWDESK" smoke-index.html
+          curl --fail --silent --show-error http://127.0.0.1:47821/app.js > smoke-app.js
+          grep -q "window.__showDeskConnectInvoked" smoke-app.js
+          curl --fail --silent --show-error http://127.0.0.1:47821/styles.css > smoke-styles.css
+          grep -q -- "--sd-canvas" smoke-styles.css
+          curl --fail --silent --show-error http://127.0.0.1:47821/reference-parser.js > smoke-reference-parser.js
+          grep -q "parseAtemSoftwareControlXml" smoke-reference-parser.js
+          ../node_modules/.bin/node -e "" 2>/dev/null || true
+          node -e "const WebSocket=require('../node_modules/ws'); const ws=new WebSocket('ws://127.0.0.1:47821/ws'); const timer=setTimeout(()=>{console.error('ATEM runtime smoke test timed out');process.exit(1)},12000); ws.on('open',()=>ws.send(JSON.stringify({id:'smoke-connect',type:'connect',ip:'127.0.0.1'}))); ws.on('message',d=>{const m=JSON.parse(d); if(m.replyTo!=='smoke-connect')return; clearTimeout(timer); const e=m.error||''; if(/constructor|freetype|binding|module loaded|packaged ATEM runtime|No such built-in module|Cannot find module/i.test(e)){console.error(e);process.exit(1)} process.exit(0)}); ws.on('error',e=>{console.error(e);process.exit(1)})"
           kill $APP_PID || true
+
+      - name: Create macOS application bundle
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          APP="package/ShowDesk.app"
+          CONTENTS="$APP/Contents"
+          mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources/app"
+          cp dist/runtime/node "$CONTENTS/MacOS/showdesk-node"
+          cp -R dist/src dist/public dist/package.json "$CONTENTS/Resources/app/"
+          ditto --noqtn dist/node_modules "$CONTENTS/Resources/app/node_modules"
+          # codesign rejects dependency symlinks that resolve outside the .app bundle.
+          # Replace symlinks with their resolved contents so the bundle is self-contained.
+          find "$CONTENTS/Resources/app/node_modules" -type l | while read -r link; do
+            target="$(readlink "$link")"
+            resolved="$(cd "$(dirname "$link")" && cd "$(dirname "$target")" && pwd)/$(basename "$target")"
+            rm "$link"
+            if [ -d "$resolved" ]; then cp -R "$resolved" "$link"; else cp "$resolved" "$link"; fi
+          done
+          cat > "$CONTENTS/Info.plist" <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CFBundleName</key><string>ShowDesk</string>
+            <key>CFBundleDisplayName</key><string>ShowDesk</string>
+            <key>CFBundleIdentifier</key><string>app.showdesk.beta</string>
+            <key>CFBundleVersion</key><string>26</string>
+            <key>CFBundleShortVersionString</key><string>0.1.0-beta.2.26</string>
+            <key>CFBundleExecutable</key><string>ShowDesk</string>
+            <key>LSUIElement</key><true/>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict></plist>
+          EOF
+          cat > "$CONTENTS/MacOS/ShowDesk" <<'EOF'
+          #!/bin/sh
+          CONTENTS="$(cd "$(dirname "$0")/.." && pwd)"
+          APPDIR="$CONTENTS/Resources/app"
+          URL="http://127.0.0.1:47821/"
+          HEALTH="$URL"
+          LOG="$HOME/Library/Logs/ShowDesk.log"
+          mkdir -p "$(dirname "$LOG")"
+
+          # The browser is the UI for this beta shell. Keep the .app itself out
+          # of the Dock so macOS does not treat the Node server as a GUI app.
+          if /usr/bin/curl --silent --fail --max-time 1 "$HEALTH" >/dev/null 2>&1; then
+            if [ "$SHOWDESK_NO_OPEN" != "1" ]; then /usr/bin/open "$URL"; fi
+            exit 0
+          fi
+
+          cd "$APPDIR"
+          SHOWDESK_NO_OPEN=1 "$CONTENTS/MacOS/showdesk-node" ./src/server.js >>"$LOG" 2>&1 &
+          SERVER_PID=$!
+
+          i=0
+          while [ $i -lt 40 ]; do
+            if /usr/bin/curl --silent --fail --max-time 1 "$HEALTH" >/dev/null 2>&1; then
+              if [ "$SHOWDESK_NO_OPEN" != "1" ]; then /usr/bin/open "$URL"; fi
+              exit 0
+            fi
+            if ! /bin/kill -0 "$SERVER_PID" 2>/dev/null; then
+              exit 1
+            fi
+            /bin/sleep 0.1
+            i=$((i+1))
+          done
+          /bin/kill "$SERVER_PID" 2>/dev/null || true
+          exit 1
+          EOF
+          chmod +x "$CONTENTS/MacOS/ShowDesk" "$CONTENTS/MacOS/showdesk-node"
+          plutil -lint "$CONTENTS/Info.plist"
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+      - name: Smoke test macOS application bundle
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          SHOWDESK_NO_OPEN: '1'
+        run: |
+          package/ShowDesk.app/Contents/MacOS/ShowDesk > app-smoke.log 2>&1
+          curl --fail --silent --show-error http://127.0.0.1:47821/ | grep -q SHOWDESK || { cat app-smoke.log; exit 1; }
+          # A second launch must reuse the existing server rather than starting
+          # another foreground application instance.
+          package/ShowDesk.app/Contents/MacOS/ShowDesk >> app-smoke.log 2>&1
+          curl --fail --silent --show-error http://127.0.0.1:47821/ | grep -q SHOWDESK || { cat app-smoke.log; exit 1; }
+          pkill -f 'ShowDesk.app/Contents/MacOS/showdesk-node.*src/server.js' || true
+
+      - name: Create distribution archive
+        shell: bash
+        run: |
+          rm -f dist/smoke.log dist/smoke-index.html dist/smoke-app.js dist/smoke-styles.css dist/smoke-reference-parser.js
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            powershell -NoProfile -Command "Compress-Archive -Path dist\* -DestinationPath ShowDesk-Beta2-Build026-Windows-x64.zip"
+          else
+            ditto -c -k --sequesterRsrc --keepParent package/ShowDesk.app ShowDesk-Beta2-Build026-macOS-arm64.zip
+          fi
+
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: |
-            dist/ShowDesk
-            dist/ShowDesk.exe
+          path: ShowDesk-*.zip
           if-no-files-found: error

@@ -1,107 +1,130 @@
 const http = require('node:http');
-const path = require('node:path');
-const fs = require('node:fs');
 const { exec } = require('node:child_process');
 const { WebSocketServer } = require('ws');
 let Atem;
 
 function loadAtem() {
   if (Atem) return Atem;
-  // atem-connection imports an optional native freetype binding for multiview
-  // label generation. ShowDesk does not use that feature, so keep the native
-  // module out of the standalone SEA startup path.
-  Atem = require('atem-connection').Atem;
+  let module;
+  try {
+    module = require('atem-connection');
+  } catch (error) {
+    throw new Error(`Unable to load packaged ATEM runtime: ${error.message || error}`);
+  }
+  const AtemClass = module.Atem || module.default?.Atem || module.default;
+  if (typeof AtemClass !== 'function') {
+    throw new Error('ATEM connection module loaded, but its Atem constructor was not available.');
+  }
+  Atem = AtemClass;
   return Atem;
 }
 
 const HOST = '127.0.0.1';
 const PORT = Number(process.env.SHOWDESK_PORT || 47821);
+const CONNECT_TIMEOUT_MS = 8000;
+const STATE_TIMEOUT_MS = 8000;
 let atem = null;
 let currentIp = null;
 let lastState = null;
+let hasConnected = false;
 const clients = new Set();
 
-function asset(name) {
-  try {
-    const sea = require('node:sea');
-    if (sea.isSea()) return Buffer.from(sea.getAsset(name));
-  } catch {}
-  return fs.readFileSync(path.join(__dirname, '..', 'public', name));
-}
-const ASSETS = {
-  '/': ['index.html', 'text/html; charset=utf-8'],
-  '/index.html': ['index.html', 'text/html; charset=utf-8'],
-  '/transport.js': ['transport.js', 'text/javascript; charset=utf-8']
-};
+const { asset, ASSETS } = require('./static-assets');
 
-function inputName(state, id) {
-  const input = state?.inputs?.[id];
-  return input?.longName || input?.shortName || input?.externalPortType || `INPUT ${id}`;
-}
-
-function normalizeState(state) {
-  if (!state) return null;
-  const inputs = Object.entries(state.inputs || {}).map(([id, x]) => ({
-    id: Number(id), name: x.longName || x.shortName || `INPUT ${id}`,
-    shortName: x.shortName || ''
-  }));
-  const me0 = state.video?.mixEffects?.[0];
-  const auxRaw = state.video?.auxilliaries || [];
-  const aux = auxRaw.map((source, i) => ({ name: `OUTPUT ${i + 1}`, route: inputName(state, source), sourceId: source }));
-  return {
-    pgm: inputName(state, me0?.programInput),
-    pvw: inputName(state, me0?.previewInput),
-    inputs,
-    aux
-  };
-}
-
+const { normalizeState } = require('./atem-state');
 function discovery(state) {
-  const normalized = normalizeState(state) || { inputs: [], aux: [] };
+  const normalized = normalizeState(state) || { inputs: [], aux: [], mixEffects: [], downstreamKeyers: [] };
   return {
-    name: state?.info?.productIdentifier || 'ATEM Switcher',
-    ip: currentIp,
-    inputs: normalized.inputs.length,
-    outputs: normalized.aux.length,
-    mes: state?.info?.mixEffects || state?.video?.mixEffects?.length || 1,
-    keys: state?.info?.mixEffects ? state.info.mixEffects * 4 : 4,
-    inputList: normalized.inputs,
-    ...normalized
+    name: normalized.productIdentifier || 'ATEM Switcher', ip: currentIp,
+    inputs: normalized.inputs.length, outputs: normalized.topology?.capabilityAuxBuses ?? normalized.aux.length,
+    mes: normalized.mixEffects.length,
+    keys: normalized.mixEffects.reduce((n, me) => n + me.upstreamKeyers.length, 0) + normalized.downstreamKeyers.length,
+    inputList: normalized.inputs, ...normalized
   };
 }
-
 function broadcast(message) {
   const payload = JSON.stringify(message);
   for (const ws of clients) if (ws.readyState === 1) ws.send(payload);
 }
-
-async function disconnectAtem() {
-  if (!atem) return;
-  try { await atem.disconnect(); } catch {}
-  atem = null; currentIp = null; lastState = null;
+function timeout(promise, ms, message) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(message)), ms); })
+  ]).finally(() => clearTimeout(timer));
 }
-
+async function disconnectInstance(instance) {
+  if (!instance) return;
+  try { await Promise.race([instance.disconnect(), new Promise(resolve => setTimeout(resolve, 1000))]); } catch {}
+}
+async function disconnectAtem() {
+  const instance = atem;
+  atem = null; currentIp = null; lastState = null; hasConnected = false;
+  await disconnectInstance(instance);
+}
 async function connectAtem(ip) {
   await disconnectAtem();
   const AtemClass = loadAtem();
   const instance = new AtemClass();
-  atem = instance;
-  currentIp = ip;
+  atem = instance; currentIp = ip; hasConnected = false;
 
   instance.on('stateChanged', (state) => {
+    if (atem !== instance) return;
     lastState = state;
     const normalized = normalizeState(state);
     if (normalized) broadcast({ type: 'state', data: normalized });
   });
-  instance.on('disconnected', () => broadcast({ type: 'connection', status: 'disconnected' }));
+  instance.on('disconnected', () => {
+    if (atem !== instance) return;
+    const wasConnected = hasConnected;
+    atem = null; currentIp = null; lastState = null; hasConnected = false;
+    if (wasConnected) broadcast({ type: 'connection', status: 'disconnected', reason: 'ATEM connection lost' });
+  });
   instance.on('error', (error) => console.error('[ATEM]', error));
 
-  await instance.connect(ip);
-  const deadline = Date.now() + 8000;
-  while (!instance.state && Date.now() < deadline) await new Promise(r => setTimeout(r, 100));
-  if (!instance.state) throw new Error(`ATEM at ${ip} connected but did not provide state.`);
-  lastState = instance.state;
-  return discovery(instance.state);
+  // Some ATEM models/library versions can populate usable state before the
+  // high-level "connected" event arrives. Discovery should wait for usable
+  // topology/state, not one particular event ordering.
+  let stateResolve;
+  let stateReject;
+  const usableState = new Promise((resolve, reject) => {
+    stateResolve = resolve;
+    stateReject = reject;
+  });
+  const hasUsableState = state => !!state && (
+    Object.keys(state.inputs || {}).length > 0 ||
+    (state.video?.mixEffects || []).filter(Boolean).length > 0 ||
+    (state.video?.auxilliaries || []).length > 0 ||
+    !!state.info?.productIdentifier
+  );
+  const onDiscoveryState = state => { if (hasUsableState(state)) stateResolve(state); };
+  const onConnected = () => { if (hasUsableState(instance.state)) stateResolve(instance.state); };
+  const onInitDisconnect = () => stateReject(new Error(`ATEM at ${ip} disconnected before discovery completed.`));
+  instance.on('stateChanged', onDiscoveryState);
+  instance.once('connected', onConnected);
+  instance.once('disconnected', onInitDisconnect);
+
+  try {
+    await timeout(instance.connect(ip), CONNECT_TIMEOUT_MS, `Connection to ATEM at ${ip} timed out after ${CONNECT_TIMEOUT_MS / 1000} seconds.`);
+    const discoveredState = hasUsableState(instance.state)
+      ? instance.state
+      : await timeout(usableState, STATE_TIMEOUT_MS, `ATEM at ${ip} responded, but usable switcher state was not received within ${STATE_TIMEOUT_MS / 1000} seconds.`);
+    instance.removeListener('stateChanged', onDiscoveryState);
+    instance.removeListener('disconnected', onInitDisconnect);
+    if (!discoveredState) throw new Error(`ATEM at ${ip} initialized without switcher state.`);
+    if (atem !== instance) throw new Error('ATEM connection attempt was cancelled.');
+    hasConnected = true;
+    lastState = discoveredState;
+    return discovery(discoveredState);
+  } catch (error) {
+    instance.removeListener('stateChanged', onDiscoveryState);
+    instance.removeListener('disconnected', onInitDisconnect);
+    if (atem === instance) {
+      atem = null; currentIp = null; lastState = null; hasConnected = false;
+    }
+    await disconnectInstance(instance);
+    throw error;
+  }
 }
 
 const server = http.createServer((req, res) => {
@@ -111,11 +134,10 @@ const server = http.createServer((req, res) => {
   try {
     res.writeHead(200, { 'Content-Type': item[1], 'Cache-Control': 'no-store' });
     res.end(asset(item[0]));
-  } catch (error) {
+  } catch {
     res.writeHead(500); res.end('ShowDesk asset error');
   }
 });
-
 const wss = new WebSocketServer({ server, path: '/ws' });
 wss.on('connection', (ws) => {
   clients.add(ws);
@@ -134,7 +156,6 @@ wss.on('connection', (ws) => {
     }
   });
 });
-
 server.listen(PORT, HOST, () => {
   const url = `http://${HOST}:${PORT}`;
   console.log(`ShowDesk running at ${url}`);
@@ -143,6 +164,5 @@ server.listen(PORT, HOST, () => {
     exec(cmd, () => {});
   }
 });
-
 process.on('SIGINT', async () => { await disconnectAtem(); process.exit(0); });
 process.on('SIGTERM', async () => { await disconnectAtem(); process.exit(0); });
