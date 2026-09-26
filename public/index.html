@@ -19,7 +19,7 @@
  <button id="connectAtemBtn" class="connectBtn" disabled onclick="connectAtem()">CONNECT &amp; DISCOVER</button>
  <p class="safeNote" id="setupStatus">Enter the ATEM switcher IP address. ShowDesk will identify the connected switcher and build the workspace from its reported topology and routing state.</p>
 </div></div>
-<div class="top"><div class="brand">SHOWDESK</div><button id="updateCheckBtn" class="updateCheckBtn" type="button" onclick="checkForShowDeskUpdate(true)" hidden>CHECK FOR UPDATES</button><div id="modelLabel" style="font-size:9px;color:#7f8b99"></div><button id="referenceStatus" class="referenceStatus" hidden onclick="setTab('engineering')">● Referencing <span id="referenceName"></span></button><div class="spacer"></div><div class="mode"><button id="showBtn" class="on" onclick="setTab('show')">SHOW</button><button id="signalBtn" onclick="setTab('signal')">SIGNAL PATHS</button><button id="engBtn" onclick="setTab('engineering')">ENGINEERING</button></div></div>
+<div class="top"><div class="brand">SHOWDESK</div><div id="modelLabel" style="font-size:9px;color:#7f8b99"></div><button id="referenceStatus" class="referenceStatus" hidden onclick="setTab('engineering')">● Referencing <span id="referenceName"></span></button><div class="spacer"></div><div class="mode"><button id="showBtn" class="on" onclick="setTab('show')">SHOW</button><button id="signalBtn" onclick="setTab('signal')">SIGNAL PATHS</button><button id="engBtn" onclick="setTab('engineering')">ENGINEERING</button></div></div>
 <div class="wrap tab-show" id="app">
 
 <section class="showContent">
@@ -72,5 +72,5 @@
 </div>
 <script src="/reference-parser.js"></script>
 <script src="/app.js"></script><div id="toast" class="toast"></div><script src="/transport.js"></script>\n<script src="/signal-paths.js"></script>
-<div id="updateDialog" class="updateDialog" hidden><div class="updateCard"><span class="updateEyebrow">SHOWDESK UPDATE</span><h2 id="updateTitle">UPDATE AVAILABLE</h2><p id="updateMessage">A new version of ShowDesk is available.</p><div class="updateActions"><button class="tinyAction" type="button" onclick="dismissShowDeskUpdate()">LATER</button><button id="updateInstallBtn" class="tinyAction primaryAction" type="button" onclick="installShowDeskUpdate()">UPDATE &amp; RESTART</button></div></div></div>\n</body>
+</body>
 </html>
