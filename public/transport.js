@@ -5,19 +5,25 @@
   const subscribers = new Set();
   const connectionSubscribers = new Set();
 
+  function serviceUrl() {
+    const nativeTauri = !!window.__TAURI_INTERNALS__;
+    if (nativeTauri) return 'ws://127.0.0.1:47821/ws';
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${proto}//${location.host}/ws`;
+  }
+
   function ensureSocket() {
     if (socket && socket.readyState === WebSocket.OPEN) return Promise.resolve(socket);
     if (socket && socket.readyState === WebSocket.CONNECTING) {
       return new Promise((resolve, reject) => {
         socket.addEventListener('open', () => resolve(socket), { once: true });
-        socket.addEventListener('error', reject, { once: true });
+        socket.addEventListener('error', () => reject(new Error('ShowDesk ATEM service is unavailable')), { once: true });
       });
     }
     return new Promise((resolve, reject) => {
-      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      socket = new WebSocket(`${proto}//${location.host}/ws`);
+      socket = new WebSocket(serviceUrl());
       socket.addEventListener('open', () => resolve(socket), { once: true });
-      socket.addEventListener('error', reject, { once: true });
+      socket.addEventListener('error', () => reject(new Error('ShowDesk ATEM service is unavailable')), { once: true });
       socket.addEventListener('message', (event) => {
         let msg;
         try { msg = JSON.parse(event.data); } catch { return; }
@@ -32,6 +38,7 @@
         if (msg.type === 'connection') connectionSubscribers.forEach(fn => fn(msg));
       });
       socket.addEventListener('close', () => {
+        socket = null;
         for (const [id, item] of pending) {
           clearTimeout(item.timer);
           item.reject(new Error('ShowDesk service connection closed'));

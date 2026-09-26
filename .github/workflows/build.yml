@@ -20,6 +20,24 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: npm install
       - run: npm run check
+      - name: Prepare native ATEM service
+        run: |
+          npm run bundle
+          node scripts/prepare-tauri-backend.js
+      - name: Smoke test native ATEM service
+        shell: bash
+        env:
+          SHOWDESK_NO_OPEN: '1'
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            src-tauri/resources/backend/runtime/node.exe src-tauri/resources/backend/src/server.js > native-backend.log 2>&1 &
+          else
+            src-tauri/resources/backend/runtime/node src-tauri/resources/backend/src/server.js > native-backend.log 2>&1 &
+          fi
+          SERVICE_PID=$!
+          sleep 3
+          node -e "const WebSocket=require('ws');const ws=new WebSocket('ws://127.0.0.1:47821/ws');const t=setTimeout(()=>process.exit(1),5000);ws.on('open',()=>{clearTimeout(t);ws.close();process.exit(0)});ws.on('error',()=>process.exit(1))"
+          kill $SERVICE_PID || true
       - name: Generate native icons from selected ShowDesk SD artwork
         run: npx tauri icon src-tauri/icons/icon.png
       - name: Build Tauri desktop shell
