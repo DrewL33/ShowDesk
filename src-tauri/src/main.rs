@@ -1,12 +1,103 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::fs::{self, OpenOptions};
+use std::net::{SocketAddr, TcpStream};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use tauri::menu::{MenuBuilder, SubmenuBuilder};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_updater::UpdaterExt;
 
 struct AtemService(Mutex<Option<Child>>);
+
+fn service_ready() -> bool {
+    let address: SocketAddr = "127.0.0.1:47821".parse().expect("valid ShowDesk service address");
+    TcpStream::connect_timeout(&address, Duration::from_millis(150)).is_ok()
+}
+
+fn backend_paths(app: &AppHandle) -> Result<(std::path::PathBuf, std::path::PathBuf, std::path::PathBuf), String> {
+    let backend = app.path().resource_dir().map_err(|e| e.to_string())?.join("backend");
+    let node = backend.join("runtime").join(if cfg!(windows) { "node.exe" } else { "node" });
+    let server = backend.join("src").join("server.js");
+    if !node.is_file() {
+        return Err(format!("Bundled Node runtime is missing: {}", node.display()));
+    }
+    if !server.is_file() {
+        return Err(format!("Bundled ATEM service is missing: {}", server.display()));
+    }
+    Ok((backend, node, server))
+}
+
+fn spawn_atem_service(app: &AppHandle) -> Result<Child, String> {
+    let (backend, node, server) = backend_paths(app)?;
+    let log_dir = app.path().app_log_dir().map_err(|e| e.to_string())?;
+    fs::create_dir_all(&log_dir).map_err(|e| e.to_string())?;
+    let log_path = log_dir.join("atem-service.log");
+    let stdout = OpenOptions::new().create(true).append(true).open(&log_path).map_err(|e| e.to_string())?;
+    let stderr = stdout.try_clone().map_err(|e| e.to_string())?;
+
+    Command::new(node)
+        .arg(server)
+        .current_dir(&backend)
+        .env("SHOWDESK_NO_OPEN", "1")
+        .env("SHOWDESK_PORT", "47821")
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(stdout))
+        .stderr(Stdio::from(stderr))
+        .spawn()
+        .map_err(|e| format!("Unable to launch bundled ATEM service: {e}. Log: {}", log_path.display()))
+}
+
+fn ensure_service_running(app: &AppHandle) -> Result<(), String> {
+    if service_ready() {
+        return Ok(());
+    }
+
+    let state = app.state::<AtemService>();
+    {
+        let mut guard = state.0.lock().map_err(|_| "ATEM service state is unavailable.".to_string())?;
+        let needs_start = match guard.as_mut() {
+            Some(child) => match child.try_wait() {
+                Ok(Some(_)) => true,
+                Ok(None) => false,
+                Err(_) => true,
+            },
+            None => true,
+        };
+        if needs_start {
+            *guard = Some(spawn_atem_service(app)?);
+        }
+    }
+
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while Instant::now() < deadline {
+        if service_ready() {
+            return Ok(());
+        }
+        {
+            let mut guard = state.0.lock().map_err(|_| "ATEM service state is unavailable.".to_string())?;
+            if let Some(child) = guard.as_mut() {
+                if let Ok(Some(status)) = child.try_wait() {
+                    *guard = None;
+                    let log_dir = app.path().app_log_dir().map_err(|e| e.to_string())?;
+                    return Err(format!(
+                        "Bundled ATEM service exited during startup ({status}). Diagnostic log: {}",
+                        log_dir.join("atem-service.log").display()
+                    ));
+                }
+            }
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+
+    Err("Bundled ATEM service did not become ready within 5 seconds.".to_string())
+}
+
+#[tauri::command]
+async fn ensure_atem_service(app: AppHandle) -> Result<(), String> {
+    ensure_service_running(&app)
+}
 
 #[tauri::command]
 async fn check_for_update(app: AppHandle) -> Result<serde_json::Value, String> {
@@ -30,23 +121,6 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
     app.restart();
 }
 
-fn start_atem_service(app: &tauri::App) -> Result<Child, Box<dyn std::error::Error>> {
-    let backend = app.path().resource_dir()?.join("backend");
-    let node = backend.join("runtime").join(if cfg!(windows) { "node.exe" } else { "node" });
-    let server = backend.join("src").join("server.js");
-
-    let child = Command::new(node)
-        .arg(server)
-        .current_dir(&backend)
-        .env("SHOWDESK_NO_OPEN", "1")
-        .env("SHOWDESK_PORT", "47821")
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()?;
-    Ok(child)
-}
-
 fn stop_atem_service(app: &AppHandle) {
     if let Some(state) = app.try_state::<AtemService>() {
         if let Ok(mut guard) = state.0.lock() {
@@ -62,10 +136,15 @@ fn main() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .invoke_handler(tauri::generate_handler![check_for_update, install_update])
+        .manage(AtemService(Mutex::new(None)))
+        .invoke_handler(tauri::generate_handler![ensure_atem_service, check_for_update, install_update])
         .setup(|app| {
-            let service = start_atem_service(app)?;
-            app.manage(AtemService(Mutex::new(Some(service))));
+            // Start eagerly, but do not prevent the UI from opening if the
+            // service fails. The frontend retries through ensure_atem_service
+            // and can show the precise native startup error.
+            if let Err(error) = ensure_service_running(&app.handle()) {
+                eprintln!("[ShowDesk ATEM service] {error}");
+            }
 
             let app_menu = SubmenuBuilder::new(app, "ShowDesk")
                 .text("check_for_updates", "Check for Updates…")

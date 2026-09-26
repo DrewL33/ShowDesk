@@ -5,25 +5,42 @@
   const subscribers = new Set();
   const connectionSubscribers = new Set();
 
+  function isNativeTauri() {
+    return !!window.__TAURI_INTERNALS__;
+  }
+
   function serviceUrl() {
-    const nativeTauri = !!window.__TAURI_INTERNALS__;
-    if (nativeTauri) return 'ws://127.0.0.1:47821/ws';
+    if (isNativeTauri()) return 'ws://127.0.0.1:47821/ws';
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${proto}//${location.host}/ws`;
   }
 
-  function ensureSocket() {
-    if (socket && socket.readyState === WebSocket.OPEN) return Promise.resolve(socket);
+  async function ensureNativeService() {
+    if (!isNativeTauri()) return;
+    const invoke = window.__TAURI_INTERNALS__?.invoke;
+    if (typeof invoke !== 'function') {
+      throw new Error('Native ShowDesk service bridge is unavailable.');
+    }
+    try {
+      await invoke('ensure_atem_service');
+    } catch (error) {
+      throw new Error(typeof error === 'string' ? error : (error?.message || String(error)));
+    }
+  }
+
+  async function ensureSocket() {
+    if (socket && socket.readyState === WebSocket.OPEN) return socket;
+    await ensureNativeService();
     if (socket && socket.readyState === WebSocket.CONNECTING) {
       return new Promise((resolve, reject) => {
         socket.addEventListener('open', () => resolve(socket), { once: true });
-        socket.addEventListener('error', () => reject(new Error('ShowDesk ATEM service is unavailable')), { once: true });
+        socket.addEventListener('error', () => reject(new Error('ShowDesk ATEM service could not be reached after native startup.')), { once: true });
       });
     }
     return new Promise((resolve, reject) => {
       socket = new WebSocket(serviceUrl());
       socket.addEventListener('open', () => resolve(socket), { once: true });
-      socket.addEventListener('error', () => reject(new Error('ShowDesk ATEM service is unavailable')), { once: true });
+      socket.addEventListener('error', () => reject(new Error('ShowDesk ATEM service could not be reached after native startup.')), { once: true });
       socket.addEventListener('message', (event) => {
         let msg;
         try { msg = JSON.parse(event.data); } catch { return; }
