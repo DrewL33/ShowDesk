@@ -329,3 +329,4 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ShowDesk-*.zip
           if-no-files-found: error
+# Build030 retry after RGBA icon correction
