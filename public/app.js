@@ -342,7 +342,7 @@ async function checkForShowDeskUpdate(manual=false){
    if(confirm("ShowDesk "+result.version+" is available."+details+"\n\nInstall the update and restart ShowDesk?"))await installShowDeskUpdate();
   }else if(manual)alert("ShowDesk is up to date.");
  }catch(error){
-  if(manual)alert("ShowDesk could not check for updates.\n\n"+(error?.message||String(error)));
+  if(manual)alert("Unable to check for updates.\n\n"+(error?.message||String(error)));
   console.error("ShowDesk update check failed:",error);
  }
 }
