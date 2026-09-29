@@ -27,6 +27,17 @@ const me2=trace[0];
 assert.strictEqual(me2.ftb.isFullyBlack,true);
 assert.deepStrictEqual(me2.children.map(x=>x.label),['M/E 1 · PROGRAM','InRoom','Output 11','Side Screens','IMAG 2']);
 
+// Physical-input presentation keeps direct routes but suppresses repeated M/E
+// distribution fan-out while preserving real M/E-to-M/E chaining.
+const physicalTrace=buildSignalGraph({inputs,mixEffects:mes,routing})(15,{expandMeDestinations:false});
+assert.deepStrictEqual(physicalTrace.map(x=>x.label),['M/E 2 · PROGRAM','Aux 4','Aux 6 - Hall TVs']);
+assert.deepStrictEqual(physicalTrace[0].children.map(x=>x.label),['M/E 1 · PROGRAM']);
+assert.deepStrictEqual(physicalTrace[0].children[0].children,[]);
+
+// Internal M/E sources retain the full downstream distribution view.
+const internalTrace=buildSignalGraph({inputs,mixEffects:mes,routing})(10020,{expandMeDestinations:true});
+assert.deepStrictEqual(internalTrace.map(x=>x.label),['M/E 1 · PROGRAM','InRoom','Output 11','Side Screens','IMAG 2']);
+
 // Preview, USK and DSK remain direct consumers.
 const extra=buildSignalGraph({
  inputs,

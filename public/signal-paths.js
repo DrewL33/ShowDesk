@@ -33,16 +33,32 @@ function createSignalPathTracer({ inputs = [], mixEffects = [], downstreamKeyers
     return out;
   };
 
-  const descendants = (id, visited = new Set()) => {
-    const n = Number(id);
-    if (visited.has(n)) return [];
-    const next = new Set(visited);
-    next.add(n);
-    return directUses(n).map(use => {
-      if (!use.me || use.kind !== 'program') return { ...use, children: [] };
-      const output = meOutputFor(use.me);
-      return { ...use, children: output ? descendants(output.id, next) : [] };
-    });
+  const descendants = (id, options = {}) => {
+    const expandMeDestinations = options.expandMeDestinations !== false;
+
+    const walk = (sourceId, visited = new Set(), depth = 0) => {
+      const n = Number(sourceId);
+      if (visited.has(n)) return [];
+      const next = new Set(visited);
+      next.add(n);
+
+      let uses = directUses(n);
+      // Physical-input trees answer "where is this input being used?" Once
+      // tracing enters an M/E output, keep meaningful M/E-to-M/E chaining but
+      // do not repeat that bus's downstream AUX/output fan-out. Internal
+      // source trees opt into the complete distribution view.
+      if (!expandMeDestinations && depth > 0) {
+        uses = uses.filter(use => use.kind === 'program' || use.kind === 'preview');
+      }
+
+      return uses.map(use => {
+        if (!use.me || use.kind !== 'program') return { ...use, children: [] };
+        const output = meOutputFor(use.me);
+        return { ...use, children: output ? walk(output.id, next, depth + 1) : [] };
+      });
+    };
+
+    return walk(id);
   };
 
   return { descendants, directUses, meOutputFor };
