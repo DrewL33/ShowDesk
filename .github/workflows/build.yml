@@ -41,7 +41,7 @@ jobs:
           node -e "const WebSocket=require('ws');const ws=new WebSocket('ws://127.0.0.1:47821/ws');const t=setTimeout(()=>process.exit(1),5000);ws.on('open',()=>{clearTimeout(t);ws.close();process.exit(0)});ws.on('error',()=>process.exit(1))"
           kill $SERVICE_PID || true
       - name: Generate native icons from selected ShowDesk SD artwork
-        run: npx tauri icon src-tauri/icons/icon.svg
+        run: npx tauri icon src-tauri/icons/icon.png
       - name: Build Tauri desktop shell
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -129,8 +129,9 @@ jobs:
               }
             }
           };
-          fs.writeFileSync('updater-release/latest.json',JSON.stringify(feed,null,2)+'\\n');
+          fs.writeFileSync('updater-release/latest.json',JSON.stringify(feed,null,2)+'\n');
           NODE
+          node -e "const fs=require('fs');const feed=JSON.parse(fs.readFileSync('updater-release/latest.json','utf8'));if(feed.version!=='0.1.0-30'||!feed.platforms?.['darwin-aarch64']||!feed.platforms?.['windows-x86_64'])process.exit(1)"
       - name: Publish updater release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -140,6 +141,19 @@ jobs:
             gh release create showdesk-beta-latest --repo "${{ github.repository }}" --title "ShowDesk Beta Latest" --notes "Signed ShowDesk beta updater feed." --prerelease
           fi
           gh release upload showdesk-beta-latest updater-release/* --repo "${{ github.repository }}" --clobber
+      - name: Verify published updater feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://github.com/${{ github.repository }}/releases/download/showdesk-beta-latest/latest.json"
+          for attempt in 1 2 3 4 5; do
+            if curl -fL --retry 3 --retry-delay 2 -H 'Cache-Control: no-cache' "$URL?run=${{ github.run_id }}&attempt=$attempt" -o published-latest.json; then
+              node -e "const fs=require('fs');const feed=JSON.parse(fs.readFileSync('published-latest.json','utf8'));if(feed.version!=='0.1.0-30'||!feed.platforms?.['darwin-aarch64']||!feed.platforms?.['windows-x86_64'])process.exit(1)"
+              exit 0
+            fi
+            sleep 3
+          done
+          exit 1
 
   build:
     strategy:
