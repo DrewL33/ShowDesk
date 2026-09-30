@@ -40,8 +40,19 @@ jobs:
           sleep 3
           node -e "const WebSocket=require('ws');const ws=new WebSocket('ws://127.0.0.1:47821/ws');const t=setTimeout(()=>process.exit(1),5000);ws.on('open',()=>{clearTimeout(t);ws.close();process.exit(0)});ws.on('error',()=>process.exit(1))"
           kill $SERVICE_PID || true
-      - name: Generate native icons from selected ShowDesk SD artwork
-        run: npx tauri icon src-tauri/icons/icon.png
+      - name: Normalize and generate native icons from selected ShowDesk artwork
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            sips -s format png src-tauri/icons/icon.png --out /tmp/showdesk-icon.png
+          else
+            node -e "const fs=require('fs');const sharp=require('sharp');sharp('src-tauri/icons/icon.png',{failOn:'none'}).ensureAlpha().png().toFile('src-tauri/icons/icon-normalized.png')"
+            mv src-tauri/icons/icon-normalized.png /tmp-showdesk-icon.png
+          fi
+          if [ "$RUNNER_OS" = "macOS" ]; then ICON=/tmp/showdesk-icon.png; else ICON=/tmp-showdesk-icon.png; fi
+          npx tauri icon "$ICON"
+          test -s src-tauri/icons/icon.icns
+          test -s src-tauri/icons/icon.ico
       - name: Build Tauri desktop shell
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -53,6 +64,11 @@ jobs:
         run: |
           APP="src-tauri/target/release/bundle/macos/ShowDesk.app"
           test -d "$APP"
+          PLIST_ICON="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$APP/Contents/Info.plist")"
+          test -n "$PLIST_ICON"
+          case "$PLIST_ICON" in *.icns) ;; *) PLIST_ICON="$PLIST_ICON.icns" ;; esac
+          test -s "$APP/Contents/Resources/$PLIST_ICON"
+          cmp "$APP/Contents/Resources/$PLIST_ICON" src-tauri/icons/icon.icns
           codesign --force --deep --sign - "$APP"
           codesign --verify --deep --strict --verbose=2 "$APP"
           spctl --assess --type execute --verbose=4 "$APP" || true
