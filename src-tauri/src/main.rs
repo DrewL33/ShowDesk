@@ -7,6 +7,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::menu::{MenuBuilder, SubmenuBuilder};
 use tauri::{AppHandle, Manager};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
 
 struct AtemService(Mutex<Option<Child>>);
@@ -121,6 +122,30 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
     app.restart();
 }
 
+async fn run_manual_update_check(app: AppHandle) {
+    let updater = match app.updater() {
+        Ok(updater) => updater,
+        Err(error) => {
+            app.dialog().message(format!("Unable to check for updates.\n\n{error}")).kind(MessageDialogKind::Error).title("ShowDesk Update").blocking_show();
+            return;
+        }
+    };
+    match updater.check().await {
+        Ok(Some(update)) => {
+            let version = update.version.to_string();
+            let install = app.dialog().message(format!("ShowDesk {version} is available.\n\nInstall the update and restart ShowDesk?")).title("ShowDesk Update").buttons(MessageDialogButtons::OkCancelCustom("Install".into(), "Cancel".into())).blocking_show();
+            if install {
+                match update.download_and_install(|_, _| {}, || {}).await {
+                    Ok(()) => app.request_restart(),
+                    Err(error) => { app.dialog().message(format!("ShowDesk could not install the update. The app is still running normally.\n\n{error}")).kind(MessageDialogKind::Error).title("ShowDesk Update").blocking_show(); }
+                }
+            }
+        }
+        Ok(None) => { app.dialog().message("ShowDesk is up to date.").kind(MessageDialogKind::Info).title("ShowDesk Update").blocking_show(); }
+        Err(error) => { app.dialog().message(format!("Unable to check for updates.\n\n{error}")).kind(MessageDialogKind::Error).title("ShowDesk Update").blocking_show(); }
+    }
+}
+
 fn stop_atem_service(app: &AppHandle) {
     if let Some(state) = app.try_state::<AtemService>() {
         if let Ok(mut guard) = state.0.lock() {
@@ -135,6 +160,7 @@ fn stop_atem_service(app: &AppHandle) {
 fn main() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .manage(AtemService(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![ensure_atem_service, check_for_update, install_update])
@@ -158,17 +184,8 @@ fn main() {
             app.set_menu(menu)?;
             app.on_menu_event(|app, event| {
                 if event.id() == "check_for_updates" || event.id() == "check_for_updates_help" {
-                    if let Some(window) = app.get_webview_window("main") {
-                        if let Err(error) = window.eval(r#"
-                            if (typeof window.checkForShowDeskUpdate === "function") {
-                                window.checkForShowDeskUpdate(true);
-                            } else {
-                                alert("ShowDesk updater is not ready in this window. Please restart ShowDesk and try again.");
-                            }
-                        "#) {
-                            eprintln!("[ShowDesk updater] menu dispatch failed: {error}");
-                        }
-                    }
+                    let app = app.clone();
+                    tauri::async_runtime::spawn(async move { run_manual_update_check(app).await; });
                 }
             });
             Ok(())
