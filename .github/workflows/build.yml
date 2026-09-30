@@ -41,7 +41,7 @@ jobs:
           node -e "const WebSocket=require('ws');const ws=new WebSocket('ws://127.0.0.1:47821/ws');const t=setTimeout(()=>process.exit(1),5000);ws.on('open',()=>{clearTimeout(t);ws.close();process.exit(0)});ws.on('error',()=>process.exit(1))"
           kill $SERVICE_PID || true
       - name: Generate native icons from selected ShowDesk SD artwork
-        run: npx tauri icon src-tauri/icons/icon.png
+        run: npx tauri icon src-tauri/icons/icon.svg
       - name: Build Tauri desktop shell
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -329,4 +329,3 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ShowDesk-*.zip
           if-no-files-found: error
-# Build030 retry after RGBA icon correction

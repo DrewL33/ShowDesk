@@ -159,7 +159,15 @@ fn main() {
             app.on_menu_event(|app, event| {
                 if event.id() == "check_for_updates" || event.id() == "check_for_updates_help" {
                     if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.eval("window.checkForShowDeskUpdate?.(true)");
+                        if let Err(error) = window.eval(r#"
+                            if (typeof window.checkForShowDeskUpdate === "function") {
+                                window.checkForShowDeskUpdate(true);
+                            } else {
+                                alert("ShowDesk updater is not ready in this window. Please restart ShowDesk and try again.");
+                            }
+                        "#) {
+                            eprintln!("[ShowDesk updater] menu dispatch failed: {error}");
+                        }
                     }
                 }
             });
