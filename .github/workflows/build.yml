@@ -351,3 +351,45 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ShowDesk-*.zip
           if-no-files-found: error
+
+  publish-field-test:
+    needs: tauri-shell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ShowDesk-Beta2-Build033-Native-*
+          path: field-test-input
+          merge-multiple: true
+      - name: Prepare two-file field-test release
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p field-test-release
+          MAC_DMG="$(find field-test-input -type f -name '*.dmg' | head -n1)"
+          WIN_EXE="$(find field-test-input -type f -name '*-setup.exe' | head -n1)"
+          test -n "$MAC_DMG" && test -n "$WIN_EXE"
+          cp "$MAC_DMG" field-test-release/ShowDesk-macOS-Installer.dmg
+          cp "$WIN_EXE" field-test-release/ShowDesk-Windows-Installer.exe
+          test "$(find field-test-release -maxdepth 1 -type f | wc -l | tr -d ' ')" = "2"
+      - name: Publish clean field-test release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="showdesk-field-test"
+          if ! gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "ShowDesk — Field Test" --notes "Current ShowDesk field-test installers. Choose the installer for your operating system." --prerelease
+          fi
+          gh release upload "$TAG" field-test-release/ShowDesk-macOS-Installer.dmg field-test-release/ShowDesk-Windows-Installer.exe --repo "${{ github.repository }}" --clobber
+      - name: Verify exactly two tester downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="showdesk-field-test"
+          COUNT="$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq '.assets | length')"
+          test "$COUNT" = "2"
+          gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq -e '.assets | map(.name) | sort == ["ShowDesk-Windows-Installer.exe","ShowDesk-macOS-Installer.dmg"]' >/dev/null
