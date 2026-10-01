@@ -79,8 +79,31 @@
     });
   }
 
+  function connectViewer(host) {
+    const target = host.trim().replace(/^wss?:\/\//, '').replace(/\/$/, '');
+    const url = `ws://${target.includes(':') ? target : target + ':47822'}/viewer`;
+    return new Promise((resolve, reject) => {
+      const viewer = new WebSocket(url);
+      let settled = false;
+      const timer = setTimeout(() => { if (!settled) { settled = true; viewer.close(); reject(new Error('ShowDesk Host did not respond in time')); } }, 10000);
+      viewer.addEventListener('error', () => { if (!settled) { settled = true; clearTimeout(timer); reject(new Error('Unable to reach ShowDesk Host at ' + target)); } });
+      viewer.addEventListener('message', event => {
+        let msg; try { msg = JSON.parse(event.data); } catch { return; }
+        if (msg.type === 'snapshot' && !settled) {
+          settled = true; clearTimeout(timer); socket = viewer; resolve(msg.data);
+        } else if (msg.type === 'state') subscribers.forEach(fn => fn(msg.data));
+        else if (msg.type === 'connection') connectionSubscribers.forEach(fn => fn(msg));
+      });
+      viewer.addEventListener('close', () => {
+        if (socket === viewer) socket = null;
+        if (settled) connectionSubscribers.forEach(fn => fn({ type:'connection', status:'disconnected', reason:'ShowDesk Host connection lost' }));
+      });
+    });
+  }
+
   window.ATEM_TRANSPORT = {
     connect(ip) { return request('connect', { ip }); },
+    connectViewer(host) { return connectViewer(host); },
     subscribe(callback) {
       subscribers.add(callback);
       return () => subscribers.delete(callback);
