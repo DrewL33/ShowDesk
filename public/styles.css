@@ -631,3 +631,45 @@ button,input,select,textarea {
 .referenceMetricsLabel{margin-top:24px}
 .referenceMetrics{gap:10px}
 .referenceMetrics div{padding:14px 16px;min-height:76px}.referenceMetrics span{font-size:9px}.referenceMetrics b{font-size:20px}
+
+
+/* Signal Path interaction — independent columns + restrained path reveal */
+.signalTree .treeGroupBody{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:0 18px;
+  align-items:start;
+}
+.signalTree .treeColumn{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  gap:10px;
+}
+.signalTree .treeColumn .treeSource,
+.signalTree .treeColumn .treeSource[open]{
+  grid-column:auto;
+  width:100%;
+}
+.signalTree .treeSource[open]>.treeBranches{
+  transform-origin:top left;
+  animation:signalPathReveal .22s cubic-bezier(.2,.7,.2,1) both;
+}
+.signalTree .treeSource[open]>.treeBranches .treeBranchGroup{
+  animation:signalBranchReveal .26s cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes signalPathReveal{
+  from{opacity:0;transform:translateY(-5px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@keyframes signalBranchReveal{
+  from{opacity:.35;transform:translateX(-5px)}
+  to{opacity:1;transform:translateX(0)}
+}
+@media(max-width:1100px){
+  .signalTree .treeGroupBody{grid-template-columns:1fr;gap:10px}
+}
+@media(prefers-reduced-motion:reduce){
+  .signalTree .treeSource[open]>.treeBranches,
+  .signalTree .treeSource[open]>.treeBranches .treeBranchGroup{animation:none}
+}
