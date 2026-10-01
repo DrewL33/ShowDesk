@@ -42,7 +42,7 @@ jobs:
           kill $SERVICE_PID || true
       - name: Generate native icons from approved ShowDesk artwork
         run: |
-          npx tauri icon src-tauri/icons/icon.png
+          npx tauri icon src-tauri/icons/icon.svg
           test -s src-tauri/icons/icon.icns
           test -s src-tauri/icons/icon.ico
       - name: Build Tauri desktop shell
