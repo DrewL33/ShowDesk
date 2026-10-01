@@ -41,10 +41,10 @@
 </section>
 
 <section class="signalPage">
- <div class="flowSummary"><div><span>REPORTED SOURCES</span><b id="flowSources">—</b></div><div><span>M/E BUSES</span><b id="flowMes">—</b></div><div><span>KNOWN ASSIGNMENTS</span><b id="flowDests">—</b></div><div><span>REFERENCE ISSUES</span><b id="flowIssues">—</b></div></div>
- <div class="panel">
-  <div class="head"><h2>SIGNAL PATHS</h2><span class="sub">read-only live ATEM state</span></div>
-  <input id="signalSearch" class="destinationSearch" type="search" placeholder="Search input, source, M/E, keyer or AUX…" oninput="renderPaths()" style="width:100%;margin-bottom:12px">
+ <div class="panel signalWorkspace">
+  <div class="signalWorkspaceHead"><div><h2>SIGNAL PATHS</h2><p>Trace how sources move through the ATEM</p></div><span class="sub">read-only live ATEM state</span></div>
+  <input id="signalSearch" class="destinationSearch signalSearch" type="search" placeholder="Search inputs, sources, M/E, keyer or AUX…" oninput="renderPaths()">
+  <div class="flowSummary signalSummary"><div><span>REPORTED SOURCES</span><b id="flowSources">—</b></div><div><span>M/E BUSES</span><b id="flowMes">—</b></div><div><span>KNOWN ASSIGNMENTS</span><b id="flowDests">—</b></div><div><span>REFERENCE ISSUES</span><b id="flowIssues">—</b></div></div>
   <div id="signalTree" class="signalTree"></div>
  </div>
 </section>

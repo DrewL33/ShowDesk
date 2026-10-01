@@ -549,3 +549,28 @@ button,input,select,textarea {
   .source{font-size:38px}
   .inputCompact{grid-template-columns:repeat(auto-fill,minmax(165px,1fr))}
 }
+
+
+/* Build031 — Signal Paths workspace + mutually exclusive reference states */
+.referenceEmpty[hidden],.referenceAttached[hidden]{display:none!important}
+.signalPage{width:100%}
+.signalWorkspace{width:100%;padding:clamp(16px,1.35vw,26px)}
+.signalWorkspaceHead{display:flex;align-items:flex-start;gap:18px;padding-bottom:14px;border-bottom:1px solid #20272c}
+.signalWorkspaceHead h2{margin:0;font-size:12px;letter-spacing:.12em;font-weight:900}
+.signalWorkspaceHead p{margin:5px 0 0;color:var(--muted);font-size:9px}
+.signalWorkspaceHead .sub{padding-top:2px}
+.signalSearch{width:100%;margin:14px 0 10px!important;padding:11px 12px!important}
+.signalSummary{grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin:0 0 14px}
+.signalSummary div{border-radius:0!important;border-right:0!important;padding:9px 12px}
+.signalSummary div:last-child{border-right:1px solid var(--line)!important}
+.signalSummary b{font-size:14px}
+.signalTree{max-width:none!important;width:100%}
+.signalTree .treeGroup{width:100%}
+.signalTree .treeGroupBody{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 22px;padding:0 14px 14px}
+.signalTree .treeSource{min-width:0}
+.signalTree .treeSource[open]{grid-column:1/-1;border:1px solid #3a4044;margin:8px 0 12px;background:#0d0f10}
+.signalTree .treeSource[open]>summary{padding:14px 12px;border-bottom:1px solid #2b3034}
+.signalTree .treeSource[open]>.treeBranches{min-height:72px;margin:0;padding:18px 24px 18px 62px}
+.signalTree .treeSource[open] .treeBranch{width:clamp(340px,38vw,680px)}
+@media(max-width:1100px){.signalTree .treeGroupBody{grid-template-columns:1fr;gap:0}.signalTree .treeSource[open]{grid-column:auto}.signalSummary{grid-template-columns:repeat(2,minmax(0,1fr))}.signalSummary div:nth-child(2){border-right:1px solid var(--line)!important}.signalSummary div:nth-child(-n+2){border-bottom:0!important}}
+@media(max-width:620px){.signalWorkspaceHead{display:block}.signalWorkspaceHead .sub{display:block;margin:6px 0 0}.signalSummary{grid-template-columns:1fr}.signalSummary div{border-right:1px solid var(--line)!important;border-bottom:0!important}.signalSummary div:last-child{border-bottom:1px solid var(--line)!important}}
