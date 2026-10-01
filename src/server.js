@@ -21,6 +21,8 @@ function loadAtem() {
 
 const HOST = '127.0.0.1';
 const PORT = Number(process.env.SHOWDESK_PORT || 47821);
+const VIEWER_HOST = process.env.SHOWDESK_VIEWER_HOST || '0.0.0.0';
+const VIEWER_PORT = Number(process.env.SHOWDESK_VIEWER_PORT || 47822);
 const CONNECT_TIMEOUT_MS = 8000;
 const STATE_TIMEOUT_MS = 8000;
 let atem = null;
@@ -28,6 +30,18 @@ let currentIp = null;
 let lastState = null;
 let hasConnected = false;
 const clients = new Set();
+const viewerClients = new Set();
+
+function viewerSnapshot() {
+  if (!hasConnected || !lastState) return null;
+  const normalized = normalizeState(lastState);
+  if (!normalized) return null;
+  return { type: 'snapshot', data: { ...discovery(lastState), ...normalized } };
+}
+function broadcastViewers(message) {
+  const payload = JSON.stringify(message);
+  for (const ws of viewerClients) if (ws.readyState === 1) ws.send(payload);
+}
 
 const { asset, ASSETS } = require('./static-assets');
 
@@ -72,13 +86,20 @@ async function connectAtem(ip) {
     if (atem !== instance) return;
     lastState = state;
     const normalized = normalizeState(state);
-    if (normalized) broadcast({ type: 'state', data: normalized });
+    if (normalized) {
+      broadcast({ type: 'state', data: normalized });
+      broadcastViewers({ type: 'state', data: normalized });
+    }
   });
   instance.on('disconnected', () => {
     if (atem !== instance) return;
     const wasConnected = hasConnected;
     atem = null; currentIp = null; lastState = null; hasConnected = false;
-    if (wasConnected) broadcast({ type: 'connection', status: 'disconnected', reason: 'ATEM connection lost' });
+    if (wasConnected) {
+      const message = { type: 'connection', status: 'disconnected', reason: 'ATEM connection lost' };
+      broadcast(message);
+      broadcastViewers(message);
+    }
   });
   instance.on('error', (error) => console.error('[ATEM]', error));
 
@@ -115,7 +136,9 @@ async function connectAtem(ip) {
     if (atem !== instance) throw new Error('ATEM connection attempt was cancelled.');
     hasConnected = true;
     lastState = discoveredState;
-    return discovery(discoveredState);
+    const discovered = discovery(discoveredState);
+    broadcastViewers({ type: 'snapshot', data: discovered });
+    return discovered;
   } catch (error) {
     instance.removeListener('stateChanged', onDiscoveryState);
     instance.removeListener('disconnected', onInitDisconnect);
@@ -156,6 +179,27 @@ wss.on('connection', (ws) => {
     }
   });
 });
+// Viewer service is intentionally separate from the local control service.
+const viewerServer = http.createServer((req, res) => {
+  if (req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify({ service: 'ShowDesk Viewer', connected: hasConnected, model: lastState ? discovery(lastState).name : null }));
+  }
+  res.writeHead(404); res.end('Not found');
+});
+const viewerWss = new WebSocketServer({ server: viewerServer, path: '/viewer' });
+viewerWss.on('connection', ws => {
+  viewerClients.add(ws);
+  const snapshot = viewerSnapshot();
+  if (snapshot) ws.send(JSON.stringify(snapshot));
+  else ws.send(JSON.stringify({ type: 'connection', status: 'waiting', reason: 'Host is not connected to an ATEM' }));
+  // Deliberately no message handler: Viewer mode cannot issue ATEM commands.
+  ws.on('close', () => viewerClients.delete(ws));
+});
+viewerServer.listen(VIEWER_PORT, VIEWER_HOST, () => {
+  console.log(`ShowDesk read-only viewer service listening on ${VIEWER_HOST}:${VIEWER_PORT}`);
+});
+
 server.listen(PORT, HOST, () => {
   const url = `http://${HOST}:${PORT}`;
   console.log(`ShowDesk running at ${url}`);
