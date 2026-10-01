@@ -9,6 +9,7 @@ let expected=baselineState.routes,actual=liveState.routes,saved={},logs=[],sessi
 let selectedDestination=null;
 let selectedMeIndex=1;
 const signalTreeOpen=new Set(["group:physical"]);
+let signalSearchActive=false;
 function rememberSignalTreeState(){document.querySelectorAll("#signalTree details[data-tree-key]").forEach(el=>{const k=el.dataset.treeKey;if(el.open)signalTreeOpen.add(k);else signalTreeOpen.delete(k)})}
 const standard=[];
 function $(id){return document.getElementById(id)}
@@ -218,17 +219,30 @@ let signalConnectorResizeBound=false;
 function scheduleSignalConnectors(){requestAnimationFrame(()=>requestAnimationFrame(drawSignalConnectors));if(!signalConnectorResizeBound){window.addEventListener("resize",scheduleSignalConnectors);signalConnectorResizeBound=true}}
 function renderPaths(){
  const d=connectedDevice;if(!d)return;
- rememberSignalTreeState();
  const inputs=liveEngineering.inputs||[],mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
  const q=($("signalSearch")?.value||"").trim().toLowerCase();
- const byId=new Map(inputs.map(x=>[Number(x.id),x]));
+ const searching=Boolean(q);
+ // Search expansion is temporary. Preserve normal tree state when search begins,
+ // but once the query is cleared return source paths to their collapsed baseline.
+ if(signalSearchActive&&!searching){
+   signalTreeOpen.clear();
+   signalTreeOpen.add("group:physical");
+ }else if(!signalSearchActive){
+   rememberSignalTreeState();
+ }
+ signalSearchActive=searching;
  const descendants=window.ShowDeskSignalPaths.createSignalPathTracer({inputs,mixEffects:mes,downstreamKeyers:dsks,routing}).descendants;
  let branchSequence=0;
  const renderBranch=(b,depth=0,parentId="")=>{const id="signal-branch-"+(++branchSequence);return `<div class="treeBranchGroup" data-branch-group="${id}" data-parent-branch="${parentId}"><div class="treeBranch ${b.kind}" id="${id}"><small>${b.kind==="program"?"PROGRAM":b.kind==="preview"?"PREVIEW":b.kind==="route"?"ATEM ROUTING":"ASSIGNMENT / PROCESSING"}</small><b>${b.label}</b>${b.ftb&&(b.ftb.isFullyBlack||b.ftb.inTransition)?'<span class="branchFtb">FTB</span>':""}${b.sub?`<small>${b.sub}</small>`:""}</div>${b.children?.length?`<div class="treeNested">${b.children.map(x=>renderBranch(x,depth+1,id)).join("")}</div>`:""}</div>`};
  const classified=inputs.map(input=>{const name=input.name||("SOURCE "+input.id),physical=Number(input.internalPortType)===0&&Number(input.id)>0,branches=descendants(input.id,{expandMeDestinations:!physical});return {input,name,physical,branches}}).filter(x=>!q||[x.name,"input "+x.input.id,"source "+x.input.id,...x.branches.map(b=>b.label)].join(" ").toLowerCase().includes(q));
- const renderSource=x=>{const key="source:"+x.input.id,open=q||signalTreeOpen.has(key);return `<details class="treeSource" data-tree-key="${key}" ${open?"open":""}><summary><small>${x.physical?"ATEM INPUT "+x.input.id:"INTERNAL "+x.input.id}</small><b>${x.name}</b><em>${x.branches.length} path${x.branches.length===1?"":"s"}</em></summary><div class="treeBranches">${x.branches.length?x.branches.map(renderBranch).join(""):'<div class="treeBranch idlePath"><small>STATE</small><b>NO ACTIVE PATH</b><small>Signal path will appear when this source is in use.</small></div>'}</div></details>`};
+ const renderSource=x=>{const key="source:"+x.input.id,open=searching||signalTreeOpen.has(key);return `<details class="treeSource" data-tree-key="${key}" ${open?"open":""}><summary><small>${x.physical?"ATEM INPUT "+x.input.id:"INTERNAL "+x.input.id}</small><b>${x.name}</b><em>${x.branches.length} path${x.branches.length===1?"":"s"}</em></summary><div class="treeBranches">${x.branches.length?x.branches.map(renderBranch).join(""):'<div class="treeBranch idlePath"><small>STATE</small><b>NO ACTIVE PATH</b><small>Signal path will appear when this source is in use.</small></div>'}</div></details>`};
+ const renderColumns=items=>{
+   if(!items.length)return '<div class="emptyRoute">No matching sources.</div>';
+   const left=[],right=[];items.forEach((item,index)=>(index%2?right:left).push(item));
+   return `<div class="treeColumn">${left.map(renderSource).join("")}</div><div class="treeColumn">${right.map(renderSource).join("")}</div>`;
+ };
  const physical=classified.filter(x=>x.physical),internal=classified.filter(x=>!x.physical),tree=$("signalTree");
- if(tree)tree.innerHTML=`<details class="treeGroup" data-tree-key="group:physical" ${signalTreeOpen.has("group:physical")||q?"open":""}><summary>PHYSICAL INPUTS <span>${physical.length}</span></summary><div class="treeGroupBody">${physical.map(renderSource).join("")||'<div class="emptyRoute">No matching physical inputs.</div>'}</div></details><details class="treeGroup" data-tree-key="group:internal" ${signalTreeOpen.has("group:internal")||q?"open":""}><summary>INTERNAL SOURCES <span>${internal.length}</span></summary><div class="treeGroupBody">${internal.map(renderSource).join("")||'<div class="emptyRoute">No matching internal sources.</div>'}</div></details>`;
+ if(tree)tree.innerHTML=`<details class="treeGroup" data-tree-key="group:physical" ${signalTreeOpen.has("group:physical")||searching?"open":""}><summary>PHYSICAL INPUTS <span>${physical.length}</span></summary><div class="treeGroupBody">${physical.length?renderColumns(physical):'<div class="emptyRoute">No matching physical inputs.</div>'}</div></details><details class="treeGroup" data-tree-key="group:internal" ${signalTreeOpen.has("group:internal")||searching?"open":""}><summary>INTERNAL SOURCES <span>${internal.length}</span></summary><div class="treeGroupBody">${internal.length?renderColumns(internal):'<div class="emptyRoute">No matching internal sources.</div>'}</div></details>`;
  scheduleSignalConnectors();
  const topo=liveEngineering.topology||{};if($("flowSources"))$("flowSources").textContent=topo.reportedSources??inputs.length;if($("flowMes"))$("flowMes").textContent=mes.length;if($("flowDests"))$("flowDests").textContent=routing.length;if($("flowIssues"))$("flowIssues").textContent=baselineState.attached?getMismatches().length:"—";
 }
