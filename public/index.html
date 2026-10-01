@@ -14,10 +14,27 @@
 <body><div class="setup" id="setup">
 <div class="setupCard">
  <h1>SHOWDESK</h1>
- <p>Enter the ATEM switcher IP. ShowDesk will identify the connected switcher and build the workspace from its reported topology and routing.</p>
- <div class="field"><label>ATEM SWITCHER IP</label><input id="atemIp" inputmode="decimal" autocomplete="off" placeholder="192.168.1.240" oninput="connectionInputChanged()" onkeydown="if(event.key==='Enter'&&!$('connectAtemBtn').disabled)connectAtem()"></div>
- <button id="connectAtemBtn" class="connectBtn" disabled onclick="connectAtem()">CONNECT &amp; DISCOVER</button>
- <p class="safeNote" id="setupStatus">Enter the ATEM switcher IP address. ShowDesk will identify the connected switcher and build the workspace from its reported topology and routing state.</p>
+ <div id="modeChoice">
+  <p>Choose how this computer will connect to ShowDesk.</p>
+  <div class="connectionModeGrid">
+   <button class="connectionModeCard" onclick="chooseConnectionMode('host')"><b>HOST</b><span>Connect this computer directly to an ATEM and share read-only ShowDesk state with viewers on your network.</span><em>CONTINUE →</em></button>
+   <button class="connectionModeCard" onclick="chooseConnectionMode('viewer')"><b>VIEWER</b><span>Connect to a ShowDesk Host and view its live switcher information.</span><em>CONTINUE →</em></button>
+  </div>
+ </div>
+ <div id="hostSetup" hidden>
+  <button class="setupBack" onclick="chooseConnectionMode(null)">← CONNECTION MODE</button>
+  <p>Host Mode connects directly to the ATEM and makes its read-only ShowDesk state available to Viewer computers.</p>
+  <div class="field"><label>ATEM SWITCHER IP</label><input id="atemIp" inputmode="decimal" autocomplete="off" placeholder="192.168.1.240" oninput="connectionInputChanged()" onkeydown="if(event.key==='Enter'&&!$('connectAtemBtn').disabled)connectAtem()"></div>
+  <button id="connectAtemBtn" class="connectBtn" disabled onclick="connectAtem()">CONNECT &amp; HOST</button>
+  <p class="safeNote" id="setupStatus">Enter the ATEM switcher IP address.</p>
+ </div>
+ <div id="viewerSetup" hidden>
+  <button class="setupBack" onclick="chooseConnectionMode(null)">← CONNECTION MODE</button>
+  <p>Enter the IP address of the computer running ShowDesk in Host Mode.</p>
+  <div class="field"><label>SHOWDESK HOST IP</label><input id="viewerHostIp" inputmode="decimal" autocomplete="off" placeholder="192.168.1.100" oninput="viewerInputChanged()" onkeydown="if(event.key==='Enter'&&!$('connectViewerBtn').disabled)connectViewer()"></div>
+  <button id="connectViewerBtn" class="connectBtn" disabled onclick="connectViewer()">CONNECT TO HOST</button>
+  <p class="safeNote" id="viewerStatus">Viewer Mode is read-only and does not connect directly to the ATEM.</p>
+ </div>
 </div></div>
 <div class="top"><div class="brand">SHOWDESK</div><div id="modelLabel" style="font-size:9px;color:#7f8b99"></div><button id="referenceStatus" class="referenceStatus" hidden onclick="setTab('engineering')">● Referencing <span id="referenceName"></span></button><div class="spacer"></div><div class="mode"><button id="showBtn" class="on" onclick="setTab('show')">SHOW</button><button id="signalBtn" onclick="setTab('signal')">SIGNAL PATHS</button><button id="engBtn" onclick="setTab('engineering')">ENGINEERING</button></div></div>
 <div class="wrap tab-show" id="app">
