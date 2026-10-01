@@ -574,3 +574,60 @@ button,input,select,textarea {
 .signalTree .treeSource[open] .treeBranch{width:clamp(340px,38vw,680px)}
 @media(max-width:1100px){.signalTree .treeGroupBody{grid-template-columns:1fr;gap:0}.signalTree .treeSource[open]{grid-column:auto}.signalSummary{grid-template-columns:repeat(2,minmax(0,1fr))}.signalSummary div:nth-child(2){border-right:1px solid var(--line)!important}.signalSummary div:nth-child(-n+2){border-bottom:0!important}}
 @media(max-width:620px){.signalWorkspaceHead{display:block}.signalWorkspaceHead .sub{display:block;margin:6px 0 0}.signalSummary{grid-template-columns:1fr}.signalSummary div{border-right:1px solid var(--line)!important;border-bottom:0!important}.signalSummary div:last-child{border-bottom:1px solid var(--line)!important}}
+
+
+/* Build032 — readability, Show workspace, Signal Paths hierarchy, reference hierarchy */
+@media(min-width:1200px){
+ html,body{font-size:15px}
+ .top{height:82px;padding-left:26px;padding-right:26px}
+ .brand{font-size:24px}
+ .mode button{min-width:124px;font-size:10px!important}
+ .wrap{padding-top:22px;padding-bottom:42px}
+ .panel{padding:20px}
+ .head{margin-bottom:16px;padding-bottom:13px}
+ .head h2{font-size:12px}.sub{font-size:10px}
+ .tinyAction,.key{font-size:9px!important;padding:7px 9px}
+}
+@media(min-width:1900px){
+ html,body{font-size:16px}
+ .wrap{padding-left:40px;padding-right:40px}
+ .panel{padding:22px}
+ .head h2{font-size:13px}.sub{font-size:10px}
+}
+.showPrimary>.panel{padding:clamp(20px,1.4vw,28px)}
+.pgmpvw{gap:16px}
+.hero{min-height:clamp(220px,16vw,310px);padding:clamp(22px,1.7vw,32px)}
+.hero .eyebrow{font-size:11px}.hero .source{font-size:clamp(32px,2.25vw,46px);margin-top:clamp(38px,4vw,64px)}
+.statusContext,.timer{font-size:10px}
+.showStack{display:grid;gap:16px;margin-top:16px}
+.inputsStandalone{width:100%}
+.inputCompact{grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:10px}
+.inputCard,.input{min-height:72px;padding:12px}.inputCard b,.input b{font-size:12px}.inputCard .inum,.input small{font-size:9px}
+.recentChangesPanel{width:100%}
+.log{font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}
+.log .li{display:grid;grid-template-columns:100px 120px minmax(0,1fr);gap:16px;align-items:start;padding:10px 4px;border-bottom:1px solid #252b2f}
+.log .li:last-child{border-bottom:0}.logTime{color:#8d989f}.logKind{color:#cbd2d6;letter-spacing:.06em}.logMessage{font-style:normal;color:#e2e6e8;white-space:normal;overflow-wrap:anywhere}
+.signalWorkspace{max-width:none!important}
+.signalWorkspaceHead h2{font-size:14px}.signalWorkspaceHead p{font-size:10px;line-height:1.5}
+.signalSearch{font-size:11px!important;padding:13px 14px!important}
+.signalSummary span{font-size:9px}.signalSummary b{font-size:17px}
+.signalTree .treeGroup{border-color:#3a4044;background:#101112}
+.signalTree .treeGroup>summary{padding:15px 14px;font-size:11px}
+.signalTree .treeGroup>summary:before,.signalTree .treeSource>summary:before{background:#17191a!important;border-color:#50565a!important;color:#c9ced1!important}
+.signalTree .treeGroupBody{gap:10px 18px;padding:10px 14px 16px}
+.signalTree .treeSource{border:1px solid #303538!important;background:#111314;margin:0}
+.signalTree .treeSource>summary{grid-template-columns:22px 120px minmax(180px,1fr) auto;padding:15px 12px;gap:14px}
+.signalTree .treeSource>summary small{font-size:9px;color:#8d979d}.signalTree .treeSource>summary b{font-size:12px}.signalTree .treeSource>summary em{font-size:9px}
+.signalTree .treeSource[open]{margin:6px 0 12px;border-color:#484f53!important;background:#0d0f10}
+.signalTree .treeSource[open]>.treeBranches{padding:22px 28px 22px 68px}
+.signalTree .treeSource[open] .treeBranch{width:clamp(390px,40vw,760px);min-height:52px;padding:12px 15px;font-size:11px}
+.signalTree .treeSource[open] .treeBranch small{font-size:9px}
+.referencePanel{padding:22px!important}
+.referenceSectionLabel{margin:2px 0 8px;color:#7f8a91;font-size:9px;font-weight:800;letter-spacing:.1em}
+.referenceEmpty,.referenceAttached{padding:16px 18px!important;min-height:76px;align-items:center}
+.referenceEmpty b,.referenceAttached b{font-size:11px}.referenceEmpty span,.referenceAttached span,.referenceAttached small{font-size:9px}
+.referenceActions{margin:16px 0 0!important;gap:10px}
+.referenceActions .tinyAction{padding:10px 14px!important}
+.referenceMetricsLabel{margin-top:24px}
+.referenceMetrics{gap:10px}
+.referenceMetrics div{padding:14px 16px;min-height:76px}.referenceMetrics span{font-size:9px}.referenceMetrics b{font-size:20px}

@@ -64,7 +64,7 @@ async function connectAtem(){
    return;
  }
  status.style.color="";
- connectedDevice=d;
+ connectedDevice=d;connectedDevice.ip=ip;
  try{ applyAtemStateUpdate(d); }catch(error){ console.error("[ShowDesk initial render]",error); status.textContent="ATEM connected, but ShowDesk could not render switcher state. "+(error?.message||String(error)); status.style.color="var(--amber)"; btn.disabled=false; btn.textContent="TRY AGAIN"; return; }
  if(transport.subscribe){
    transport.subscribe((patch)=>window.ATEM_OPS?.applyStateUpdate?.(patch));
@@ -86,7 +86,7 @@ function setTab(tab){toast(tab.toUpperCase()+" view");
 }
 function recordEvent(kind,msg,data={}){const e={iso:new Date().toISOString(),t:new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}),kind,msg,data};sessionEvents.unshift(e);logs=sessionEvents;lastChangeText=msg;return e}
 function addLog(kind,msg){recordEvent(kind,msg);renderLog()}
-function renderLog(){let e=$("log");if(e)e.innerHTML=logs.slice(0,12).map(x=>`<div class="li"><span>${x.t}</span><b>${x.kind}</b><em>${x.msg}</em></div>`).join("")||`<div class="li"><em>No changes yet</em></div>`}
+function renderLog(){let e=$("log");if(e)e.innerHTML=logs.slice(0,18).map(x=>`<div class="li"><span class="logTime">${x.t}</span><b class="logKind">${x.kind}</b><em class="logMessage">${x.msg}</em></div>`).join("")||`<div class="li emptyLog"><em>No changes yet</em></div>`}
 window.routeHistory=window.routeHistory||{};
 function rememberRouteChange(n,next){
  const prev=actual[n];
@@ -178,10 +178,21 @@ function clearReference(){
  if(!baselineState.attached)return;const old=baselineState.name;baselineState.attached=false;baselineState.name="";baselineState.loadedAt=null;baselineState.pgm=null;baselineState.pvw=null;baselineState.metadata={};Object.keys(baselineState.routes).forEach(k=>delete baselineState.routes[k]);recordEvent("REFERENCE",`Reference removed: ${old}`);persistReference();updateReferenceUI();render();toast("Reference removed");
 }
 async function exportLogReport(){
- const mismatches=getMismatches();const report={product:"ShowDesk",exportedAt:new Date().toISOString(),device:connectedDevice?{name:connectedDevice.name,inputs:connectedDevice.inputs,outputs:connectedDevice.outputs,mes:connectedDevice.mes}:null,reference:baselineState.attached?{name:baselineState.name,loadedAt:baselineState.loadedAt,routes:baselineState.routes,pgm:baselineState.pgm,pvw:baselineState.pvw}:null,live:{pgm,pvw,routes:{...actual}},mismatches,history:sessionEvents};
- const text=JSON.stringify(report,null,2),blob=new Blob([text],{type:"application/json"}),filename=`ShowDesk Report ${new Date().toISOString().replace(/[:.]/g,"-")}.json`;
+ const mismatches=getMismatches(),mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
+ const line=(label,value)=>label.padEnd(24," ")+(value??"—");
+ const rows=["SHOWDESK SESSION REPORT","=======================","",line("ShowDesk version","0.1.0-32"),line("Exported",new Date().toLocaleString()),line("ATEM",connectedDevice?.name||liveEngineering.productIdentifier||"Not connected"),line("ATEM IP",connectedDevice?.ip||"—"),line("Video mode",liveEngineering.videoMode||"—"),line("Reported sources",(liveEngineering.inputs||[]).length),line("M/E buses",mes.length),"","CURRENT M/E STATE","-----------------"];
+ mes.forEach(me=>{rows.push(`M/E ${me.index}`,`  PROGRAM: ${me.pgm||"—"}`,`  PREVIEW: ${me.pvw||"—"}`,`  FTB: ${me.ftb?.isFullyBlack?"BLACK":me.ftb?.inTransition?"TRANSITION":"OFF"}`);(me.upstreamKeyers||[]).forEach((k,i)=>rows.push(`  USK ${i+1}: ${k.onAir?"ON AIR":"OFF"} | Fill: ${k.fill||"—"} | Key: ${k.key||"—"}`));});
+ if(dsks.length){rows.push("","DOWNSTREAM KEYERS","-----------------");dsks.forEach((k,i)=>rows.push(`DSK ${i+1}: ${k.onAir?"ON AIR":"OFF"} | Fill: ${k.fill||"—"} | Key: ${k.key||"—"}`));}
+ rows.push("","ROUTING / AUX ASSIGNMENTS","-------------------------");
+ if(routing.length)routing.forEach((r,i)=>rows.push(`${r.name||r.label||"ROUTE "+(i+1)}: ${r.route||r.source||r.value||"UNUSED"}`));else Object.entries(actual).forEach(([name,route])=>rows.push(`${name}: ${route}`));
+ rows.push("","SHOW REFERENCE","--------------");
+ if(baselineState.attached){rows.push(line("Reference",baselineState.name),line("Loaded",baselineState.loadedAt?new Date(baselineState.loadedAt).toLocaleString():"—"),line("Comparable routes",Object.keys(baselineState.routes).length),line("Mismatches",mismatches.length));mismatches.forEach(m=>rows.push(`  ${m.type} | ${m.name} | Expected: ${m.expected} | Actual: ${m.actual}`));}else rows.push("No reference attached.");
+ rows.push("","SESSION EVENT HISTORY","---------------------");
+ if(sessionEvents.length)[...sessionEvents].reverse().forEach(e=>rows.push(`${new Date(e.iso).toLocaleString()} | ${String(e.kind).padEnd(10," ")} | ${e.msg}`));else rows.push("No changes recorded this session.");
+ rows.push("","END OF REPORT");
+ const text=rows.join("\n"),blob=new Blob([text],{type:"text/plain;charset=utf-8"}),filename=`ShowDesk Report ${new Date().toISOString().replace(/[:.]/g,"-")}.txt`;
  try{
-   if(window.showSaveFilePicker){const handle=await window.showSaveFilePicker({suggestedName:filename,types:[{description:"ShowDesk log report",accept:{"application/json":[".json"]}}]});const writable=await handle.createWritable();await writable.write(blob);await writable.close();toast("Log report saved");}
+   if(window.showSaveFilePicker){const handle=await window.showSaveFilePicker({suggestedName:filename,types:[{description:"ShowDesk session report",accept:{"text/plain":[".txt"]}}]});const writable=await handle.createWritable();await writable.write(blob);await writable.close();toast("Log report saved");}
    else {const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast("Log report exported");}
  }catch(err){if(err?.name!=="AbortError")toast("Export failed");}
 }

@@ -133,7 +133,7 @@ async fn run_manual_update_check(app: AppHandle) {
     match updater.check().await {
         Ok(Some(update)) => {
             let version = update.version.to_string();
-            let install = app.dialog().message(format!("ShowDesk {version} is available.\n\nInstall the update and restart ShowDesk?")).title("ShowDesk Update").buttons(MessageDialogButtons::OkCancelCustom("Install".into(), "Cancel".into())).blocking_show();
+            let install = app.dialog().message(format!("ShowDesk {version} is available.\n\nInstall the update and restart ShowDesk?")).kind(MessageDialogKind::Info).title("ShowDesk Update").buttons(MessageDialogButtons::OkCancelCustom("Install".into(), "Cancel".into())).blocking_show();
             if install {
                 match update.download_and_install(|_, _| {}, || {}).await {
                     Ok(()) => app.request_restart(),

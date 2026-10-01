@@ -32,11 +32,11 @@
     </div>
  </div>
  
- <div class="modRow lowerModRow">
+ <div class="showStack">
   <div class="panel inputsStandalone"><div class="head"><h2>INPUTS</h2><span class="sub" id="inputCountLabel">available sources</span></div>
-    <div class="inputCompact" id="inputGrid"></div>
-   </div>
-  <div class="modSide"><div class="panel"><div class="head"><h2>RECENT CHANGES</h2><span class="sub">rolling history</span></div><div class="log" id="log"></div></div></div>
+   <div class="inputCompact" id="inputGrid"></div>
+  </div>
+  <div class="panel recentChangesPanel"><div class="head"><h2>RECENT CHANGES</h2><span class="sub">rolling session history</span></div><div class="log" id="log"></div></div>
  </div>
 </section>
 
@@ -55,11 +55,13 @@
  <div class="engSummary">
   <div class="panel"><div class="head"><h2>ATTENTION</h2><span class="sub">things worth looking at</span></div>
    <div class="attention" id="attention"></div></div><div class="panel referencePanel"><div class="head"><h2>SHOW REFERENCE</h2><span class="sub">expected state + reporting</span></div>
+   <div class="referenceSectionLabel">REFERENCE STATUS</div>
    <div id="referenceEmpty" class="referenceEmpty"><b>NO REFERENCE ATTACHED</b><span>Import a show reference to enable expected-vs-actual comparison.</span></div>
    <div id="referenceAttached" class="referenceAttached" hidden><div><span>REFERENCE</span><b id="engReferenceName">—</b><small id="referenceMeta">—</small></div><button class="tinyAction" onclick="clearReference()">REMOVE</button></div>
    <input id="referenceFile" type="file" accept=".json,.xml,.show,.atem" hidden onchange="importReferenceFile(event)">
-   <div class="actionbar"><button class="tinyAction primaryAction" onclick="$('referenceFile').click()">IMPORT REFERENCE</button><button class="tinyAction" onclick="exportLogReport()">EXPORT LOG REPORT</button><button class="tinyAction" onclick="setTab('signal')">VIEW SIGNAL PATH</button></div>
-   <div class="compare"><div><span>MISMATCHES</span><b id="mismatchCount">—</b></div><div><span>CHANGES THIS SESSION</span><b id="sessionChangeCount">0</b></div><div><span>LOG EVENTS</span><b id="logEventCount">0</b></div></div>
+   <div class="actionbar referenceActions"><button class="tinyAction primaryAction" onclick="$('referenceFile').click()">IMPORT REFERENCE</button><button class="tinyAction" onclick="exportLogReport()">EXPORT LOG REPORT</button><button class="tinyAction" onclick="setTab('signal')">VIEW SIGNAL PATH</button></div>
+   <div class="referenceSectionLabel referenceMetricsLabel">SESSION SUMMARY</div>
+   <div class="compare referenceMetrics"><div><span>MISMATCHES</span><b id="mismatchCount">—</b></div><div><span>CHANGES THIS SESSION</span><b id="sessionChangeCount">0</b></div><div><span>LOG EVENTS</span><b id="logEventCount">0</b></div></div>
   </div>
  </div>
 
