@@ -27,6 +27,32 @@ function validIpLike(v){
  const parts=v.trim().split(".");
  return parts.length===4&&parts.every(x=>/^\d{1,3}$/.test(x)&&Number(x)>=0&&Number(x)<=255);
 }
+function chooseConnectionMode(mode){
+ const choice=$("modeChoice"),host=$("hostSetup"),viewer=$("viewerSetup");
+ choice.hidden=!!mode;host.hidden=mode!=="host";viewer.hidden=mode!=="viewer";
+}
+function viewerInputChanged(){
+ const ip=$("viewerHostIp").value.trim();
+ $("connectViewerBtn").disabled=!validIpLike(ip);
+ $("viewerStatus").textContent=validIpLike(ip)?"Ready to connect to ShowDesk Host at "+ip+".":"Enter a valid ShowDesk Host IPv4 address.";
+}
+async function connectViewer(){
+ const ip=$("viewerHostIp").value.trim(),btn=$("connectViewerBtn"),status=$("viewerStatus"),transport=window.ATEM_TRANSPORT;
+ if(!validIpLike(ip)||!transport?.connectViewer)return;
+ btn.disabled=true;btn.textContent="CONNECTING…";status.textContent="Connecting to ShowDesk Host at "+ip+"…";
+ try{
+  const d=await transport.connectViewer(ip);
+  connectedDevice=d;connectedDevice.ip=ip;
+  applyAtemStateUpdate(d);
+  if(transport.subscribe)transport.subscribe(patch=>window.ATEM_OPS?.applyStateUpdate?.(patch));
+  $("modelLabel").textContent=(d.name||d.productIdentifier||"ATEM Switcher")+" • VIEWER • "+ip;
+  $("setup").classList.add("hidden");
+  addLog("SYSTEM","Viewer connected to ShowDesk Host at "+ip);render();
+ }catch(error){
+  status.textContent="Unable to connect to ShowDesk Host at "+ip+". "+(error?.message||String(error));
+  status.style.color="var(--amber)";btn.disabled=false;btn.textContent="TRY AGAIN";
+ }
+}
 async function connectionInputChanged(){
  const ip=$("atemIp").value.trim();
  $("connectAtemBtn").disabled=!validIpLike(ip);
