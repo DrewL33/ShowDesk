@@ -673,3 +673,15 @@ button,input,select,textarea {
   .signalTree .treeSource[open]>.treeBranches,
   .signalTree .treeSource[open]>.treeBranches .treeBranchGroup{animation:none}
 }
+
+
+/* Host / Viewer connection mode */
+.connectionModeGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}
+.connectionModeCard{display:flex;flex-direction:column;align-items:flex-start;min-height:170px;padding:20px;text-align:left;background:#101213!important;border:1px solid #41474b!important;color:var(--text);cursor:pointer}
+.connectionModeCard:hover{border-color:#697278!important;background:#141718!important}
+.connectionModeCard b{font-size:16px;letter-spacing:.12em}
+.connectionModeCard span{margin-top:12px;color:var(--muted);font-size:10px;line-height:1.6;font-weight:500}
+.connectionModeCard em{margin-top:auto;padding-top:18px;color:#cbd2d6;font-size:9px;font-style:normal;font-weight:800;letter-spacing:.08em}
+.setupBack{margin:0 0 16px;padding:7px 0!important;background:transparent!important;border:0!important;color:var(--muted)!important;font-size:9px!important;text-align:left}
+#hostSetup[hidden],#viewerSetup[hidden],#modeChoice[hidden]{display:none!important}
+@media(max-width:620px){.connectionModeGrid{grid-template-columns:1fr}.connectionModeCard{min-height:140px}}
