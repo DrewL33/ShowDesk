@@ -481,7 +481,7 @@ const showDeskUpdater={phase:"idle",available:null,operation:null};
 function setUpdateModal({title,message,primary="",primaryAction=null,progress=false,close=true}={}){
  const modal=$("updateProgressModal"),track=$("updateProgressTrack"),meta=$("updateProgressMeta"),btn=$("updatePrimaryBtn"),closeBtn=$("updateCloseBtn");if(!modal)return;
  modal.hidden=false;$("updateProgressTitle").textContent=title||"ShowDesk Update";$("updateProgressMessage").textContent=message||"";
- track.hidden=!progress;meta.hidden=!progress;closeBtn.hidden=!close;btn.hidden=!primary;btn.textContent=primary||"";btn.onclick=primaryAction;
+ track.hidden=!progress;meta.hidden=!progress;modal.classList.toggle("indeterminate",false);if(!progress){$("updateProgressFill").style.width="";$("updateProgressPercent").textContent="";$("updateProgressBytes").textContent="";}closeBtn.hidden=!close;btn.hidden=!primary;btn.textContent=primary||"";btn.onclick=primaryAction;
 }
 function closeUpdateModal(){if(showDeskUpdater.phase==="downloading"||showDeskUpdater.phase==="installing")return;const modal=$("updateProgressModal");if(modal)modal.hidden=true}
 function showUpdateAvailable(result,manual){
