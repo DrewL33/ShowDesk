@@ -80,7 +80,6 @@
   }
 
   async function connectViewer(host) {
-    if (isNativeTauri()) return request('connectViewerHost', { host });
     const target = host.trim().replace(/^wss?:\/\//, '').replace(/\/$/, '');
     const url = `ws://${target.includes(':') ? target : target + ':47822'}/viewer`;
     return new Promise((resolve, reject) => {
