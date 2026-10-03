@@ -580,9 +580,9 @@ button,input,select,textarea {
 /* Build032 — readability, Show workspace, Signal Paths hierarchy, reference hierarchy */
 @media(min-width:1200px){
  html,body{font-size:15px}
- .top{height:82px;padding-left:26px;padding-right:26px}
- .brand{font-size:24px}
- .mode button{min-width:124px;font-size:10px!important}
+ .top{height:43px;padding-left:14px;padding-right:14px}
+ .brand{font-size:14px}
+ .mode button{min-width:94px;font-size:9px!important}
  .wrap{padding-top:22px;padding-bottom:42px}
  .panel{padding:20px}
  .head{margin-bottom:16px;padding-bottom:13px}
