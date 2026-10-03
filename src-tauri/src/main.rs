@@ -6,7 +6,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::menu::{MenuBuilder, SubmenuBuilder};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
 
@@ -156,6 +156,16 @@ async fn run_manual_update_check(app: AppHandle) {
     }
 }
 
+fn show_about(app: &AppHandle) {
+    let version = app.package_info().version.to_string();
+    let build = version.split('-').nth(1).and_then(|n| n.parse::<u32>().ok()).map(|n| format!("Build{:03}", n)).unwrap_or_else(|| version.clone());
+    app.dialog()
+        .message(format!("ShowDesk\n{build}\nVersion {version}\nBeta\n\nRead-only ATEM monitoring and signal-path tools."))
+        .kind(MessageDialogKind::Info)
+        .title("About ShowDesk")
+        .blocking_show();
+}
+
 fn stop_atem_service(app: &AppHandle) {
     if let Some(state) = app.try_state::<AtemService>() {
         if let Ok(mut guard) = state.0.lock() {
@@ -183,7 +193,10 @@ fn main() {
             }
 
             let app_menu = SubmenuBuilder::new(app, "ShowDesk")
+                .text("about_showdesk", "About ShowDesk")
                 .text("check_for_updates", "Check for Updates…")
+                .separator()
+                .text("disconnect_showdesk", "Disconnect…")
                 .separator()
                 .quit()
                 .build()?;
@@ -196,6 +209,10 @@ fn main() {
                 if event.id() == "check_for_updates" || event.id() == "check_for_updates_help" {
                     let app = app.clone();
                     tauri::async_runtime::spawn(async move { run_manual_update_check(app).await; });
+                } else if event.id() == "about_showdesk" {
+                    show_about(app);
+                } else if event.id() == "disconnect_showdesk" {
+                    let _ = app.emit("showdesk-native-menu", "disconnect");
                 }
             });
             Ok(())

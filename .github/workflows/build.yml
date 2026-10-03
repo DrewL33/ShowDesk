@@ -1,5 +1,5 @@
 name: Build ShowDesk
-# Build036 authoritative native release workflow
+# Build037 authoritative native release workflow
 permissions:
   contents: write
 on:
@@ -63,7 +63,7 @@ jobs:
             test -x "$APP/Contents/MacOS/showdesk"
             ! grep -R -q 'The browser is the UI for this beta shell' "$APP/Contents" || exit 1
           fi
-      - name: Verify and package native macOS Build036
+      - name: Verify and package native macOS Build037
         if: runner.os == 'macOS'
         shell: bash
         run: |
@@ -77,7 +77,7 @@ jobs:
           codesign --force --deep --sign - "$APP"
           codesign --verify --deep --strict --verbose=2 "$APP"
           spctl --assess --type execute --verbose=4 "$APP" || true
-          DMG="src-tauri/target/release/bundle/dmg/ShowDesk-Beta2-Build036-Native-macOS.dmg"
+          DMG="src-tauri/target/release/bundle/dmg/ShowDesk-Beta2-Build037-Native-macOS.dmg"
           rm -f "$DMG"
           STAGE="$(mktemp -d)"
           cp -R "$APP" "$STAGE/ShowDesk.app"
@@ -89,19 +89,19 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$MOUNT/ShowDesk.app"
           hdiutil detach "$MOUNT"
           rmdir "$MOUNT"
-          rm -f src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build036-Native-macOS.zip
-          ditto -c -k --sequesterRsrc --keepParent "$APP" src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build036-Native-macOS.zip
+          rm -f src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build037-Native-macOS.zip
+          ditto -c -k --sequesterRsrc --keepParent "$APP" src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build037-Native-macOS.zip
           rm -rf /tmp/showdesk-verify
           mkdir -p /tmp/showdesk-verify
-          ditto -x -k src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build036-Native-macOS.zip /tmp/showdesk-verify
+          ditto -x -k src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build037-Native-macOS.zip /tmp/showdesk-verify
           codesign --verify --deep --strict --verbose=2 /tmp/showdesk-verify/ShowDesk.app
-      - name: Upload native Build036
+      - name: Upload native Build037
         uses: actions/upload-artifact@v4
         with:
-          name: ShowDesk-Beta2-Build036-Native-${{ runner.os }}
+          name: ShowDesk-Beta2-Build037-Native-${{ runner.os }}
           path: |
-            src-tauri/target/release/bundle/dmg/ShowDesk-Beta2-Build036-Native-macOS.dmg
-            src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build036-Native-macOS.zip
+            src-tauri/target/release/bundle/dmg/ShowDesk-Beta2-Build037-Native-macOS.dmg
+            src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build037-Native-macOS.zip
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/nsis/*.sig
@@ -119,7 +119,7 @@ jobs:
           ref: ${{ github.sha }}
       - uses: actions/download-artifact@v4
         with:
-          pattern: ShowDesk-Beta2-Build036-Native-*
+          pattern: ShowDesk-Beta2-Build037-Native-*
           path: updater-input
           merge-multiple: true
       - name: Prepare signed updater feed
@@ -135,26 +135,26 @@ jobs:
           WIN_SRC="$(find updater-input -type f -name '*-setup.exe' | head -n1)"
           WIN_SIG_SRC="$(find updater-input -type f -name '*-setup.exe.sig' | head -n1)"
           test -n "$MAC_SRC" && test -n "$MAC_SIG_SRC" && test -n "$WIN_SRC" && test -n "$WIN_SIG_SRC"
-          cp "$MAC_SRC" updater-release/ShowDesk-Beta2-Build036-macOS-arm64.app.tar.gz
-          cp "$MAC_SIG_SRC" updater-release/ShowDesk-Beta2-Build036-macOS-arm64.app.tar.gz.sig
-          cp "$WIN_SRC" updater-release/ShowDesk-Beta2-Build036-Windows-x64-setup.exe
-          cp "$WIN_SIG_SRC" updater-release/ShowDesk-Beta2-Build036-Windows-x64-setup.exe.sig
+          cp "$MAC_SRC" updater-release/ShowDesk-Beta2-Build037-macOS-arm64.app.tar.gz
+          cp "$MAC_SIG_SRC" updater-release/ShowDesk-Beta2-Build037-macOS-arm64.app.tar.gz.sig
+          cp "$WIN_SRC" updater-release/ShowDesk-Beta2-Build037-Windows-x64-setup.exe
+          cp "$WIN_SIG_SRC" updater-release/ShowDesk-Beta2-Build037-Windows-x64-setup.exe.sig
           export APP_VERSION
           node <<'NODE'
           const fs=require('fs');
           const base='https://github.com/DrewL33/ShowDesk/releases/download/showdesk-beta-latest/';
           const feed={
             version:process.env.APP_VERSION,
-            notes:'Build036: reliable native Host/Viewer transport, all-M/E Recent Changes and session logging, and native selectable log export location.',
+            notes:'Build037: About ShowDesk version information, mode-aware disconnect controls, and updater version safeguards.',
             pub_date:new Date().toISOString(),
             platforms:{
               'darwin-aarch64':{
-                signature:fs.readFileSync('updater-release/ShowDesk-Beta2-Build036-macOS-arm64.app.tar.gz.sig','utf8').trim(),
-                url:base+'ShowDesk-Beta2-Build036-macOS-arm64.app.tar.gz'
+                signature:fs.readFileSync('updater-release/ShowDesk-Beta2-Build037-macOS-arm64.app.tar.gz.sig','utf8').trim(),
+                url:base+'ShowDesk-Beta2-Build037-macOS-arm64.app.tar.gz'
               },
               'windows-x86_64':{
-                signature:fs.readFileSync('updater-release/ShowDesk-Beta2-Build036-Windows-x64-setup.exe.sig','utf8').trim(),
-                url:base+'ShowDesk-Beta2-Build036-Windows-x64-setup.exe'
+                signature:fs.readFileSync('updater-release/ShowDesk-Beta2-Build037-Windows-x64-setup.exe.sig','utf8').trim(),
+                url:base+'ShowDesk-Beta2-Build037-Windows-x64-setup.exe'
               }
             }
           };
@@ -190,7 +190,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: ShowDesk-Beta2-Build036-Native-*
+          pattern: ShowDesk-Beta2-Build037-Native-*
           path: field-test-input
           merge-multiple: true
       - name: Prepare two-file field-test release

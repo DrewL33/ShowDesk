@@ -10,6 +10,8 @@ let selectedDestination=null;
 let selectedMeIndex=1;
 let previousMeState=new Map();
 let viewerConnectionSubscription=null;
+let activeConnectionMode=null;
+let intentionalDisconnect=false;
 const signalTreeOpen=new Set(["group:physical"]);
 let signalSearchActive=false;
 function rememberSignalTreeState(){document.querySelectorAll("#signalTree details[data-tree-key]").forEach(el=>{const k=el.dataset.treeKey;if(el.open)signalTreeOpen.add(k);else signalTreeOpen.delete(k)})}
@@ -43,7 +45,7 @@ async function connectViewer(){
  if(!validIpLike(ip)||!transport?.connectViewer)return;
  btn.disabled=true;btn.textContent="CONNECTING…";status.style.color="";status.textContent="Connecting to ShowDesk Host at "+ip+"…";
  const enterViewer=d=>{if(!d)return;connectedDevice=d;connectedDevice.ip=ip;applyAtemStateUpdate(d);$("modelLabel").textContent=(d.name||d.productIdentifier||"ATEM Switcher")+" • VIEWER • "+ip;$("setup").classList.add("hidden");addLog("SYSTEM","Viewer connected to ShowDesk Host at "+ip);render();};
- if(!viewerConnectionSubscription&&transport.subscribeConnection)viewerConnectionSubscription=transport.subscribeConnection(message=>{if(message.status==="viewer-connected"&&message.data)enterViewer(message.data);else if(message.status==="waiting"){status.textContent="ShowDesk Host reached at "+ip+". Waiting for the Host to connect to an ATEM…";status.style.color="var(--amber)";btn.disabled=true;btn.textContent="WAITING FOR ATEM…";}else if(message.status==="disconnected"&&message.reason==="ShowDesk Host connection lost"){addLog("SYSTEM","Viewer lost connection to ShowDesk Host at "+ip);alert("ShowDesk Host connection lost.");}});
+ if(!viewerConnectionSubscription&&transport.subscribeConnection)viewerConnectionSubscription=transport.subscribeConnection(message=>{if(message.status==="viewer-connected"&&message.data)enterViewer(message.data);else if(message.status==="waiting"){status.textContent="ShowDesk Host reached at "+ip+". Waiting for the Host to connect to an ATEM…";status.style.color="var(--amber)";btn.disabled=true;btn.textContent="WAITING FOR ATEM…";}else if(message.status==="disconnected"&&message.reason==="ShowDesk Host connection lost"&&!intentionalDisconnect){addLog("SYSTEM","Viewer lost connection to ShowDesk Host at "+ip);alert("ShowDesk Host connection lost.");}});
  try{const result=await transport.connectViewer(ip);if(result?.status==="waiting"){status.textContent="ShowDesk Host reached at "+ip+". "+(result.reason||"Waiting for the Host to connect to an ATEM…");status.style.color="var(--amber)";btn.disabled=true;btn.textContent="WAITING FOR ATEM…";return;}enterViewer(result?.data||result);}
  catch(error){status.textContent="Unable to reach ShowDesk Host at "+ip+". "+(error?.message||String(error));status.style.color="var(--amber)";btn.disabled=false;btn.textContent="TRY AGAIN";}
 }
@@ -85,7 +87,7 @@ async function connectAtem(){
    return;
  }
  status.style.color="";
- connectedDevice=d;connectedDevice.ip=ip;
+ connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="host";intentionalDisconnect=false;
  try{ applyAtemStateUpdate(d); }catch(error){ console.error("[ShowDesk initial render]",error); status.textContent="ATEM connected, but ShowDesk could not render switcher state. "+(error?.message||String(error)); status.style.color="var(--amber)"; btn.disabled=false; btn.textContent="TRY AGAIN"; return; }
  if(transport.subscribe){
    transport.subscribe((patch)=>window.ATEM_OPS?.applyStateUpdate?.(patch));
@@ -98,6 +100,18 @@ async function connectAtem(){
    addLog("SYSTEM",d.name+" discovered at "+ip);render();
 
 }
+async function disconnectShowDesk(){
+ const transport=window.ATEM_TRANSPORT;if(!activeConnectionMode||!transport)return;
+ intentionalDisconnect=true;
+ try{
+   if(activeConnectionMode==="viewer"&&transport.disconnectViewer)await transport.disconnectViewer();
+   else if(activeConnectionMode==="host"&&transport.disconnect)await transport.disconnect();
+ }catch(error){intentionalDisconnect=false;alert("ShowDesk could not disconnect cleanly.\n\n"+(error?.message||String(error)));return;}
+ addLog("SYSTEM",activeConnectionMode==="viewer"?"Disconnected from ShowDesk Host":"Disconnected from ATEM");
+ activeConnectionMode=null;connectedDevice=null;previousMeState=new Map();liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],routing:[],productIdentifier:null,videoMode:null,topology:{},debug:null};
+ $("setup").classList.remove("hidden");chooseConnectionMode(null);$("modelLabel").textContent="";$("connectAtemBtn").textContent="CONNECT & HOST";$("connectViewerBtn").textContent="CONNECT TO HOST";$("connectViewerBtn").disabled=!validIpLike($("viewerHostIp").value);intentionalDisconnect=false;render();
+}
+window.addEventListener("showdesk-native-menu",event=>{if(event.detail==="disconnect")disconnectShowDesk();});
 function selectME(index){selectedMeIndex=Number(index)||1;render()}
 function selectedME(){return (liveEngineering.mixEffects||[]).find(me=>me.index===selectedMeIndex)||(liveEngineering.mixEffects||[])[0]||null}
 function setTab(tab){toast(tab.toUpperCase()+" view");
@@ -132,7 +146,7 @@ function updateReferenceUI(){
  if(on){if($("engReferenceName"))$("engReferenceName").textContent=name;if($("referenceMeta"))$("referenceMeta").textContent=`${Object.keys(baselineState.routes).length} comparable routes • loaded ${new Date(baselineState.loadedAt).toLocaleTimeString()}`;}
  if($("diagReference"))$("diagReference").textContent=on?name:"NONE";
  const mm=getMismatches();if($("mismatchCount"))$("mismatchCount").textContent=on?mm.length:"—";
- if($("sessionChangeCount"))$("sessionChangeCount").textContent=sessionEvents.filter(e=>["ROUTE","M/E 1","STATE"].includes(e.kind)).length;
+ if($("sessionChangeCount"))$("sessionChangeCount").textContent=sessionEvents.filter(e=>e.kind==="ROUTE"||e.kind==="STATE"||/^M\/E \d+$/.test(e.kind)).length;
  if($("logEventCount"))$("logEventCount").textContent=sessionEvents.length;
 }
 function normalizeReferenceObject(obj){
@@ -201,7 +215,7 @@ function clearReference(){
 async function exportLogReport(){
  const mismatches=getMismatches(),mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
  const line=(label,value)=>label.padEnd(24," ")+(value??"—");
- const rows=["SHOWDESK SESSION REPORT","=======================","",line("ShowDesk version","0.1.0-36"),line("Exported",new Date().toLocaleString()),line("ATEM",connectedDevice?.name||liveEngineering.productIdentifier||"Not connected"),line("ATEM IP",connectedDevice?.ip||"—"),line("Video mode",liveEngineering.videoMode||"—"),line("Reported sources",(liveEngineering.inputs||[]).length),line("M/E buses",mes.length),"","CURRENT M/E STATE","-----------------"];
+ const rows=["SHOWDESK SESSION REPORT","=======================","",line("ShowDesk version","0.1.0-37"),line("Exported",new Date().toLocaleString()),line("ATEM",connectedDevice?.name||liveEngineering.productIdentifier||"Not connected"),line("ATEM IP",connectedDevice?.ip||"—"),line("Video mode",liveEngineering.videoMode||"—"),line("Reported sources",(liveEngineering.inputs||[]).length),line("M/E buses",mes.length),"","CURRENT M/E STATE","-----------------"];
  mes.forEach(me=>{rows.push(`M/E ${me.index}`,`  PROGRAM: ${me.pgm||"—"}`,`  PREVIEW: ${me.pvw||"—"}`,`  FTB: ${me.ftb?.isFullyBlack?"BLACK":me.ftb?.inTransition?"TRANSITION":"OFF"}`);(me.upstreamKeyers||[]).forEach((k,i)=>rows.push(`  USK ${i+1}: ${k.onAir?"ON AIR":"OFF"} | Fill: ${k.fill||"—"} | Key: ${k.key||"—"}`));});
  if(dsks.length){rows.push("","DOWNSTREAM KEYERS","-----------------");dsks.forEach((k,i)=>rows.push(`DSK ${i+1}: ${k.onAir?"ON AIR":"OFF"} | Fill: ${k.fill||"—"} | Key: ${k.key||"—"}`));}
  rows.push("","ROUTING / AUX ASSIGNMENTS","-------------------------");

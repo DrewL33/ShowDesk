@@ -74,8 +74,19 @@ async function disconnectInstance(instance) {
 }
 async function disconnectAtem() {
   const instance = atem;
+  const wasConnected = hasConnected;
   atem = null; currentIp = null; lastState = null; hasConnected = false;
   await disconnectInstance(instance);
+  if (wasConnected) {
+    broadcast({ type: 'connection', status: 'disconnected', reason: 'ATEM disconnected intentionally' });
+    broadcastViewers({ type: 'connection', status: 'waiting', reason: 'Host is not connected to an ATEM' });
+  }
+}
+async function disconnectViewerHost() {
+  const ws = viewerUpstream;
+  viewerUpstream = null;
+  if (ws) { try { ws.close(); } catch {} }
+  return { disconnected: true };
 }
 async function connectAtem(ip) {
   await disconnectAtem();
@@ -192,6 +203,7 @@ wss.on('connection', (ws) => {
     try {
       if (msg.type === 'connect') return reply(true, await connectAtem(msg.ip));
       if (msg.type === 'connectViewerHost') return reply(true, await connectViewerHost(msg.host));
+      if (msg.type === 'disconnectViewerHost') return reply(true, await disconnectViewerHost());
       if (msg.type === 'disconnect') { await disconnectAtem(); return reply(true, { disconnected: true }); }
       reply(false, null, 'Unknown request');
     } catch (error) {

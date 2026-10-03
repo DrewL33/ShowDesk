@@ -113,6 +113,7 @@
       connectionSubscribers.add(callback);
       return () => connectionSubscribers.delete(callback);
     },
-    disconnect() { return request('disconnect'); }
+    disconnect() { return request('disconnect'); },
+    disconnectViewer() { return isNativeTauri() ? request('disconnectViewerHost') : Promise.resolve((socket?.close(), { disconnected:true })); }
   };
 })();
