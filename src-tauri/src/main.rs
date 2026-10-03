@@ -11,6 +11,7 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
 
 struct AtemService(Mutex<Option<Child>>);
+struct UpdaterBusy(Mutex<bool>);
 
 fn service_ready() -> bool {
     let address: SocketAddr = "127.0.0.1:47821".parse().expect("valid ShowDesk service address");
@@ -112,6 +113,11 @@ async fn save_log_report(app: AppHandle, filename: String, contents: String, ini
 
 #[tauri::command]
 async fn check_for_update(app: AppHandle) -> Result<serde_json::Value, String> {
+    {
+        let busy = app.state::<UpdaterBusy>();
+        let guard = busy.0.lock().map_err(|_| "Updater state is unavailable.".to_string())?;
+        if *guard { return Err("An update operation is already in progress.".to_string()); }
+    }
     let update = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())?;
     Ok(match update {
         Some(update) => serde_json::json!({
@@ -126,6 +132,13 @@ async fn check_for_update(app: AppHandle) -> Result<serde_json::Value, String> {
 
 #[tauri::command]
 async fn install_update(app: AppHandle) -> Result<(), String> {
+    {
+        let busy = app.state::<UpdaterBusy>();
+        let mut guard = busy.0.lock().map_err(|_| "Updater state is unavailable.".to_string())?;
+        if *guard { return Err("An update operation is already in progress.".to_string()); }
+        *guard = true;
+    }
+    let result: Result<(), String> = async {
     let update = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())?
         .ok_or_else(|| "No update is currently available.".to_string())?;
     let version = update.version.to_string();
@@ -143,6 +156,11 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
     ).await.map_err(|e| e.to_string())?;
     let _ = app.emit("showdesk-update-progress", serde_json::json!({ "phase": "restarting" }));
     app.restart();
+    #[allow(unreachable_code)]
+    Ok(())
+    }.await;
+    if let Ok(mut guard) = app.state::<UpdaterBusy>().0.lock() { *guard = false; }
+    result
 }
 
 async fn run_manual_update_check(app: AppHandle) {
@@ -179,6 +197,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .manage(AtemService(Mutex::new(None)))
+        .manage(UpdaterBusy(Mutex::new(false)))
         .invoke_handler(tauri::generate_handler![ensure_atem_service, save_log_report, check_for_update, install_update])
         .setup(|app| {
             // Start eagerly, but do not prevent the UI from opening if the
