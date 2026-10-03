@@ -128,7 +128,20 @@ async fn check_for_update(app: AppHandle) -> Result<serde_json::Value, String> {
 async fn install_update(app: AppHandle) -> Result<(), String> {
     let update = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())?
         .ok_or_else(|| "No update is currently available.".to_string())?;
-    update.download_and_install(|_, _| {}, || {}).await.map_err(|e| e.to_string())?;
+    let version = update.version.to_string();
+    let progress_app = app.clone();
+    let finish_app = app.clone();
+    let mut downloaded: u64 = 0;
+    update.download_and_install(
+        move |chunk_length, content_length| {
+            downloaded = downloaded.saturating_add(chunk_length as u64);
+            let _ = progress_app.emit("showdesk-update-progress", serde_json::json!({
+                "phase": "downloading", "version": version, "downloaded": downloaded, "total": content_length
+            }));
+        },
+        move || { let _ = finish_app.emit("showdesk-update-progress", serde_json::json!({ "phase": "installing" })); }
+    ).await.map_err(|e| e.to_string())?;
+    let _ = app.emit("showdesk-update-progress", serde_json::json!({ "phase": "restarting" }));
     app.restart();
 }
 
@@ -145,8 +158,18 @@ async fn run_manual_update_check(app: AppHandle) {
             let version = update.version.to_string();
             let install = app.dialog().message(format!("ShowDesk {version} is available.\n\nInstall the update and restart ShowDesk?")).kind(MessageDialogKind::Info).title("ShowDesk Update").buttons(MessageDialogButtons::OkCancelCustom("Install".into(), "Cancel".into())).blocking_show();
             if install {
-                match update.download_and_install(|_, _| {}, || {}).await {
-                    Ok(()) => app.request_restart(),
+                let version = update.version.to_string();
+                let progress_app = app.clone();
+                let finish_app = app.clone();
+                let mut downloaded: u64 = 0;
+                match update.download_and_install(
+                    move |chunk_length, content_length| {
+                        downloaded = downloaded.saturating_add(chunk_length as u64);
+                        let _ = progress_app.emit("showdesk-update-progress", serde_json::json!({ "phase":"downloading", "version":version, "downloaded":downloaded, "total":content_length }));
+                    },
+                    move || { let _ = finish_app.emit("showdesk-update-progress", serde_json::json!({ "phase":"installing" })); }
+                ).await {
+                    Ok(()) => { let _ = app.emit("showdesk-update-progress", serde_json::json!({ "phase":"restarting" })); app.request_restart(); },
                     Err(error) => { app.dialog().message(format!("ShowDesk could not install the update. The app is still running normally.\n\n{error}")).kind(MessageDialogKind::Error).title("ShowDesk Update").blocking_show(); }
                 }
             }
