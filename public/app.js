@@ -440,10 +440,19 @@ window.addEventListener("error",e=>{const s=$("setupStatus"),b=$("connectAtemBtn
 
 /* Native desktop updater. Browser builds ignore this path entirely. */
 function tauriInvoke(){return window.__TAURI_INTERNALS__?.invoke||null}
+function formatUpdateBytes(bytes){const n=Number(bytes)||0;if(n<1024)return n+" B";if(n<1048576)return (n/1024).toFixed(1)+" KB";return (n/1048576).toFixed(1)+" MB"}
+function showUpdateProgress(detail={}){
+ const modal=$("updateProgressModal"),title=$("updateProgressTitle"),fill=$("updateProgressFill"),percent=$("updateProgressPercent"),bytes=$("updateProgressBytes"),message=$("updateProgressMessage");if(!modal)return;
+ modal.hidden=false;const phase=detail.phase||"downloading";modal.classList.toggle("indeterminate",phase==="downloading"&&!detail.total);
+ if(phase==="downloading"){title.textContent="Downloading "+(detail.version?("ShowDesk "+detail.version):"update")+"…";const total=Number(detail.total)||0,downloaded=Number(detail.downloaded)||0;if(total>0){const pct=Math.max(0,Math.min(100,Math.round(downloaded/total*100)));fill.style.width=pct+"%";percent.textContent=pct+"%";bytes.textContent=formatUpdateBytes(downloaded)+" of "+formatUpdateBytes(total);}else{fill.style.width="";percent.textContent="DOWNLOADING";bytes.textContent=formatUpdateBytes(downloaded)+" downloaded";}message.textContent="ShowDesk will verify and install the update automatically."}
+ else if(phase==="installing"){modal.classList.remove("indeterminate");fill.style.width="100%";percent.textContent="100%";bytes.textContent="Download complete";title.textContent="Installing update…";message.textContent="Verifying and installing ShowDesk. Do not close the app."}
+ else if(phase==="restarting"){modal.classList.remove("indeterminate");fill.style.width="100%";percent.textContent="COMPLETE";bytes.textContent="";title.textContent="Restarting ShowDesk…";message.textContent="The update is installed. ShowDesk is restarting."}
+}
+async function ensureUpdateProgressListener(){const listen=window.__TAURI_INTERNALS__?.event?.listen;if(typeof listen==="function"){await listen("showdesk-update-progress",event=>showUpdateProgress(event.payload||{}));}}
 async function installShowDeskUpdate(){
- const invoke=tauriInvoke();if(!invoke)return;
+ const invoke=tauriInvoke();if(!invoke)return;showUpdateProgress({phase:"downloading"});
  try{await invoke("install_update")}
- catch(error){alert("ShowDesk could not install the update. The app is still running normally.\n\n"+(error?.message||String(error)))}
+ catch(error){const modal=$("updateProgressModal");if(modal)modal.hidden=true;alert("ShowDesk could not install the update. The app is still running normally.\\n\\n"+(error?.message||String(error)))}
 }
 async function checkForShowDeskUpdate(manual=false){
  const invoke=tauriInvoke();if(!invoke)return;
@@ -459,4 +468,4 @@ async function checkForShowDeskUpdate(manual=false){
  }
 }
 window.checkForShowDeskUpdate=checkForShowDeskUpdate;
-document.addEventListener("DOMContentLoaded",()=>{if(tauriInvoke())setTimeout(()=>checkForShowDeskUpdate(false),1200)});
+document.addEventListener("DOMContentLoaded",()=>{if(tauriInvoke()){ensureUpdateProgressListener().catch(console.error);setTimeout(()=>checkForShowDeskUpdate(false),1200)}});
