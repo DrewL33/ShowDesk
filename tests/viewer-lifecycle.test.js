@@ -19,7 +19,7 @@ assert.match(app,/transport\.subscribe\(\(patch\)=>\{markConnectionActivity\(\)/
 assert.ok(!app.includes('• STALE'),'Operator-facing connection status must not show STALE while the transport remains connected');
 assert.match(app,/function startConnectionHealth[\s\S]*?subscribeHealth/,'Connected Host and Viewer modes must subscribe to health events');
 assert.match(app,/function stopConnectionHealth[\s\S]*?clearInterval/,'Disconnect must clean up connection health monitoring');
-assert.match(app,/text\.textContent=activeConnectionMode\.toUpperCase\(\)\+" • CONNECTED"/,'Connected Host and Viewer modes must remain operator-facing CONNECTED');
+assert.match(app,/viewerReconnecting\?"VIEWER • RECONNECTING":activeConnectionMode\.toUpperCase\(\)\+" • CONNECTED"/,'Connected modes must show CONNECTED normally and Viewer must show RECONNECTING only during recovery');
 const desktopCss=styles.match(/@media\(min-width:1200px\)\{([\s\S]*?)\n\}/)?.[1]||'';
 assert.match(desktopCss,/\.top\{height:43px;padding-left:14px;padding-right:14px\}/,'Desktop CSS must preserve the compact 43px ShowDesk toolbar');
 assert.match(desktopCss,/\.brand\{font-size:14px\}/,'Desktop CSS must preserve the compact 14px ShowDesk wordmark');
