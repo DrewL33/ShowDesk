@@ -1,4 +1,5 @@
 name: Build ShowDesk
+# Build036 authoritative native release workflow
 permissions:
   contents: write
 on:
