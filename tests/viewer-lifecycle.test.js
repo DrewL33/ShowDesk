@@ -27,3 +27,15 @@ assert.match(server,/viewerClients\.delete\(ws\); broadcastViewerCount\(\)/,'Vie
 assert.match(transport,/subscribeViewerCount\(callback\)/,'Local Host transport must expose Viewer-count status');
 assert.match(app,/activeConnectionMode==="host"&&count>0/,'Viewer count must be Host-only and hidden at zero');
 console.log('Viewer lifecycle, health, toolbar, and Viewer-count regression checks passed');
+
+// Build051 updater regression guards
+{
+ const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
+ const rust=fs.readFileSync(path.join(root,'src-tauri','src','main.rs'),'utf8');
+ assert(app.includes('const showDeskUpdater={phase:"idle",available:null,operation:null}'),'Updater must have one frontend state machine');
+ assert(app.includes('ShowDesk will not download it until you choose Download Update.'),'Startup check must not auto-download');
+ assert(app.includes('if(showDeskUpdater.operation)'),'Frontend must reject overlapping updater operations');
+ assert(rust.includes('struct UpdaterBusy(Mutex<bool>);'),'Native updater must have a concurrency guard');
+ assert(rust.includes('app.emit("showdesk-native-menu", "check-for-updates")'),'Native menu must route through the shared frontend updater');
+ assert(!rust.includes('Install the update and restart ShowDesk?'),'Rust must not own a second install prompt');
+}
