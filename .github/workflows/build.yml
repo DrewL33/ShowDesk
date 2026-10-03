@@ -174,7 +174,7 @@ jobs:
           const base='https://github.com/DrewL33/ShowDesk/releases/download/showdesk-beta-latest/';
           const feed={
             version:process.env.APP_VERSION,
-            notes:'Build048: enforce compact desktop toolbar across large-screen responsive rules.',
+            notes:'Build048: enforce compact desktop toolbar across large-screen responsive rules with scoped regression validation.',
             pub_date:new Date().toISOString(),
             platforms:{
               'darwin-aarch64':{
