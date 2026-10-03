@@ -62,6 +62,12 @@ function broadcast(message) {
   const payload = JSON.stringify(message);
   for (const ws of clients) if (ws.readyState === 1) ws.send(payload);
 }
+function broadcastHealthHeartbeat() {
+  const message = { type: 'health', at: Date.now(), atemConnected: hasConnected };
+  broadcast(message);
+  broadcastViewers(message);
+}
+setInterval(broadcastHealthHeartbeat, 5000).unref();
 function timeout(promise, ms, message) {
   let timer;
   return Promise.race([
