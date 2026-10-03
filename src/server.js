@@ -32,6 +32,7 @@ let hasConnected = false;
 const clients = new Set();
 const viewerClients = new Set();
 let viewerUpstream = null;
+let viewerUpstreamGeneration = 0;
 
 function viewerSnapshot() {
   if (!hasConnected || !lastState) return null;
@@ -83,6 +84,7 @@ async function disconnectAtem() {
   }
 }
 async function disconnectViewerHost() {
+  ++viewerUpstreamGeneration;
   const ws = viewerUpstream;
   viewerUpstream = null;
   if (ws) { try { ws.close(); } catch {} }
@@ -163,21 +165,25 @@ async function connectAtem(ip) {
 }
 
 async function connectViewerHost(host) {
-  if (viewerUpstream) { try { viewerUpstream.close(); } catch {} viewerUpstream = null; }
+  const generation = ++viewerUpstreamGeneration;
+  const previous = viewerUpstream; viewerUpstream = null;
+  if (previous) { try { previous.close(); } catch {} }
   const target = String(host || '').trim().replace(/^wss?:\/\//, '').replace(/\/$/, '');
   if (!target) throw new Error('ShowDesk Host address is required.');
   const url = `ws://${target.includes(':') ? target : target + ':47822'}/viewer`;
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(url); viewerUpstream = ws; let settled = false;
-    const timer = setTimeout(() => { if (!settled) { settled = true; try { ws.close(); } catch {} reject(new Error('ShowDesk Host did not respond in time.')); } }, 10000);
+    const isCurrent = () => generation === viewerUpstreamGeneration && viewerUpstream === ws;
+    const timer = setTimeout(() => { if (!settled && isCurrent()) { settled = true; viewerUpstream = null; try { ws.close(); } catch {} reject(new Error('ShowDesk Host did not respond in time.')); } }, 10000);
     ws.on('message', raw => {
+      if (!isCurrent()) return;
       let msg; try { msg = JSON.parse(raw.toString()); } catch { return; }
       if (msg.type === 'snapshot') { broadcast({ type: 'connection', status: 'viewer-connected', data: msg.data }); if (!settled) { settled = true; clearTimeout(timer); resolve({ status: 'connected', data: msg.data }); } return; }
       if (msg.type === 'state') { broadcast(msg); return; }
       if (msg.type === 'connection') { broadcast(msg); if (!settled && msg.status === 'waiting') { settled = true; clearTimeout(timer); resolve({ status: 'waiting', reason: msg.reason || 'Host is waiting for an ATEM.' }); } }
     });
-    ws.on('error', error => { if (!settled) { settled = true; clearTimeout(timer); reject(new Error(`Unable to reach ShowDesk Host at ${target}: ${error.message || error}`)); } });
-    ws.on('close', () => { if (viewerUpstream === ws) viewerUpstream = null; if (!settled) { settled = true; clearTimeout(timer); reject(new Error(`Unable to reach ShowDesk Host at ${target}.`)); } else broadcast({ type: 'connection', status: 'disconnected', reason: 'ShowDesk Host connection lost' }); });
+    ws.on('error', error => { if (!settled && isCurrent()) { settled = true; clearTimeout(timer); viewerUpstream = null; reject(new Error(`Unable to reach ShowDesk Host at ${target}: ${error.message || error}`)); } });
+    ws.on('close', () => { if (!isCurrent()) return; viewerUpstream = null; if (!settled) { settled = true; clearTimeout(timer); reject(new Error(`Unable to reach ShowDesk Host at ${target}.`)); } else broadcast({ type: 'connection', status: 'disconnected', reason: 'ShowDesk Host connection lost' }); });
   });
 }
 
