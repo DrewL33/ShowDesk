@@ -9,4 +9,9 @@ assert.match(transport,/function connectViewer[\s\S]*?viewerSocket = viewer/,'Di
 assert.match(transport,/disconnectViewer\(\) \{[\s\S]*?viewerSocket[\s\S]*?viewer\.close\(\)/,'Viewer disconnect must close the direct Viewer socket');
 const directDisconnect=transport.slice(transport.indexOf('disconnectViewer() {'));
 assert.ok(!directDisconnect.includes("request('disconnectViewerHost'")&&!directDisconnect.includes('request("disconnectViewerHost"'),'Direct Viewer disconnect must not use the retired backend relay');
-console.log('Viewer lifecycle regression checks passed');
+assert.match(transport,/subscribeHealth\(callback\)/,'Transport must expose read-only health subscriptions');
+assert.match(transport,/msg\.type === 'health'/,'Transport must forward Host health heartbeats');
+assert.match(app,/CONNECTION_STALE_MS=12000/,'Connection health must use the approved stale timeout');
+assert.match(app,/function startConnectionHealth[\s\S]*?subscribeHealth/,'Connected Host and Viewer modes must subscribe to health events');
+assert.match(app,/function stopConnectionHealth[\s\S]*?clearInterval/,'Disconnect must clean up connection health monitoring');
+console.log('Viewer lifecycle and health regression checks passed');
