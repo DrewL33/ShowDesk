@@ -11,6 +11,11 @@ let selectedMeIndex=1;
 let previousMeState=new Map();
 let viewerConnectionSubscription=null;
 let liveStateSubscription=null;
+let healthSubscription=null;
+let connectionHealthTimer=null;
+let connectionStartedAt=null;
+let lastHealthAt=null;
+const CONNECTION_STALE_MS=12000;
 let viewerConnectionContext=null;
 let viewerConnectionAttempt=0;
 let activeConnectionMode=null;
@@ -70,6 +75,7 @@ function enterViewerConnection(d,ctx=viewerConnectionContext){
  if(!d||!ctx||ctx.attempt!==viewerConnectionAttempt)return;
  const {ip}=ctx;connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="viewer";intentionalDisconnect=false;
  ensureLiveStateSubscription(window.ATEM_TRANSPORT);
+ startConnectionHealth(window.ATEM_TRANSPORT);
  applyAtemStateUpdate(d);$("modelLabel").textContent=(d.name||d.productIdentifier||"ATEM Switcher")+" • "+ip;updateConnectionControls();$("setup").classList.add("hidden");addLog("SYSTEM","Viewer connected to ShowDesk Host at "+ip);render();
 }
 async function connectViewer(){
@@ -129,6 +135,7 @@ async function connectAtem(){
  connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="host";intentionalDisconnect=false;
  try{ applyAtemStateUpdate(d); }catch(error){ console.error("[ShowDesk initial render]",error); status.textContent="ATEM connected, but ShowDesk could not render switcher state. "+(error?.message||String(error)); status.style.color="var(--amber)"; btn.disabled=false; btn.textContent="TRY AGAIN"; return; }
  ensureLiveStateSubscription(transport);
+ startConnectionHealth(transport);
    $("modelLabel").textContent=d.name+" • "+ip;
    updateConnectionControls();
    $("setup").classList.add("hidden");
@@ -138,17 +145,35 @@ async function connectAtem(){
    addLog("SYSTEM",d.name+" discovered at "+ip);render();
 
 }
+function formatConnectionAge(ms){const seconds=Math.max(0,Math.floor(ms/1000));if(seconds<60)return seconds+"s";const minutes=Math.floor(seconds/60);if(minutes<60)return minutes+"m "+(seconds%60)+"s";return Math.floor(minutes/60)+"h "+(minutes%60)+"m"}
+function updateConnectionHealth(){
+ const connected=activeConnectionMode==="host"||activeConnectionMode==="viewer";
+ const flag=$("connectionFlag"),text=$("connectionFlagText");if(!flag||!text)return;
+ if(!connected){flag.classList.remove("stale");flag.title="";return;}
+ const now=Date.now(),stale=!lastHealthAt||now-lastHealthAt>CONNECTION_STALE_MS;
+ flag.classList.toggle("stale",stale);text.textContent=activeConnectionMode.toUpperCase()+" • "+(stale?"STALE":"CONNECTED");
+ const target=connectedDevice?.ip||"—",age=connectionStartedAt?formatConnectionAge(now-connectionStartedAt):"—",last=lastHealthAt?formatConnectionAge(now-lastHealthAt)+" ago":"awaiting heartbeat";
+ flag.title=(activeConnectionMode==="host"?"ATEM":"ShowDesk Host")+" "+target+"\nConnected "+age+"\nLast health signal "+last;
+}
+function startConnectionHealth(transport){
+ if(healthSubscription){healthSubscription();healthSubscription=null;}if(connectionHealthTimer){clearInterval(connectionHealthTimer);connectionHealthTimer=null;}
+ connectionStartedAt=Date.now();lastHealthAt=Date.now();
+ if(transport?.subscribeHealth)healthSubscription=transport.subscribeHealth(message=>{if(message?.atemConnected===false)return;lastHealthAt=Date.now();updateConnectionHealth();});
+ connectionHealthTimer=setInterval(updateConnectionHealth,1000);updateConnectionHealth();
+}
+function stopConnectionHealth(){if(healthSubscription){healthSubscription();healthSubscription=null;}if(connectionHealthTimer){clearInterval(connectionHealthTimer);connectionHealthTimer=null;}connectionStartedAt=null;lastHealthAt=null;}
 function updateConnectionControls(){
  const connected=activeConnectionMode==="host"||activeConnectionMode==="viewer";
- const flag=$("connectionFlag"),button=$("disconnectBtn"),text=$("connectionFlagText");
+ const flag=$("connectionFlag"),button=$("disconnectBtn");
  if(flag)flag.hidden=!connected;if(button)button.hidden=!connected;
- if(text&&connected)text.textContent="CONNECTED AS "+activeConnectionMode.toUpperCase();
+ updateConnectionHealth();
 }
 async function disconnectShowDesk(){
  const transport=window.ATEM_TRANSPORT;if(!activeConnectionMode||!transport)return;
  intentionalDisconnect=true;
  ++viewerConnectionAttempt;viewerConnectionContext=null;
  clearLiveStateSubscription();
+ stopConnectionHealth();
  try{
    if(activeConnectionMode==="viewer"&&transport.disconnectViewer)await transport.disconnectViewer();
    else if(activeConnectionMode==="host"&&transport.disconnect)await transport.disconnect();
