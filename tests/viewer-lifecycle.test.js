@@ -41,3 +41,15 @@ console.log('Viewer lifecycle, health, toolbar, and Viewer-count regression chec
  assert(rust.includes('app.emit("showdesk-native-menu", "check-for-updates")'),'Native menu must route through the shared frontend updater');
  assert(!rust.includes('Install the update and restart ShowDesk?'),'Rust must not own a second install prompt');
 }
+
+// Build052 reconnect regression guards
+{
+ const viewerTransport=fs.readFileSync(path.join(root,'public','transport.js'),'utf8');
+ const viewerApp=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
+ assert(viewerTransport.includes('function scheduleViewerReconnect()'),'Viewer transport must schedule reconnects after established Host loss');
+ assert(viewerTransport.includes('viewerReconnectInFlight'),'Viewer reconnect must prevent duplicate concurrent sockets');
+ assert.match(viewerTransport,/disconnectViewer\(\) \{[\s\S]*?stopViewerReconnect\(\)/,'Intentional Viewer disconnect must disable reconnect before closing the socket');
+ assert(viewerApp.includes('VIEWER • RECONNECTING'),'Viewer workspace must expose reconnecting state');
+ assert(!viewerApp.includes('alert("ShowDesk Host connection lost.")'),'Viewer Host loss must not spam a blocking alert');
+ assert.match(viewerApp,/async function connectViewer\(\)[\s\S]*?catch\(error\)[\s\S]*?TRY AGAIN/,'Initial Viewer connection failure must remain a normal retryable setup failure');
+}
