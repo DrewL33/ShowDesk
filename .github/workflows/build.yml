@@ -113,6 +113,10 @@ jobs:
     needs: tauri-shell
     runs-on: ubuntu-latest
     steps:
+      - name: Check out packaged build source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/download-artifact@v4
         with:
           pattern: ShowDesk-Beta2-Build036-Native-*
