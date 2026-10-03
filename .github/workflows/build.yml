@@ -136,7 +136,7 @@ jobs:
           const fs=require('fs');
           const base='https://github.com/DrewL33/ShowDesk/releases/download/showdesk-beta-latest/';
           const feed={
-            version:'0.1.0-35',
+            version:'0.1.0-36',
             notes:'Build036: reliable native Host/Viewer transport, all-M/E Recent Changes and session logging, and native selectable log export location.',
             pub_date:new Date().toISOString(),
             platforms:{
@@ -152,7 +152,7 @@ jobs:
           };
           fs.writeFileSync('updater-release/latest.json',JSON.stringify(feed,null,2)+'\n');
           NODE
-          node -e "const fs=require('fs');const feed=JSON.parse(fs.readFileSync('updater-release/latest.json','utf8'));if(feed.version!=='0.1.0-35'||!feed.platforms?.['darwin-aarch64']||!feed.platforms?.['windows-x86_64'])process.exit(1)"
+          node -e "const fs=require('fs');const feed=JSON.parse(fs.readFileSync('updater-release/latest.json','utf8'));if(feed.version!=='0.1.0-36'||!feed.platforms?.['darwin-aarch64']||!feed.platforms?.['windows-x86_64'])process.exit(1)"
       - name: Publish updater release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -169,7 +169,7 @@ jobs:
           URL="https://github.com/${{ github.repository }}/releases/download/showdesk-beta-latest/latest.json"
           for attempt in 1 2 3 4 5; do
             if curl -fL --retry 3 --retry-delay 2 -H 'Cache-Control: no-cache' "$URL?run=${{ github.run_id }}&attempt=$attempt" -o published-latest.json; then
-              node -e "const fs=require('fs');const feed=JSON.parse(fs.readFileSync('published-latest.json','utf8'));if(feed.version!=='0.1.0-35'||!feed.platforms?.['darwin-aarch64']||!feed.platforms?.['windows-x86_64'])process.exit(1)"
+              node -e "const fs=require('fs');const feed=JSON.parse(fs.readFileSync('published-latest.json','utf8'));if(feed.version!=='0.1.0-36'||!feed.platforms?.['darwin-aarch64']||!feed.platforms?.['windows-x86_64'])process.exit(1)"
               exit 0
             fi
             sleep 3
