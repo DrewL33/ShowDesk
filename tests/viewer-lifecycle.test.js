@@ -2,6 +2,7 @@ const fs=require('node:fs');
 const assert=require('node:assert/strict');
 const app=fs.readFileSync('public/app.js','utf8');
 const transport=fs.readFileSync('public/transport.js','utf8');
+const styles=fs.readFileSync('public/styles.css','utf8');
 assert.match(app,/function enterViewerConnection[\s\S]*?ensureLiveStateSubscription\(window\.ATEM_TRANSPORT\)/,'Viewer must subscribe to live state when entering Viewer mode');
 assert.match(app,/function disconnectShowDesk[\s\S]*?clearLiveStateSubscription\(\)/,'Disconnect must clear the active live-state subscription');
 assert.match(app,/connectionInputChanged\(\);viewerInputChanged\(\)/,'Disconnect must revalidate retained Host and Viewer addresses');
@@ -16,4 +17,6 @@ assert.ok(!app.includes('• STALE'),'Operator-facing connection status must not
 assert.match(app,/function startConnectionHealth[\s\S]*?subscribeHealth/,'Connected Host and Viewer modes must subscribe to health events');
 assert.match(app,/function stopConnectionHealth[\s\S]*?clearInterval/,'Disconnect must clean up connection health monitoring');
 assert.match(app,/text\.textContent=activeConnectionMode\.toUpperCase\(\)\+" • CONNECTED"/,'Connected Host and Viewer modes must remain operator-facing CONNECTED');
-console.log('Viewer lifecycle and connection-health regression checks passed');
+assert.ok(!/\.top\{height:(?:[5-9]\d|\d{3,})px/.test(styles),'Desktop CSS must not re-expand the compact ShowDesk toolbar');
+assert.ok(!/\.brand\{font-size:(?:2\d|[3-9]\d)px/.test(styles),'Desktop CSS must not re-expand the compact ShowDesk wordmark');
+console.log('Viewer lifecycle, connection-health, and compact-toolbar regression checks passed');
