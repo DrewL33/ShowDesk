@@ -69,6 +69,7 @@ function ensureViewerConnectionSubscription(transport){
 function enterViewerConnection(d,ctx=viewerConnectionContext){
  if(!d||!ctx||ctx.attempt!==viewerConnectionAttempt)return;
  const {ip}=ctx;connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="viewer";intentionalDisconnect=false;
+ ensureLiveStateSubscription(window.ATEM_TRANSPORT);
  applyAtemStateUpdate(d);$("modelLabel").textContent=(d.name||d.productIdentifier||"ATEM Switcher")+" • "+ip;updateConnectionControls();$("setup").classList.add("hidden");addLog("SYSTEM","Viewer connected to ShowDesk Host at "+ip);render();
 }
 async function connectViewer(){
@@ -127,9 +128,7 @@ async function connectAtem(){
  status.style.color="";
  connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="host";intentionalDisconnect=false;
  try{ applyAtemStateUpdate(d); }catch(error){ console.error("[ShowDesk initial render]",error); status.textContent="ATEM connected, but ShowDesk could not render switcher state. "+(error?.message||String(error)); status.style.color="var(--amber)"; btn.disabled=false; btn.textContent="TRY AGAIN"; return; }
- if(transport.subscribe){
-   transport.subscribe((patch)=>window.ATEM_OPS?.applyStateUpdate?.(patch));
- }
+ ensureLiveStateSubscription(transport);
    $("modelLabel").textContent=d.name+" • "+ip;
    updateConnectionControls();
    $("setup").classList.add("hidden");
@@ -149,13 +148,14 @@ async function disconnectShowDesk(){
  const transport=window.ATEM_TRANSPORT;if(!activeConnectionMode||!transport)return;
  intentionalDisconnect=true;
  ++viewerConnectionAttempt;viewerConnectionContext=null;
+ clearLiveStateSubscription();
  try{
    if(activeConnectionMode==="viewer"&&transport.disconnectViewer)await transport.disconnectViewer();
    else if(activeConnectionMode==="host"&&transport.disconnect)await transport.disconnect();
  }catch(error){intentionalDisconnect=false;alert("ShowDesk could not disconnect cleanly.\n\n"+(error?.message||String(error)));return;}
  addLog("SYSTEM",activeConnectionMode==="viewer"?"Disconnected from ShowDesk Host":"Disconnected from ATEM");
  activeConnectionMode=null;connectedDevice=null;previousMeState=new Map();liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],routing:[],productIdentifier:null,videoMode:null,topology:{},debug:null};
- $("setup").classList.remove("hidden");chooseConnectionMode(null);$("modelLabel").textContent="";updateConnectionControls();$("connectAtemBtn").textContent="CONNECT & HOST";$("connectViewerBtn").textContent="CONNECT TO HOST";$("connectViewerBtn").disabled=!validIpLike($("viewerHostIp").value);intentionalDisconnect=false;render();
+ $("setup").classList.remove("hidden");chooseConnectionMode(null);$("modelLabel").textContent="";updateConnectionControls();$("connectAtemBtn").textContent="CONNECT & HOST";$("connectViewerBtn").textContent="CONNECT TO HOST";connectionInputChanged();viewerInputChanged();intentionalDisconnect=false;render();
 }
 window.addEventListener("showdesk-native-menu",event=>{if(event.detail==="disconnect")disconnectShowDesk();});
 function selectME(index){selectedMeIndex=Number(index)||1;render()}
