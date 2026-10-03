@@ -6,7 +6,7 @@ assert.match(app,/function enterViewerConnection[\s\S]*?ensureLiveStateSubscript
 assert.match(app,/function disconnectShowDesk[\s\S]*?clearLiveStateSubscription\(\)/,'Disconnect must clear the active live-state subscription');
 assert.match(app,/connectionInputChanged\(\);viewerInputChanged\(\)/,'Disconnect must revalidate retained Host and Viewer addresses');
 assert.match(transport,/function connectViewer[\s\S]*?viewerSocket = viewer/,'Direct Viewer socket must be tracked');
-assert.match(transport,/disconnectViewer\(\) \\{[\s\S]*?viewerSocket[\s\S]*?viewer\.close\(\)/,'Viewer disconnect must close the direct Viewer socket');
+assert.match(transport,/disconnectViewer\(\) \{[\s\S]*?viewerSocket[\s\S]*?viewer\.close\(\)/,'Viewer disconnect must close the direct Viewer socket');
 const directDisconnect=transport.slice(transport.indexOf('disconnectViewer() {'));
 assert.ok(!directDisconnect.includes("request('disconnectViewerHost'")&&!directDisconnect.includes('request("disconnectViewerHost"'),'Direct Viewer disconnect must not use the retired backend relay');
 console.log('Viewer lifecycle regression checks passed');
