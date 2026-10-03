@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 const app=fs.readFileSync('public/app.js','utf8');
 const transport=fs.readFileSync('public/transport.js','utf8');
 const styles=fs.readFileSync('public/styles.css','utf8');
+const server=fs.readFileSync('src/server.js','utf8');
 assert.match(app,/function enterViewerConnection[\s\S]*?ensureLiveStateSubscription\(window\.ATEM_TRANSPORT\)/,'Viewer must subscribe to live state when entering Viewer mode');
 assert.match(app,/function disconnectShowDesk[\s\S]*?clearLiveStateSubscription\(\)/,'Disconnect must clear the active live-state subscription');
 assert.match(app,/connectionInputChanged\(\);viewerInputChanged\(\)/,'Disconnect must revalidate retained Host and Viewer addresses');
@@ -20,4 +21,9 @@ assert.match(app,/text\.textContent=activeConnectionMode\.toUpperCase\(\)\+" •
 const desktopCss=styles.match(/@media\(min-width:1200px\)\{([\s\S]*?)\n\}/)?.[1]||'';
 assert.match(desktopCss,/\.top\{height:43px;padding-left:14px;padding-right:14px\}/,'Desktop CSS must preserve the compact 43px ShowDesk toolbar');
 assert.match(desktopCss,/\.brand\{font-size:14px\}/,'Desktop CSS must preserve the compact 14px ShowDesk wordmark');
-console.log('Viewer lifecycle, connection-health, and compact-toolbar regression checks passed');
+assert.match(server,/function broadcastViewerCount\(\)[\s\S]*?viewerClients\.size/,'Host service must derive Viewer count from active Viewer sockets');
+assert.match(server,/viewerClients\.add\(ws\);[\s\S]*?broadcastViewerCount\(\)/,'Viewer connect must refresh Host Viewer count');
+assert.match(server,/viewerClients\.delete\(ws\); broadcastViewerCount\(\)/,'Viewer close must refresh Host Viewer count');
+assert.match(transport,/subscribeViewerCount\(callback\)/,'Local Host transport must expose Viewer-count status');
+assert.match(app,/activeConnectionMode==="host"&&count>0/,'Viewer count must be Host-only and hidden at zero');
+console.log('Viewer lifecycle, health, toolbar, and Viewer-count regression checks passed');
