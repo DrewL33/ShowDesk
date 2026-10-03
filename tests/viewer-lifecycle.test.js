@@ -41,7 +41,8 @@ console.log('Viewer lifecycle, health, toolbar, and Viewer-count regression chec
  assert(rust.includes('app.emit("showdesk-native-menu", "check-for-updates")'),'Native menu must route through the shared frontend updater');
  assert(!rust.includes('Install the update and restart ShowDesk?'),'Rust must not own a second install prompt');
  assert(app.includes('if(!progress){$("updateProgressFill").style.width="";$("updateProgressPercent").textContent="";$("updateProgressBytes").textContent="";}'),'Non-progress updater states must clear stale download progress');
- assert.match(app,/ShowDesk is up to date[\s\S]*?setUpdateModal\(\{title:"ShowDesk is up to date",message:"You are running the latest published version\."\}\)/,'Current-version state must use the non-progress updater modal');
+ assert(app.includes('setUpdateModal({title:"ShowDesk is up to date",message:"You are running the latest published version."})'),'Current-version state must render the up-to-date modal without requesting progress UI');
+ assert(app.includes('track.hidden=!progress;meta.hidden=!progress'),'Updater modal must hide progress elements whenever progress is not requested');
 }
 
 // Build052 reconnect regression guards
