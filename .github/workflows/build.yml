@@ -95,7 +95,20 @@ jobs:
           STAGE="$(mktemp -d)"
           cp -R "$APP" "$STAGE/ShowDesk.app"
           ln -s /Applications "$STAGE/Applications"
-          hdiutil create -volname "ShowDesk" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+          # hdiutil can transiently report "Resource busy" on hosted macOS runners.
+          # Retry creation after clearing any stale ShowDesk disk-image attachment.
+          create_dmg() {
+            hdiutil create -volname "ShowDesk" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+          }
+          if ! create_dmg; then
+            echo "Initial DMG creation failed; clearing stale disk-image state and retrying..."
+            hdiutil info | awk '/^\/dev\// { dev=$1 } /ShowDesk/ && dev { print dev }' | sort -u | while read -r dev; do
+              hdiutil detach "$dev" -force || true
+            done
+            rm -f "$DMG"
+            sleep 5
+            create_dmg
+          fi
           rm -rf "$STAGE"
           MOUNT="$(mktemp -d)"
           hdiutil attach "$DMG" -readonly -nobrowse -mountpoint "$MOUNT"
