@@ -44,7 +44,7 @@ async function connectViewer(){
  const ip=$("viewerHostIp").value.trim(),btn=$("connectViewerBtn"),status=$("viewerStatus"),transport=window.ATEM_TRANSPORT;
  if(!validIpLike(ip)||!transport?.connectViewer)return;
  btn.disabled=true;btn.textContent="CONNECTING…";status.style.color="";status.textContent="Connecting to ShowDesk Host at "+ip+"…";
- const enterViewer=d=>{if(!d)return;connectedDevice=d;connectedDevice.ip=ip;applyAtemStateUpdate(d);$("modelLabel").textContent=(d.name||d.productIdentifier||"ATEM Switcher")+" • VIEWER • "+ip;$("setup").classList.add("hidden");addLog("SYSTEM","Viewer connected to ShowDesk Host at "+ip);render();};
+ const enterViewer=d=>{if(!d)return;connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="viewer";intentionalDisconnect=false;applyAtemStateUpdate(d);$("modelLabel").textContent=(d.name||d.productIdentifier||"ATEM Switcher")+" • "+ip;updateConnectionControls();$("setup").classList.add("hidden");addLog("SYSTEM","Viewer connected to ShowDesk Host at "+ip);render();};
  if(!viewerConnectionSubscription&&transport.subscribeConnection)viewerConnectionSubscription=transport.subscribeConnection(message=>{if(message.status==="viewer-connected"&&message.data)enterViewer(message.data);else if(message.status==="waiting"){status.textContent="ShowDesk Host reached at "+ip+". Waiting for the Host to connect to an ATEM…";status.style.color="var(--amber)";btn.disabled=true;btn.textContent="WAITING FOR ATEM…";}else if(message.status==="disconnected"&&message.reason==="ShowDesk Host connection lost"&&!intentionalDisconnect){addLog("SYSTEM","Viewer lost connection to ShowDesk Host at "+ip);alert("ShowDesk Host connection lost.");}});
  try{const result=await transport.connectViewer(ip);if(result?.status==="waiting"){status.textContent="ShowDesk Host reached at "+ip+". "+(result.reason||"Waiting for the Host to connect to an ATEM…");status.style.color="var(--amber)";btn.disabled=true;btn.textContent="WAITING FOR ATEM…";return;}enterViewer(result?.data||result);}
  catch(error){status.textContent="Unable to reach ShowDesk Host at "+ip+". "+(error?.message||String(error));status.style.color="var(--amber)";btn.disabled=false;btn.textContent="TRY AGAIN";}
@@ -93,12 +93,19 @@ async function connectAtem(){
    transport.subscribe((patch)=>window.ATEM_OPS?.applyStateUpdate?.(patch));
  }
    $("modelLabel").textContent=d.name+" • "+ip;
+   updateConnectionControls();
    $("setup").classList.add("hidden");
    btn.textContent="CONNECT TO ATEM";
    // Live ATEM state remains authoritative after discovery. Do not replace it
    // with demo/default routes. A Show Reference is managed separately.
    addLog("SYSTEM",d.name+" discovered at "+ip);render();
 
+}
+function updateConnectionControls(){
+ const connected=activeConnectionMode==="host"||activeConnectionMode==="viewer";
+ const flag=$("connectionFlag"),button=$("disconnectBtn"),text=$("connectionFlagText");
+ if(flag)flag.hidden=!connected;if(button)button.hidden=!connected;
+ if(text&&connected)text.textContent="CONNECTED AS "+activeConnectionMode.toUpperCase();
 }
 async function disconnectShowDesk(){
  const transport=window.ATEM_TRANSPORT;if(!activeConnectionMode||!transport)return;
@@ -109,7 +116,7 @@ async function disconnectShowDesk(){
  }catch(error){intentionalDisconnect=false;alert("ShowDesk could not disconnect cleanly.\n\n"+(error?.message||String(error)));return;}
  addLog("SYSTEM",activeConnectionMode==="viewer"?"Disconnected from ShowDesk Host":"Disconnected from ATEM");
  activeConnectionMode=null;connectedDevice=null;previousMeState=new Map();liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],routing:[],productIdentifier:null,videoMode:null,topology:{},debug:null};
- $("setup").classList.remove("hidden");chooseConnectionMode(null);$("modelLabel").textContent="";$("connectAtemBtn").textContent="CONNECT & HOST";$("connectViewerBtn").textContent="CONNECT TO HOST";$("connectViewerBtn").disabled=!validIpLike($("viewerHostIp").value);intentionalDisconnect=false;render();
+ $("setup").classList.remove("hidden");chooseConnectionMode(null);$("modelLabel").textContent="";updateConnectionControls();$("connectAtemBtn").textContent="CONNECT & HOST";$("connectViewerBtn").textContent="CONNECT TO HOST";$("connectViewerBtn").disabled=!validIpLike($("viewerHostIp").value);intentionalDisconnect=false;render();
 }
 window.addEventListener("showdesk-native-menu",event=>{if(event.detail==="disconnect")disconnectShowDesk();});
 function selectME(index){selectedMeIndex=Number(index)||1;render()}
@@ -215,7 +222,7 @@ function clearReference(){
 async function exportLogReport(){
  const mismatches=getMismatches(),mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
  const line=(label,value)=>label.padEnd(24," ")+(value??"—");
- const rows=["SHOWDESK SESSION REPORT","=======================","",line("ShowDesk version","0.1.0-37"),line("Exported",new Date().toLocaleString()),line("ATEM",connectedDevice?.name||liveEngineering.productIdentifier||"Not connected"),line("ATEM IP",connectedDevice?.ip||"—"),line("Video mode",liveEngineering.videoMode||"—"),line("Reported sources",(liveEngineering.inputs||[]).length),line("M/E buses",mes.length),"","CURRENT M/E STATE","-----------------"];
+ const rows=["SHOWDESK SESSION REPORT","=======================","",line("ShowDesk version","0.1.38"),line("Exported",new Date().toLocaleString()),line("ATEM",connectedDevice?.name||liveEngineering.productIdentifier||"Not connected"),line("ATEM IP",connectedDevice?.ip||"—"),line("Video mode",liveEngineering.videoMode||"—"),line("Reported sources",(liveEngineering.inputs||[]).length),line("M/E buses",mes.length),"","CURRENT M/E STATE","-----------------"];
  mes.forEach(me=>{rows.push(`M/E ${me.index}`,`  PROGRAM: ${me.pgm||"—"}`,`  PREVIEW: ${me.pvw||"—"}`,`  FTB: ${me.ftb?.isFullyBlack?"BLACK":me.ftb?.inTransition?"TRANSITION":"OFF"}`);(me.upstreamKeyers||[]).forEach((k,i)=>rows.push(`  USK ${i+1}: ${k.onAir?"ON AIR":"OFF"} | Fill: ${k.fill||"—"} | Key: ${k.key||"—"}`));});
  if(dsks.length){rows.push("","DOWNSTREAM KEYERS","-----------------");dsks.forEach((k,i)=>rows.push(`DSK ${i+1}: ${k.onAir?"ON AIR":"OFF"} | Fill: ${k.fill||"—"} | Key: ${k.key||"—"}`));}
  rows.push("","ROUTING / AUX ASSIGNMENTS","-------------------------");

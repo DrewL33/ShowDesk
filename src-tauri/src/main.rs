@@ -158,7 +158,8 @@ async fn run_manual_update_check(app: AppHandle) {
 
 fn show_about(app: &AppHandle) {
     let version = app.package_info().version.to_string();
-    let build = version.split('-').nth(1).and_then(|n| n.parse::<u32>().ok()).map(|n| format!("Build{:03}", n)).unwrap_or_else(|| version.clone());
+    let build_number = version.split('-').nth(1).and_then(|n| n.parse::<u32>().ok()).or_else(|| version.split('.').nth(2).and_then(|n| n.parse::<u32>().ok()));
+    let build = build_number.map(|n| format!("Build{:03}", n)).unwrap_or_else(|| version.clone());
     app.dialog()
         .message(format!("ShowDesk\n{build}\nVersion {version}\nBeta\n\nRead-only ATEM monitoring and signal-path tools."))
         .kind(MessageDialogKind::Info)
