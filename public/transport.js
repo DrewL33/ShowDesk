@@ -1,34 +1,70 @@
 (() => {
   let socket = null;
+  let viewerSocket = null;
   let seq = 0;
   const pending = new Map();
   const subscribers = new Set();
+  const connectionSubscribers = new Set();
+  const healthSubscribers = new Set();
+  const viewerCountSubscribers = new Set();
 
-  function ensureSocket() {
-    if (socket && socket.readyState === WebSocket.OPEN) return Promise.resolve(socket);
+  function isNativeTauri() {
+    return !!window.__TAURI_INTERNALS__;
+  }
+
+  function serviceUrl() {
+    if (isNativeTauri()) return 'ws://127.0.0.1:47821/ws';
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${proto}//${location.host}/ws`;
+  }
+
+  async function ensureNativeService() {
+    if (!isNativeTauri()) return;
+    const invoke = window.__TAURI_INTERNALS__?.invoke;
+    if (typeof invoke !== 'function') {
+      throw new Error('Native ShowDesk service bridge is unavailable.');
+    }
+    try {
+      await invoke('ensure_atem_service');
+    } catch (error) {
+      throw new Error(typeof error === 'string' ? error : (error?.message || String(error)));
+    }
+  }
+
+  async function ensureSocket() {
+    if (socket && socket.readyState === WebSocket.OPEN) return socket;
+    await ensureNativeService();
     if (socket && socket.readyState === WebSocket.CONNECTING) {
       return new Promise((resolve, reject) => {
         socket.addEventListener('open', () => resolve(socket), { once: true });
-        socket.addEventListener('error', reject, { once: true });
+        socket.addEventListener('error', () => reject(new Error('ShowDesk ATEM service could not be reached after native startup.')), { once: true });
       });
     }
     return new Promise((resolve, reject) => {
-      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      socket = new WebSocket(`${proto}//${location.host}/ws`);
+      socket = new WebSocket(serviceUrl());
       socket.addEventListener('open', () => resolve(socket), { once: true });
-      socket.addEventListener('error', reject, { once: true });
+      socket.addEventListener('error', () => reject(new Error('ShowDesk ATEM service could not be reached after native startup.')), { once: true });
       socket.addEventListener('message', (event) => {
         let msg;
         try { msg = JSON.parse(event.data); } catch { return; }
         if (msg.replyTo && pending.has(msg.replyTo)) {
-          const { resolve, reject } = pending.get(msg.replyTo);
+          const { resolve, reject, timer } = pending.get(msg.replyTo);
+          clearTimeout(timer);
           pending.delete(msg.replyTo);
           msg.ok ? resolve(msg.data) : reject(new Error(msg.error || 'ShowDesk service error'));
           return;
         }
         if (msg.type === 'state') subscribers.forEach(fn => fn(msg.data));
-        if (msg.type === 'connection' && msg.status === 'disconnected') {
-          console.warn('ATEM disconnected:', msg.reason || 'connection lost');
+        if (msg.type === 'connection') connectionSubscribers.forEach(fn => fn(msg));
+        if (msg.type === 'health') healthSubscribers.forEach(fn => fn(msg));
+        if (msg.type === 'viewerCount') viewerCountSubscribers.forEach(fn => fn(msg.count));
+      });
+      socket.addEventListener('close', () => {
+        socket = null;
+        for (const [id, item] of pending) {
+          clearTimeout(item.timer);
+          item.reject(new Error('ShowDesk service connection closed'));
+          pending.delete(id);
         }
       });
     });
@@ -38,25 +74,73 @@
     const ws = await ensureSocket();
     const id = `req-${Date.now()}-${++seq}`;
     return new Promise((resolve, reject) => {
-      pending.set(id, { resolve, reject });
-      ws.send(JSON.stringify({ id, type, ...payload }));
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         if (!pending.has(id)) return;
         pending.delete(id);
-        reject(new Error('ShowDesk service timed out'));
-      }, 12000);
+        reject(new Error('ShowDesk service did not respond in time'));
+      }, 20000);
+      pending.set(id, { resolve, reject, timer });
+      ws.send(JSON.stringify({ id, type, ...payload }));
+    });
+  }
+
+  let viewerReconnectTimer = null, viewerReconnectHost = null, viewerReconnectEnabled = false, viewerReconnectInFlight = false;
+  function stopViewerReconnect(){ viewerReconnectEnabled=false; viewerReconnectHost=null; viewerReconnectInFlight=false; if(viewerReconnectTimer){clearTimeout(viewerReconnectTimer);viewerReconnectTimer=null;} }
+  function scheduleViewerReconnect(){ if(!viewerReconnectEnabled||!viewerReconnectHost||viewerReconnectTimer||viewerReconnectInFlight)return; connectionSubscribers.forEach(fn=>fn({type:'connection',status:'reconnecting',reason:'ShowDesk Host connection lost'})); viewerReconnectTimer=setTimeout(async()=>{viewerReconnectTimer=null;if(!viewerReconnectEnabled||viewerReconnectInFlight)return;viewerReconnectInFlight=true;try{await connectViewer(viewerReconnectHost,true);}catch{}finally{viewerReconnectInFlight=false;if(viewerReconnectEnabled&&!viewerSocket)scheduleViewerReconnect();}},2000); }
+
+  async function connectViewer(host, reconnecting = false) {
+    const target = host.trim().replace(/^wss?:\/\//, '').replace(/\/$/, '');
+    if(!reconnecting){stopViewerReconnect();viewerReconnectEnabled=true;viewerReconnectHost=host;}
+    const url = `ws://${target.includes(':') ? target : target + ':47822'}/viewer`;
+    return new Promise((resolve, reject) => {
+      const viewer = new WebSocket(url);
+      viewerSocket = viewer;
+      let settled = false;
+      const timer = setTimeout(() => { if (!settled) { settled = true; viewer.close(); reject(new Error('ShowDesk Host did not respond in time')); } }, 10000);
+      viewer.addEventListener('error', () => { if (!settled) { settled = true; clearTimeout(timer); reject(new Error('Unable to reach ShowDesk Host at ' + target)); } });
+      viewer.addEventListener('message', event => {
+        let msg; try { msg = JSON.parse(event.data); } catch { return; }
+        if (msg.type === 'snapshot' && !settled) {
+          settled = true; clearTimeout(timer); socket = viewer; viewerReconnectEnabled=true; viewerReconnectHost=host; connectionSubscribers.forEach(fn=>fn({type:'connection',status:'viewer-connected',data:msg.data,reconnected:reconnecting})); resolve({ status:'connected', data:msg.data });
+        } else if (msg.type === 'state') subscribers.forEach(fn => fn(msg.data));
+        else if (msg.type === 'connection') { connectionSubscribers.forEach(fn => fn(msg)); if (!settled && msg.status === 'waiting') { settled=true; clearTimeout(timer); socket=viewer; resolve({status:'waiting',reason:msg.reason}); } }
+        else if (msg.type === 'health') healthSubscribers.forEach(fn => fn(msg));
+      });
+      viewer.addEventListener('close', () => {
+        if (socket === viewer) socket = null;
+        if (viewerSocket === viewer) viewerSocket = null;
+        if (settled && viewerReconnectEnabled) scheduleViewerReconnect();
+      });
     });
   }
 
   window.ATEM_TRANSPORT = {
-    async connect(ip) {
-      try { return await request('connect', { ip }); }
-      catch (error) { console.error(error); return null; }
-    },
+    connect(ip) { return request('connect', { ip }); },
+    connectViewer(host) { return connectViewer(host); },
     subscribe(callback) {
       subscribers.add(callback);
       return () => subscribers.delete(callback);
     },
-    async disconnect() { return request('disconnect'); }
+    subscribeConnection(callback) {
+      connectionSubscribers.add(callback);
+      return () => connectionSubscribers.delete(callback);
+    },
+    subscribeHealth(callback) {
+      healthSubscribers.add(callback);
+      return () => healthSubscribers.delete(callback);
+    },
+    subscribeViewerCount(callback) {
+      viewerCountSubscribers.add(callback);
+      return () => viewerCountSubscribers.delete(callback);
+    },
+    disconnect() { return request('disconnect'); },
+    disconnectViewer() {
+      stopViewerReconnect();
+      const viewer = viewerSocket;
+      viewerSocket = null;
+      if (viewer) { try { viewer.close(); } catch {} }
+      if (socket === viewer) socket = null;
+      return Promise.resolve({ disconnected:true });
+    }
   };
 })();
