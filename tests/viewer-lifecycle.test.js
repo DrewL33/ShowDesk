@@ -40,6 +40,8 @@ console.log('Viewer lifecycle, health, toolbar, and Viewer-count regression chec
  assert(rust.includes('struct UpdaterBusy(Mutex<bool>);'),'Native updater must have a concurrency guard');
  assert(rust.includes('app.emit("showdesk-native-menu", "check-for-updates")'),'Native menu must route through the shared frontend updater');
  assert(!rust.includes('Install the update and restart ShowDesk?'),'Rust must not own a second install prompt');
+ assert(app.includes('if(!progress){$("updateProgressFill").style.width="";$("updateProgressPercent").textContent="";$("updateProgressBytes").textContent="";}'),'Non-progress updater states must clear stale download progress');
+ assert.match(app,/ShowDesk is up to date[\s\S]*?setUpdateModal\(\{title:"ShowDesk is up to date",message:"You are running the latest published version\."\}\)/,'Current-version state must use the non-progress updater modal');
 }
 
 // Build052 reconnect regression guards
