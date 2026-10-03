@@ -12,6 +12,7 @@ let previousMeState=new Map();
 let viewerConnectionSubscription=null;
 let liveStateSubscription=null;
 let healthSubscription=null;
+let viewerCountSubscription=null;
 let connectionHealthTimer=null;
 let connectionStartedAt=null;
 let lastHealthAt=null;
@@ -135,6 +136,7 @@ async function connectAtem(){
  connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="host";intentionalDisconnect=false;
  try{ applyAtemStateUpdate(d); }catch(error){ console.error("[ShowDesk initial render]",error); status.textContent="ATEM connected, but ShowDesk could not render switcher state. "+(error?.message||String(error)); status.style.color="var(--amber)"; btn.disabled=false; btn.textContent="TRY AGAIN"; return; }
  ensureLiveStateSubscription(transport);
+ ensureViewerCountSubscription(transport);
  startConnectionHealth(transport);
    $("modelLabel").textContent=d.name+" • "+ip;
    updateConnectionControls();
@@ -162,6 +164,9 @@ function startConnectionHealth(transport){
  connectionHealthTimer=setInterval(updateConnectionHealth,1000);updateConnectionHealth();
 }
 function stopConnectionHealth(){if(healthSubscription){healthSubscription();healthSubscription=null;}if(connectionHealthTimer){clearInterval(connectionHealthTimer);connectionHealthTimer=null;}connectionStartedAt=null;lastHealthAt=null;}
+function updateViewerCount(count=0){const el=$("viewerCount");if(!el)return;const show=activeConnectionMode==="host"&&count>0;el.hidden=!show;if(show)el.textContent=count+" "+(count===1?"VIEWER":"VIEWERS");}
+function ensureViewerCountSubscription(transport){if(viewerCountSubscription||!transport?.subscribeViewerCount)return;viewerCountSubscription=transport.subscribeViewerCount(updateViewerCount);}
+function clearViewerCountSubscription(){if(viewerCountSubscription){viewerCountSubscription();viewerCountSubscription=null;}updateViewerCount(0);}
 function updateConnectionControls(){
  const connected=activeConnectionMode==="host"||activeConnectionMode==="viewer";
  const flag=$("connectionFlag"),button=$("disconnectBtn");
@@ -173,6 +178,7 @@ async function disconnectShowDesk(){
  intentionalDisconnect=true;
  ++viewerConnectionAttempt;viewerConnectionContext=null;
  clearLiveStateSubscription();
+ clearViewerCountSubscription();
  stopConnectionHealth();
  try{
    if(activeConnectionMode==="viewer"&&transport.disconnectViewer)await transport.disconnectViewer();
