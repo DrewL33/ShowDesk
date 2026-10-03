@@ -2,6 +2,9 @@ name: Build ShowDesk
 # Build043 authoritative native release workflow
 permissions:
   contents: write
+concurrency:
+  group: showdesk-build-${{ github.ref }}
+  cancel-in-progress: true
 on:
   workflow_dispatch:
   push:
