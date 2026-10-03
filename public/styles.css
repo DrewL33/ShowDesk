@@ -687,3 +687,18 @@ button,input,select,textarea {
 @media(max-width:620px){.connectionModeGrid{grid-template-columns:1fr}.connectionModeCard{min-height:140px}}
 
 .connectionFlag{display:flex;align-items:center;gap:6px;border:1px solid #28543a;background:#102319;color:#a9e8be;border-radius:6px;padding:6px 8px;font-size:8px;font-weight:900;letter-spacing:.08em;white-space:nowrap}.connectionDot{width:7px;height:7px;border-radius:50%;background:#55d879;box-shadow:0 0 8px #55d87966}.disconnectBtn{border:1px solid #4b555c;background:#151c21;color:#eef2f4;border-radius:6px;padding:7px 10px;font-size:8px;font-weight:900;letter-spacing:.08em}.disconnectBtn:hover{background:#202a31;border-color:#697780}
+
+
+/* Signal Path compact route sizing — keep nested paths inside their source card */
+.signalTree .treeSource[open] .treeBranch{
+  width:clamp(260px,20vw,380px);
+  max-width:calc(100% - 1px);
+}
+.signalTree .treeSource[open] .treeNested .treeBranch{
+  width:clamp(240px,19vw,360px);
+  max-width:calc(100% - 1px);
+}
+@media(max-width:720px){
+  .signalTree .treeSource[open] .treeBranch,
+  .signalTree .treeSource[open] .treeNested .treeBranch{width:min(100%,380px)}
+}
