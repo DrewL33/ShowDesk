@@ -1,4 +1,6 @@
 const fs=require('node:fs');
+const path=require('node:path');
+const root=process.cwd();
 const assert=require('node:assert/strict');
 const app=fs.readFileSync('public/app.js','utf8');
 const transport=fs.readFileSync('public/transport.js','utf8');
