@@ -6,6 +6,7 @@
   const subscribers = new Set();
   const connectionSubscribers = new Set();
   const healthSubscribers = new Set();
+  const viewerCountSubscribers = new Set();
 
   function isNativeTauri() {
     return !!window.__TAURI_INTERNALS__;
@@ -56,6 +57,7 @@
         if (msg.type === 'state') subscribers.forEach(fn => fn(msg.data));
         if (msg.type === 'connection') connectionSubscribers.forEach(fn => fn(msg));
         if (msg.type === 'health') healthSubscribers.forEach(fn => fn(msg));
+        if (msg.type === 'viewerCount') viewerCountSubscribers.forEach(fn => fn(msg.count));
       });
       socket.addEventListener('close', () => {
         socket = null;
@@ -121,6 +123,10 @@
     subscribeHealth(callback) {
       healthSubscribers.add(callback);
       return () => healthSubscribers.delete(callback);
+    },
+    subscribeViewerCount(callback) {
+      viewerCountSubscribers.add(callback);
+      return () => viewerCountSubscribers.delete(callback);
     },
     disconnect() { return request('disconnect'); },
     disconnectViewer() {
