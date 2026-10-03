@@ -448,7 +448,16 @@ function showUpdateProgress(detail={}){
  else if(phase==="installing"){modal.classList.remove("indeterminate");fill.style.width="100%";percent.textContent="100%";bytes.textContent="Download complete";title.textContent="Installing update…";message.textContent="Verifying and installing ShowDesk. Do not close the app."}
  else if(phase==="restarting"){modal.classList.remove("indeterminate");fill.style.width="100%";percent.textContent="COMPLETE";bytes.textContent="";title.textContent="Restarting ShowDesk…";message.textContent="The update is installed. ShowDesk is restarting."}
 }
-async function ensureUpdateProgressListener(){const listen=window.__TAURI_INTERNALS__?.event?.listen;if(typeof listen==="function"){await listen("showdesk-update-progress",event=>showUpdateProgress(event.payload||{}));}}
+async function ensureUpdateProgressListener(){
+ const internals=window.__TAURI_INTERNALS__;if(!internals)return;
+ const listen=internals.event?.listen;
+ if(typeof listen==="function"){await listen("showdesk-update-progress",event=>showUpdateProgress(event.payload||{}));return;}
+ if(typeof internals.invoke==="function"){
+  const handlers=internals.transformCallback;if(typeof handlers!=="function")throw new Error("Tauri event bridge is unavailable.");
+  const eventId=handlers(event=>showUpdateProgress(event.payload||{}));
+  await internals.invoke("plugin:event|listen",{event:"showdesk-update-progress",target:{kind:"Any"},handler:eventId});
+ }
+}
 async function installShowDeskUpdate(){
  const invoke=tauriInvoke();if(!invoke)return;showUpdateProgress({phase:"downloading"});
  try{await invoke("install_update")}
