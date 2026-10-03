@@ -50,7 +50,7 @@ function viewerInputChanged(){
 }
 function ensureLiveStateSubscription(transport){
   if(liveStateSubscription||!transport?.subscribe)return;
-  liveStateSubscription=transport.subscribe((patch)=>window.ATEM_OPS?.applyStateUpdate?.(patch));
+  liveStateSubscription=transport.subscribe((patch)=>{markConnectionActivity();window.ATEM_OPS?.applyStateUpdate?.(patch);});
 }
 function clearLiveStateSubscription(){
   if(liveStateSubscription){liveStateSubscription();liveStateSubscription=null;}
@@ -146,19 +146,19 @@ async function connectAtem(){
 
 }
 function formatConnectionAge(ms){const seconds=Math.max(0,Math.floor(ms/1000));if(seconds<60)return seconds+"s";const minutes=Math.floor(seconds/60);if(minutes<60)return minutes+"m "+(seconds%60)+"s";return Math.floor(minutes/60)+"h "+(minutes%60)+"m"}
+function markConnectionActivity(){lastHealthAt=Date.now();updateConnectionHealth();}
 function updateConnectionHealth(){
  const connected=activeConnectionMode==="host"||activeConnectionMode==="viewer";
  const flag=$("connectionFlag"),text=$("connectionFlagText");if(!flag||!text)return;
- if(!connected){flag.classList.remove("stale");flag.title="";return;}
- const now=Date.now(),stale=!lastHealthAt||now-lastHealthAt>CONNECTION_STALE_MS;
- flag.classList.toggle("stale",stale);text.textContent=activeConnectionMode.toUpperCase()+" • "+(stale?"STALE":"CONNECTED");
- const target=connectedDevice?.ip||"—",age=connectionStartedAt?formatConnectionAge(now-connectionStartedAt):"—",last=lastHealthAt?formatConnectionAge(now-lastHealthAt)+" ago":"awaiting heartbeat";
- flag.title=(activeConnectionMode==="host"?"ATEM":"ShowDesk Host")+" "+target+"\nConnected "+age+"\nLast health signal "+last;
+ if(!connected){flag.title="";return;}
+ text.textContent=activeConnectionMode.toUpperCase()+" • CONNECTED";
+ const now=Date.now(),target=connectedDevice?.ip||"—",age=connectionStartedAt?formatConnectionAge(now-connectionStartedAt):"—",last=lastHealthAt?formatConnectionAge(now-lastHealthAt)+" ago":"awaiting activity";
+ flag.title=(activeConnectionMode==="host"?"ATEM":"ShowDesk Host")+" "+target+"\nConnected "+age+"\nLast activity "+last;
 }
 function startConnectionHealth(transport){
  if(healthSubscription){healthSubscription();healthSubscription=null;}if(connectionHealthTimer){clearInterval(connectionHealthTimer);connectionHealthTimer=null;}
  connectionStartedAt=Date.now();lastHealthAt=Date.now();
- if(transport?.subscribeHealth)healthSubscription=transport.subscribeHealth(message=>{if(message?.atemConnected===false)return;lastHealthAt=Date.now();updateConnectionHealth();});
+ if(transport?.subscribeHealth)healthSubscription=transport.subscribeHealth(message=>{if(message?.atemConnected===false)return;markConnectionActivity();});
  connectionHealthTimer=setInterval(updateConnectionHealth,1000);updateConnectionHealth();
 }
 function stopConnectionHealth(){if(healthSubscription){healthSubscription();healthSubscription=null;}if(connectionHealthTimer){clearInterval(connectionHealthTimer);connectionHealthTimer=null;}connectionStartedAt=null;lastHealthAt=null;}
