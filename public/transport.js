@@ -84,8 +84,13 @@
     });
   }
 
-  async function connectViewer(host) {
+  let viewerReconnectTimer = null, viewerReconnectHost = null, viewerReconnectEnabled = false, viewerReconnectInFlight = false;
+  function stopViewerReconnect(){ viewerReconnectEnabled=false; viewerReconnectHost=null; viewerReconnectInFlight=false; if(viewerReconnectTimer){clearTimeout(viewerReconnectTimer);viewerReconnectTimer=null;} }
+  function scheduleViewerReconnect(){ if(!viewerReconnectEnabled||!viewerReconnectHost||viewerReconnectTimer||viewerReconnectInFlight)return; connectionSubscribers.forEach(fn=>fn({type:'connection',status:'reconnecting',reason:'ShowDesk Host connection lost'})); viewerReconnectTimer=setTimeout(async()=>{viewerReconnectTimer=null;if(!viewerReconnectEnabled||viewerReconnectInFlight)return;viewerReconnectInFlight=true;try{await connectViewer(viewerReconnectHost,true);}catch{}finally{viewerReconnectInFlight=false;if(viewerReconnectEnabled&&!viewerSocket)scheduleViewerReconnect();}},2000); }
+
+  async function connectViewer(host, reconnecting = false) {
     const target = host.trim().replace(/^wss?:\/\//, '').replace(/\/$/, '');
+    if(!reconnecting){stopViewerReconnect();viewerReconnectEnabled=true;viewerReconnectHost=host;}
     const url = `ws://${target.includes(':') ? target : target + ':47822'}/viewer`;
     return new Promise((resolve, reject) => {
       const viewer = new WebSocket(url);
@@ -96,7 +101,7 @@
       viewer.addEventListener('message', event => {
         let msg; try { msg = JSON.parse(event.data); } catch { return; }
         if (msg.type === 'snapshot' && !settled) {
-          settled = true; clearTimeout(timer); socket = viewer; resolve({ status:'connected', data:msg.data });
+          settled = true; clearTimeout(timer); socket = viewer; viewerReconnectEnabled=true; viewerReconnectHost=host; connectionSubscribers.forEach(fn=>fn({type:'connection',status:'viewer-connected',data:msg.data,reconnected:reconnecting})); resolve({ status:'connected', data:msg.data });
         } else if (msg.type === 'state') subscribers.forEach(fn => fn(msg.data));
         else if (msg.type === 'connection') { connectionSubscribers.forEach(fn => fn(msg)); if (!settled && msg.status === 'waiting') { settled=true; clearTimeout(timer); socket=viewer; resolve({status:'waiting',reason:msg.reason}); } }
         else if (msg.type === 'health') healthSubscribers.forEach(fn => fn(msg));
@@ -104,7 +109,7 @@
       viewer.addEventListener('close', () => {
         if (socket === viewer) socket = null;
         if (viewerSocket === viewer) viewerSocket = null;
-        if (settled) connectionSubscribers.forEach(fn => fn({ type:'connection', status:'disconnected', reason:'ShowDesk Host connection lost' }));
+        if (settled && viewerReconnectEnabled) scheduleViewerReconnect();
       });
     });
   }
@@ -130,6 +135,7 @@
     },
     disconnect() { return request('disconnect'); },
     disconnectViewer() {
+      stopViewerReconnect();
       const viewer = viewerSocket;
       viewerSocket = null;
       if (viewer) { try { viewer.close(); } catch {} }
