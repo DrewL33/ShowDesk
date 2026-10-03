@@ -92,11 +92,15 @@
 <script src="/reference-parser.js"></script>
 <div id="updateProgressModal" class="updateProgressModal" hidden aria-live="polite" aria-modal="true" role="dialog">
  <div class="updateProgressCard">
-  <span class="updateEyebrow">UPDATING SHOWDESK</span>
-  <h2 id="updateProgressTitle">Downloading update…</h2>
-  <div class="updateProgressTrack"><div id="updateProgressFill" class="updateProgressFill"></div></div>
-  <div class="updateProgressMeta"><b id="updateProgressPercent">0%</b><span id="updateProgressBytes">Preparing download…</span></div>
-  <p id="updateProgressMessage">ShowDesk will verify and install the update automatically.</p>
+  <span id="updateEyebrow" class="updateEyebrow">SHOWDESK UPDATE</span>
+  <h2 id="updateProgressTitle">Checking for updates…</h2>
+  <div id="updateProgressTrack" class="updateProgressTrack" hidden><div id="updateProgressFill" class="updateProgressFill"></div></div>
+  <div id="updateProgressMeta" class="updateProgressMeta" hidden><b id="updateProgressPercent">0%</b><span id="updateProgressBytes">Preparing download…</span></div>
+  <p id="updateProgressMessage">Checking the signed ShowDesk update feed.</p>
+  <div id="updateActions" class="updateActions">
+   <button id="updatePrimaryBtn" class="tinyAction primaryAction" type="button" hidden></button>
+   <button id="updateCloseBtn" class="tinyAction" type="button">CLOSE</button>
+  </div>
  </div>
 </div>
 <script src="/app.js"></script><div id="toast" class="toast"></div><script src="/transport.js"></script>
