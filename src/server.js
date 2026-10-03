@@ -44,6 +44,9 @@ function broadcastViewers(message) {
   const payload = JSON.stringify(message);
   for (const ws of viewerClients) if (ws.readyState === 1) ws.send(payload);
 }
+function broadcastViewerCount() {
+  broadcast({ type: 'viewerCount', count: viewerClients.size });
+}
 
 const { asset, ASSETS } = require('./static-assets');
 
@@ -253,11 +256,12 @@ const viewerServer = http.createServer((req, res) => {
 const viewerWss = new WebSocketServer({ server: viewerServer, path: '/viewer' });
 viewerWss.on('connection', ws => {
   viewerClients.add(ws);
+  broadcastViewerCount();
   const snapshot = viewerSnapshot();
   if (snapshot) ws.send(JSON.stringify(snapshot));
   else ws.send(JSON.stringify({ type: 'connection', status: 'waiting', reason: 'Host is not connected to an ATEM' }));
   // Deliberately no message handler: Viewer mode cannot issue ATEM commands.
-  ws.on('close', () => viewerClients.delete(ws));
+  ws.on('close', () => { viewerClients.delete(ws); broadcastViewerCount(); });
 });
 viewerServer.listen(VIEWER_PORT, VIEWER_HOST, () => {
   console.log(`ShowDesk read-only viewer service listening on ${VIEWER_HOST}:${VIEWER_PORT}`);
