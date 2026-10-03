@@ -5,6 +5,7 @@
   const pending = new Map();
   const subscribers = new Set();
   const connectionSubscribers = new Set();
+  const healthSubscribers = new Set();
 
   function isNativeTauri() {
     return !!window.__TAURI_INTERNALS__;
@@ -54,6 +55,7 @@
         }
         if (msg.type === 'state') subscribers.forEach(fn => fn(msg.data));
         if (msg.type === 'connection') connectionSubscribers.forEach(fn => fn(msg));
+        if (msg.type === 'health') healthSubscribers.forEach(fn => fn(msg));
       });
       socket.addEventListener('close', () => {
         socket = null;
@@ -95,6 +97,7 @@
           settled = true; clearTimeout(timer); socket = viewer; resolve({ status:'connected', data:msg.data });
         } else if (msg.type === 'state') subscribers.forEach(fn => fn(msg.data));
         else if (msg.type === 'connection') { connectionSubscribers.forEach(fn => fn(msg)); if (!settled && msg.status === 'waiting') { settled=true; clearTimeout(timer); socket=viewer; resolve({status:'waiting',reason:msg.reason}); } }
+        else if (msg.type === 'health') healthSubscribers.forEach(fn => fn(msg));
       });
       viewer.addEventListener('close', () => {
         if (socket === viewer) socket = null;
@@ -114,6 +117,10 @@
     subscribeConnection(callback) {
       connectionSubscribers.add(callback);
       return () => connectionSubscribers.delete(callback);
+    },
+    subscribeHealth(callback) {
+      healthSubscribers.add(callback);
+      return () => healthSubscribers.delete(callback);
     },
     disconnect() { return request('disconnect'); },
     disconnectViewer() {
