@@ -1,5 +1,6 @@
 (() => {
   let socket = null;
+  let viewerSocket = null;
   let seq = 0;
   const pending = new Map();
   const subscribers = new Set();
@@ -84,6 +85,7 @@
     const url = `ws://${target.includes(':') ? target : target + ':47822'}/viewer`;
     return new Promise((resolve, reject) => {
       const viewer = new WebSocket(url);
+      viewerSocket = viewer;
       let settled = false;
       const timer = setTimeout(() => { if (!settled) { settled = true; viewer.close(); reject(new Error('ShowDesk Host did not respond in time')); } }, 10000);
       viewer.addEventListener('error', () => { if (!settled) { settled = true; clearTimeout(timer); reject(new Error('Unable to reach ShowDesk Host at ' + target)); } });
@@ -96,6 +98,7 @@
       });
       viewer.addEventListener('close', () => {
         if (socket === viewer) socket = null;
+        if (viewerSocket === viewer) viewerSocket = null;
         if (settled) connectionSubscribers.forEach(fn => fn({ type:'connection', status:'disconnected', reason:'ShowDesk Host connection lost' }));
       });
     });
@@ -113,6 +116,12 @@
       return () => connectionSubscribers.delete(callback);
     },
     disconnect() { return request('disconnect'); },
-    disconnectViewer() { return isNativeTauri() ? request('disconnectViewerHost') : Promise.resolve((socket?.close(), { disconnected:true })); }
+    disconnectViewer() {
+      const viewer = viewerSocket;
+      viewerSocket = null;
+      if (viewer) { try { viewer.close(); } catch {} }
+      if (socket === viewer) socket = null;
+      return Promise.resolve({ disconnected:true });
+    }
   };
 })();
