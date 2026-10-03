@@ -21,6 +21,7 @@ let viewerConnectionContext=null;
 let viewerConnectionAttempt=0;
 let activeConnectionMode=null;
 let intentionalDisconnect=false;
+let viewerReconnecting=false;
 const signalTreeOpen=new Set(["group:physical"]);
 let signalSearchActive=false;
 function rememberSignalTreeState(){document.querySelectorAll("#signalTree details[data-tree-key]").forEach(el=>{const k=el.dataset.treeKey;if(el.open)signalTreeOpen.add(k);else signalTreeOpen.delete(k)})}
@@ -66,15 +67,18 @@ function ensureViewerConnectionSubscription(transport){
    }else if(message.status==="waiting"){
      status.textContent="ShowDesk Host reached at "+ip+". "+(message.reason||"Waiting for the Host to connect to an ATEM…");
      status.style.color="var(--amber)";btn.disabled=true;btn.textContent="WAITING FOR ATEM…";
-   }else if(message.status==="disconnected"&&message.reason==="ShowDesk Host connection lost"&&!intentionalDisconnect){
-     btn.disabled=false;btn.textContent="TRY AGAIN";status.style.color="var(--amber)";status.textContent="Connection to ShowDesk Host at "+ip+" was lost.";
-     addLog("SYSTEM","Viewer lost connection to ShowDesk Host at "+ip);alert("ShowDesk Host connection lost.");
+   }else if(message.status==="reconnecting"&&!intentionalDisconnect){
+     if(!viewerReconnecting)addLog("SYSTEM","Viewer reconnecting to ShowDesk Host at "+ip);
+     viewerReconnecting=true;updateConnectionHealth();
+   }else if(message.status==="viewer-connected"&&message.data){
+     const wasReconnecting=viewerReconnecting;viewerReconnecting=false;enterViewerConnection(message.data,ctx);
+     if(wasReconnecting)addLog("SYSTEM","Viewer reconnected to ShowDesk Host at "+ip);
    }
  });
 }
 function enterViewerConnection(d,ctx=viewerConnectionContext){
  if(!d||!ctx||ctx.attempt!==viewerConnectionAttempt)return;
- const {ip}=ctx;connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="viewer";intentionalDisconnect=false;
+ const {ip}=ctx;connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="viewer";intentionalDisconnect=false;viewerReconnecting=false;
  ensureLiveStateSubscription(window.ATEM_TRANSPORT);
  startConnectionHealth(window.ATEM_TRANSPORT);
  applyAtemStateUpdate(d);$("modelLabel").textContent=(d.name||d.productIdentifier||"ATEM Switcher")+" • "+ip;updateConnectionControls();$("setup").classList.add("hidden");addLog("SYSTEM","Viewer connected to ShowDesk Host at "+ip);render();
@@ -153,7 +157,7 @@ function updateConnectionHealth(){
  const connected=activeConnectionMode==="host"||activeConnectionMode==="viewer";
  const flag=$("connectionFlag"),text=$("connectionFlagText");if(!flag||!text)return;
  if(!connected){flag.title="";return;}
- text.textContent=activeConnectionMode.toUpperCase()+" • CONNECTED";
+ text.textContent=activeConnectionMode==="viewer"&&viewerReconnecting?"VIEWER • RECONNECTING":activeConnectionMode.toUpperCase()+" • CONNECTED";
  const now=Date.now(),target=connectedDevice?.ip||"—",age=connectionStartedAt?formatConnectionAge(now-connectionStartedAt):"—",last=lastHealthAt?formatConnectionAge(now-lastHealthAt)+" ago":"awaiting activity";
  flag.title=(activeConnectionMode==="host"?"ATEM":"ShowDesk Host")+" "+target+"\nConnected "+age+"\nLast activity "+last;
 }
@@ -175,7 +179,7 @@ function updateConnectionControls(){
 }
 async function disconnectShowDesk(){
  const transport=window.ATEM_TRANSPORT;if(!activeConnectionMode||!transport)return;
- intentionalDisconnect=true;
+ intentionalDisconnect=true;viewerReconnecting=false;
  ++viewerConnectionAttempt;viewerConnectionContext=null;
  clearLiveStateSubscription();
  clearViewerCountSubscription();
