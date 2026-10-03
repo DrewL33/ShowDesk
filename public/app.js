@@ -10,6 +10,7 @@ let selectedDestination=null;
 let selectedMeIndex=1;
 let previousMeState=new Map();
 let viewerConnectionSubscription=null;
+let liveStateSubscription=null;
 let viewerConnectionContext=null;
 let viewerConnectionAttempt=0;
 let activeConnectionMode=null;
@@ -41,6 +42,13 @@ function viewerInputChanged(){
  const ip=$("viewerHostIp").value.trim();
  $("connectViewerBtn").disabled=!validIpLike(ip);
  $("viewerStatus").textContent=validIpLike(ip)?"Ready to connect to ShowDesk Host at "+ip+".":"Enter a valid ShowDesk Host IPv4 address.";
+}
+function ensureLiveStateSubscription(transport){
+  if(liveStateSubscription||!transport?.subscribe)return;
+  liveStateSubscription=transport.subscribe((patch)=>window.ATEM_OPS?.applyStateUpdate?.(patch));
+}
+function clearLiveStateSubscription(){
+  if(liveStateSubscription){liveStateSubscription();liveStateSubscription=null;}
 }
 function ensureViewerConnectionSubscription(transport){
  if(viewerConnectionSubscription||!transport?.subscribeConnection)return;
