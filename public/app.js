@@ -67,14 +67,16 @@ async function connectViewer(){
  const ip=$("viewerHostIp").value.trim(),btn=$("connectViewerBtn"),status=$("viewerStatus"),transport=window.ATEM_TRANSPORT;
  if(!validIpLike(ip)||!transport?.connectViewer)return;
  const attempt=++viewerConnectionAttempt;viewerConnectionContext={ip,btn,status,attempt};ensureViewerConnectionSubscription(transport);
- btn.disabled=true;btn.textContent="CONNECTING…";status.style.color="";status.textContent="Connecting to ShowDesk Host at "+ip+"…";
+ btn.disabled=true;btn.textContent="CONNECTING…";status.style.color="";status.textContent="Starting ShowDesk Viewer service…";
  try{
+   status.textContent="Contacting ShowDesk Host at "+ip+" on port 47822…";
    const result=await transport.connectViewer(ip);if(attempt!==viewerConnectionAttempt)return;
+   status.textContent="Host found — opening Viewer connection…";
    if(result?.status==="waiting"){status.textContent="ShowDesk Host reached at "+ip+". "+(result.reason||"Waiting for the Host to connect to an ATEM…");status.style.color="var(--amber)";btn.disabled=true;btn.textContent="WAITING FOR ATEM…";return;}
    enterViewerConnection(result?.data||result,viewerConnectionContext);
  }catch(error){
    if(attempt!==viewerConnectionAttempt)return;
-   status.textContent="Unable to reach ShowDesk Host at "+ip+". "+(error?.message||String(error));status.style.color="var(--amber)";btn.disabled=false;btn.textContent="TRY AGAIN";
+   status.textContent=(error?.message||String(error));status.style.color="var(--amber)";btn.disabled=false;btn.textContent="TRY AGAIN";
  }
 }
 async function connectionInputChanged(){

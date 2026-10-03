@@ -164,12 +164,30 @@ async function connectAtem(ip) {
   }
 }
 
+async function checkViewerHostHealth(target) {
+  const host = target.includes(':') ? target.split(':')[0] : target;
+  const port = target.includes(':') ? Number(target.split(':').pop()) : VIEWER_PORT;
+  return new Promise((resolve, reject) => {
+    const req = http.get({ host, port, path: '/health', timeout: 3500 }, res => {
+      let body='';res.setEncoding('utf8');res.on('data',chunk=>body+=chunk);res.on('end',()=>{
+        if(res.statusCode!==200)return reject(new Error(`ShowDesk Host responded on port ${port}, but its Viewer health check returned HTTP ${res.statusCode}.`));
+        try { const data=JSON.parse(body); if(data.service!=='ShowDesk Viewer')throw new Error('Unexpected service'); resolve(data); }
+        catch { reject(new Error(`A service answered at ${host}:${port}, but it was not the ShowDesk Viewer service.`)); }
+      });
+    });
+    req.on('timeout',()=>req.destroy(new Error('timeout')));
+    req.on('error',error=>reject(new Error(`ShowDesk Host could not be reached at ${host}:${port}. Check that Host mode is open, both computers are on the same LAN, and the firewall allows ShowDesk. (${error.message||error})`)));
+  });
+}
+
 async function connectViewerHost(host) {
   const generation = ++viewerUpstreamGeneration;
   const previous = viewerUpstream; viewerUpstream = null;
   if (previous) { try { previous.close(); } catch {} }
   const target = String(host || '').trim().replace(/^wss?:\/\//, '').replace(/\/$/, '');
   if (!target) throw new Error('ShowDesk Host address is required.');
+  await checkViewerHostHealth(target);
+  broadcast({ type: 'connection', status: 'viewer-host-found', host: target });
   const url = `ws://${target.includes(':') ? target : target + ':47822'}/viewer`;
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(url); viewerUpstream = ws; let settled = false;

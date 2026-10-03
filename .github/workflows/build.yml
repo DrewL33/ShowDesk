@@ -1,5 +1,5 @@
 name: Build ShowDesk
-# Build039 authoritative native release workflow
+# Build040 authoritative native release workflow
 permissions:
   contents: write
 on:
@@ -28,7 +28,7 @@ jobs:
         run: |
           node <<'NODE'
           const next=require('./src-tauri/tauri.conf.json').version;
-          const previous=['0.1.38','0.1.0-37','0.1.0-36','0.1.0'];
+          const previous=['0.1.39','0.1.38','0.1.0-37','0.1.0-36','0.1.0'];
           const parse=v=>{const [core,pre]=v.split('-');return {n:core.split('.').map(Number),pre};};
           const gt=(a,b)=>{a=parse(a);b=parse(b);for(let i=0;i<3;i++){if(a.n[i]!==b.n[i])return a.n[i]>b.n[i];}if(a.pre===undefined&&b.pre!==undefined)return true;if(a.pre!==undefined&&b.pre===undefined)return false;return String(a.pre||'')>String(b.pre||'');};
           for(const old of previous)if(!gt(next,old))throw new Error(`${next} is not newer than ${old}`);
@@ -51,6 +51,8 @@ jobs:
           SERVICE_PID=$!
           sleep 3
           node -e "const WebSocket=require('ws');const ws=new WebSocket('ws://127.0.0.1:47821/ws');const t=setTimeout(()=>process.exit(1),5000);ws.on('open',()=>{clearTimeout(t);ws.close();process.exit(0)});ws.on('error',()=>process.exit(1))"
+          node -e "const http=require('http');const req=http.get('http://127.0.0.1:47822/health',res=>{let b='';res.on('data',c=>b+=c);res.on('end',()=>{const j=JSON.parse(b);process.exit(res.statusCode===200&&j.service==='ShowDesk Viewer'?0:1)})});req.setTimeout(5000,()=>{req.destroy();process.exit(1)});req.on('error',()=>process.exit(1))"
+          node -e "const WebSocket=require('ws');const ws=new WebSocket('ws://127.0.0.1:47822/viewer');const t=setTimeout(()=>process.exit(1),5000);ws.on('message',raw=>{const m=JSON.parse(raw.toString());if(m.type==='connection'&&m.status==='waiting'){clearTimeout(t);ws.close();process.exit(0)}});ws.on('error',()=>process.exit(1))"
           kill $SERVICE_PID || true
       - name: Generate native icons from approved ShowDesk artwork
         run: |
@@ -74,7 +76,7 @@ jobs:
             test -x "$APP/Contents/MacOS/showdesk"
             ! grep -R -q 'The browser is the UI for this beta shell' "$APP/Contents" || exit 1
           fi
-      - name: Verify and package native macOS Build039
+      - name: Verify and package native macOS Build040
         if: runner.os == 'macOS'
         shell: bash
         run: |
@@ -88,7 +90,7 @@ jobs:
           codesign --force --deep --sign - "$APP"
           codesign --verify --deep --strict --verbose=2 "$APP"
           spctl --assess --type execute --verbose=4 "$APP" || true
-          DMG="src-tauri/target/release/bundle/dmg/ShowDesk-Beta2-Build039-Native-macOS.dmg"
+          DMG="src-tauri/target/release/bundle/dmg/ShowDesk-Beta2-Build040-Native-macOS.dmg"
           rm -f "$DMG"
           STAGE="$(mktemp -d)"
           cp -R "$APP" "$STAGE/ShowDesk.app"
@@ -100,19 +102,19 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$MOUNT/ShowDesk.app"
           hdiutil detach "$MOUNT"
           rmdir "$MOUNT"
-          rm -f src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build039-Native-macOS.zip
-          ditto -c -k --sequesterRsrc --keepParent "$APP" src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build039-Native-macOS.zip
+          rm -f src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build040-Native-macOS.zip
+          ditto -c -k --sequesterRsrc --keepParent "$APP" src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build040-Native-macOS.zip
           rm -rf /tmp/showdesk-verify
           mkdir -p /tmp/showdesk-verify
-          ditto -x -k src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build039-Native-macOS.zip /tmp/showdesk-verify
+          ditto -x -k src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build040-Native-macOS.zip /tmp/showdesk-verify
           codesign --verify --deep --strict --verbose=2 /tmp/showdesk-verify/ShowDesk.app
-      - name: Upload native Build039
+      - name: Upload native Build040
         uses: actions/upload-artifact@v4
         with:
-          name: ShowDesk-Beta2-Build039-Native-${{ runner.os }}
+          name: ShowDesk-Beta2-Build040-Native-${{ runner.os }}
           path: |
-            src-tauri/target/release/bundle/dmg/ShowDesk-Beta2-Build039-Native-macOS.dmg
-            src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build039-Native-macOS.zip
+            src-tauri/target/release/bundle/dmg/ShowDesk-Beta2-Build040-Native-macOS.dmg
+            src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build040-Native-macOS.zip
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/nsis/*.sig
@@ -130,7 +132,7 @@ jobs:
           ref: ${{ github.sha }}
       - uses: actions/download-artifact@v4
         with:
-          pattern: ShowDesk-Beta2-Build039-Native-*
+          pattern: ShowDesk-Beta2-Build040-Native-*
           path: updater-input
           merge-multiple: true
       - name: Prepare signed updater feed
@@ -146,26 +148,26 @@ jobs:
           WIN_SRC="$(find updater-input -type f -name '*-setup.exe' | head -n1)"
           WIN_SIG_SRC="$(find updater-input -type f -name '*-setup.exe.sig' | head -n1)"
           test -n "$MAC_SRC" && test -n "$MAC_SIG_SRC" && test -n "$WIN_SRC" && test -n "$WIN_SIG_SRC"
-          cp "$MAC_SRC" updater-release/ShowDesk-Beta2-Build039-macOS-arm64.app.tar.gz
-          cp "$MAC_SIG_SRC" updater-release/ShowDesk-Beta2-Build039-macOS-arm64.app.tar.gz.sig
-          cp "$WIN_SRC" updater-release/ShowDesk-Beta2-Build039-Windows-x64-setup.exe
-          cp "$WIN_SIG_SRC" updater-release/ShowDesk-Beta2-Build039-Windows-x64-setup.exe.sig
+          cp "$MAC_SRC" updater-release/ShowDesk-Beta2-Build040-macOS-arm64.app.tar.gz
+          cp "$MAC_SIG_SRC" updater-release/ShowDesk-Beta2-Build040-macOS-arm64.app.tar.gz.sig
+          cp "$WIN_SRC" updater-release/ShowDesk-Beta2-Build040-Windows-x64-setup.exe
+          cp "$WIN_SIG_SRC" updater-release/ShowDesk-Beta2-Build040-Windows-x64-setup.exe.sig
           export APP_VERSION
           node <<'NODE'
           const fs=require('fs');
           const base='https://github.com/DrewL33/ShowDesk/releases/download/showdesk-beta-latest/';
           const feed={
             version:process.env.APP_VERSION,
-            notes:'Build039: repair Viewer connection lifecycle, stale socket replacement, waiting-to-connected transitions, and reconnect handling.',
+            notes:'Build040: verify LAN Viewer service health, expose connection stages, and diagnose Host reachability before Viewer handshake.',
             pub_date:new Date().toISOString(),
             platforms:{
               'darwin-aarch64':{
-                signature:fs.readFileSync('updater-release/ShowDesk-Beta2-Build039-macOS-arm64.app.tar.gz.sig','utf8').trim(),
-                url:base+'ShowDesk-Beta2-Build039-macOS-arm64.app.tar.gz'
+                signature:fs.readFileSync('updater-release/ShowDesk-Beta2-Build040-macOS-arm64.app.tar.gz.sig','utf8').trim(),
+                url:base+'ShowDesk-Beta2-Build040-macOS-arm64.app.tar.gz'
               },
               'windows-x86_64':{
-                signature:fs.readFileSync('updater-release/ShowDesk-Beta2-Build039-Windows-x64-setup.exe.sig','utf8').trim(),
-                url:base+'ShowDesk-Beta2-Build039-Windows-x64-setup.exe'
+                signature:fs.readFileSync('updater-release/ShowDesk-Beta2-Build040-Windows-x64-setup.exe.sig','utf8').trim(),
+                url:base+'ShowDesk-Beta2-Build040-Windows-x64-setup.exe'
               }
             }
           };
@@ -201,7 +203,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: ShowDesk-Beta2-Build039-Native-*
+          pattern: ShowDesk-Beta2-Build040-Native-*
           path: field-test-input
           merge-multiple: true
       - name: Prepare two-file field-test release
