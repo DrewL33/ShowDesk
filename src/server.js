@@ -1,6 +1,6 @@
 const http = require('node:http');
 const { exec } = require('node:child_process');
-const { WebSocketServer } = require('ws');
+const { WebSocket, WebSocketServer } = require('ws');
 let Atem;
 
 function loadAtem() {
@@ -31,6 +31,7 @@ let lastState = null;
 let hasConnected = false;
 const clients = new Set();
 const viewerClients = new Set();
+let viewerUpstream = null;
 
 function viewerSnapshot() {
   if (!hasConnected || !lastState) return null;
@@ -150,6 +151,25 @@ async function connectAtem(ip) {
   }
 }
 
+async function connectViewerHost(host) {
+  if (viewerUpstream) { try { viewerUpstream.close(); } catch {} viewerUpstream = null; }
+  const target = String(host || '').trim().replace(/^wss?:\/\//, '').replace(/\/$/, '');
+  if (!target) throw new Error('ShowDesk Host address is required.');
+  const url = `ws://${target.includes(':') ? target : target + ':47822'}/viewer`;
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(url); viewerUpstream = ws; let settled = false;
+    const timer = setTimeout(() => { if (!settled) { settled = true; try { ws.close(); } catch {} reject(new Error('ShowDesk Host did not respond in time.')); } }, 10000);
+    ws.on('message', raw => {
+      let msg; try { msg = JSON.parse(raw.toString()); } catch { return; }
+      if (msg.type === 'snapshot') { broadcast({ type: 'connection', status: 'viewer-connected', data: msg.data }); if (!settled) { settled = true; clearTimeout(timer); resolve({ status: 'connected', data: msg.data }); } return; }
+      if (msg.type === 'state') { broadcast(msg); return; }
+      if (msg.type === 'connection') { broadcast(msg); if (!settled && msg.status === 'waiting') { settled = true; clearTimeout(timer); resolve({ status: 'waiting', reason: msg.reason || 'Host is waiting for an ATEM.' }); } }
+    });
+    ws.on('error', error => { if (!settled) { settled = true; clearTimeout(timer); reject(new Error(`Unable to reach ShowDesk Host at ${target}: ${error.message || error}`)); } });
+    ws.on('close', () => { if (viewerUpstream === ws) viewerUpstream = null; if (!settled) { settled = true; clearTimeout(timer); reject(new Error(`Unable to reach ShowDesk Host at ${target}.`)); } else broadcast({ type: 'connection', status: 'disconnected', reason: 'ShowDesk Host connection lost' }); });
+  });
+}
+
 const server = http.createServer((req, res) => {
   const pathname = new URL(req.url, `http://${req.headers.host}`).pathname;
   const item = ASSETS[pathname];
@@ -171,6 +191,7 @@ wss.on('connection', (ws) => {
     const reply = (ok, data, error) => ws.send(JSON.stringify({ replyTo: msg.id, ok, data, error }));
     try {
       if (msg.type === 'connect') return reply(true, await connectAtem(msg.ip));
+      if (msg.type === 'connectViewerHost') return reply(true, await connectViewerHost(msg.host));
       if (msg.type === 'disconnect') { await disconnectAtem(); return reply(true, { disconnected: true }); }
       reply(false, null, 'Unknown request');
     } catch (error) {

@@ -79,7 +79,8 @@
     });
   }
 
-  function connectViewer(host) {
+  async function connectViewer(host) {
+    if (isNativeTauri()) return request('connectViewerHost', { host });
     const target = host.trim().replace(/^wss?:\/\//, '').replace(/\/$/, '');
     const url = `ws://${target.includes(':') ? target : target + ':47822'}/viewer`;
     return new Promise((resolve, reject) => {
@@ -90,9 +91,9 @@
       viewer.addEventListener('message', event => {
         let msg; try { msg = JSON.parse(event.data); } catch { return; }
         if (msg.type === 'snapshot' && !settled) {
-          settled = true; clearTimeout(timer); socket = viewer; resolve(msg.data);
+          settled = true; clearTimeout(timer); socket = viewer; resolve({ status:'connected', data:msg.data });
         } else if (msg.type === 'state') subscribers.forEach(fn => fn(msg.data));
-        else if (msg.type === 'connection') connectionSubscribers.forEach(fn => fn(msg));
+        else if (msg.type === 'connection') { connectionSubscribers.forEach(fn => fn(msg)); if (!settled && msg.status === 'waiting') { settled=true; clearTimeout(timer); socket=viewer; resolve({status:'waiting',reason:msg.reason}); } }
       });
       viewer.addEventListener('close', () => {
         if (socket === viewer) socket = null;

@@ -101,6 +101,16 @@ async fn ensure_atem_service(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+async fn save_log_report(app: AppHandle, filename: String, contents: String, initial_directory: Option<String>) -> Result<serde_json::Value, String> {
+    let mut dialog = app.dialog().file().set_title("Save ShowDesk Log").set_file_name(filename).add_filter("ShowDesk Log", &["txt"]);
+    if let Some(directory) = initial_directory { let path = std::path::PathBuf::from(directory); if path.is_dir() { dialog = dialog.set_directory(path); } }
+    let Some(selected) = dialog.blocking_save_file() else { return Ok(serde_json::json!({ "saved": false })); };
+    let path = selected.into_path().map_err(|_| "The selected log location is not a local file path.".to_string())?;
+    fs::write(&path, contents).map_err(|e| format!("Unable to save ShowDesk log: {e}"))?;
+    Ok(serde_json::json!({ "saved": true, "directory": path.parent().map(|p| p.to_string_lossy().to_string()) }))
+}
+
+#[tauri::command]
 async fn check_for_update(app: AppHandle) -> Result<serde_json::Value, String> {
     let update = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())?;
     Ok(match update {
@@ -163,7 +173,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .manage(AtemService(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![ensure_atem_service, check_for_update, install_update])
+        .invoke_handler(tauri::generate_handler![ensure_atem_service, save_log_report, check_for_update, install_update])
         .setup(|app| {
             // Start eagerly, but do not prevent the UI from opening if the
             // service fails. The frontend retries through ensure_atem_service
