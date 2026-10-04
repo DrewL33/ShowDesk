@@ -34,7 +34,9 @@ console.log('Viewer lifecycle, health, toolbar, and Viewer-count regression chec
 {
  const app=fs.readFileSync(path.join(root,'public','app.js'),'utf8');
  const rust=fs.readFileSync(path.join(root,'src-tauri','src','main.rs'),'utf8');
- assert(app.includes('const showDeskUpdater={phase:"idle",available:null,operation:null}'),'Updater must have one frontend state machine');
+ const updaterStateDeclarations=app.match(/const showDeskUpdater=/g)||[];
+ assert.equal(updaterStateDeclarations.length,1,'Updater must have one frontend state machine');
+ assert.match(app,/const showDeskUpdater=\{[^}]*phase:"idle"[^}]*available:null[^}]*operation:null[^}]*currentVersion:null[^}]*\}/,'Updater state machine must retain operation, availability, phase, and installed-version state');
  assert(app.includes('ShowDesk will not download it until you choose Download Update.'),'Startup check must not auto-download');
  assert(app.includes('if(showDeskUpdater.operation)'),'Frontend must reject overlapping updater operations');
  assert(rust.includes('struct UpdaterBusy(Mutex<bool>);'),'Native updater must have a concurrency guard');
@@ -43,6 +45,12 @@ console.log('Viewer lifecycle, health, toolbar, and Viewer-count regression chec
  assert(app.includes('if(!progress){$("updateProgressFill").style.width="";$("updateProgressPercent").textContent="";$("updateProgressBytes").textContent="";}'),'Non-progress updater states must clear stale download progress');
  assert(app.includes('setUpdateModal({title:"ShowDesk is up to date",message:"You are running the latest published version."})'),'Current-version state must render the up-to-date modal without requesting progress UI');
  assert(app.includes('track.hidden=!progress;meta.hidden=!progress'),'Updater modal must hide progress elements whenever progress is not requested');
+ assert(app.includes('closeLabel:"CANCEL"'),'Recoverable updater failures must offer Cancel');
+ assert(app.includes('primary:"TRY AGAIN"'),'Recoverable updater failures must offer retry');
+ assert(app.includes('showUpdaterFailure(updaterFailureKind(error),error)'),'Install/download failures must leave progress mode and enter a recoverable failure state');
+ assert(app.includes('"currentVersion": current_version')===false,'Frontend must not hard-code the native current-version field');
+ assert(rust.includes('"currentVersion": current_version'),'Native update checks must report the packaged current version');
+ assert(app.includes('Current version: "+version+"."'),'Install verification failure must report the current installed ShowDesk version');
 }
 
 // Build052 reconnect regression guards
