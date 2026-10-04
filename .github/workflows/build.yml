@@ -7,6 +7,12 @@ concurrency:
   cancel-in-progress: true
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish this validated build to updater and field-test releases'
+        required: true
+        default: false
+        type: boolean
   push:
     branches: ['main', 'beta', 'tauri-migration']
     tags: ['v*']
@@ -139,6 +145,7 @@ jobs:
           if-no-files-found: error
 
   publish-updater:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == true
     needs: tauri-shell
     runs-on: ubuntu-latest
     steps:
@@ -214,6 +221,7 @@ jobs:
           exit 1
 
   publish-field-test:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == true
     needs: tauri-shell
     runs-on: ubuntu-latest
     steps:
