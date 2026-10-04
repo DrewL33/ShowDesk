@@ -113,6 +113,7 @@ async fn save_log_report(app: AppHandle, filename: String, contents: String, ini
 
 #[tauri::command]
 async fn check_for_update(app: AppHandle) -> Result<serde_json::Value, String> {
+    let current_version = app.package_info().version.to_string();
     {
         let busy = app.state::<UpdaterBusy>();
         let guard = busy.0.lock().map_err(|_| "Updater state is unavailable.".to_string())?;
@@ -124,9 +125,10 @@ async fn check_for_update(app: AppHandle) -> Result<serde_json::Value, String> {
             "available": true,
             "version": update.version.to_string(),
             "date": update.date.map(|date| date.to_string()),
-            "body": update.body
+            "body": update.body,
+            "currentVersion": current_version
         }),
-        None => serde_json::json!({ "available": false })
+        None => serde_json::json!({ "available": false, "currentVersion": current_version })
     })
 }
 

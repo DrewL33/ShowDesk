@@ -482,11 +482,20 @@ window.addEventListener("error",e=>{const s=$("setupStatus"),b=$("connectAtemBtn
    One frontend state machine owns startup checks, manual checks, downloads and retries. */
 function tauriInvoke(){return window.__TAURI_INTERNALS__?.invoke||null}
 function formatUpdateBytes(bytes){const n=Number(bytes)||0;if(n<1024)return n+" B";if(n<1048576)return (n/1024).toFixed(1)+" KB";return (n/1048576).toFixed(1)+" MB"}
-const showDeskUpdater={phase:"idle",available:null,operation:null};
-function setUpdateModal({title,message,primary="",primaryAction=null,progress=false,close=true}={}){
+const showDeskUpdater={phase:"idle",available:null,operation:null,currentVersion:null};
+function updaterErrorText(error){return String(error?.message||error||"Unknown updater error").trim()}
+function updaterFailureKind(error){const msg=updaterErrorText(error).toLowerCase();if(/restart|relaunch/.test(msg))return "restart";if(/signature|verify|verification|install/.test(msg))return "install";return "download"}
+function showUpdaterFailure(kind,error){
+ const detail=updaterErrorText(error),retry=kind==="check"?()=>checkForShowDeskUpdate(true):installShowDeskUpdate;
+ if(kind==="check"){setUpdateModal({title:"Unable to check for updates",message:detail,primary:"TRY AGAIN",primaryAction:retry,closeLabel:"CANCEL"});return;}
+ if(kind==="restart"){setUpdateModal({title:"Update installed",message:"ShowDesk couldn't restart automatically. Close and reopen ShowDesk to finish the update."});return;}
+ if(kind==="install"){const version=showDeskUpdater.currentVersion?("ShowDesk "+showDeskUpdater.currentVersion):"your current ShowDesk version";setUpdateModal({title:"Update wasn't installed",message:"Current version: "+version+".",primary:"TRY AGAIN",primaryAction:retry,closeLabel:"CANCEL"});return;}
+ setUpdateModal({title:"Update download failed",message:detail,primary:"TRY AGAIN",primaryAction:retry,closeLabel:"CANCEL"});
+}
+function setUpdateModal({title,message,primary="",primaryAction=null,progress=false,close=true,closeLabel="CLOSE"}={}){
  const modal=$("updateProgressModal"),track=$("updateProgressTrack"),meta=$("updateProgressMeta"),btn=$("updatePrimaryBtn"),closeBtn=$("updateCloseBtn");if(!modal)return;
  modal.hidden=false;$("updateProgressTitle").textContent=title||"ShowDesk Update";$("updateProgressMessage").textContent=message||"";
- track.hidden=!progress;meta.hidden=!progress;modal.classList.toggle("indeterminate",false);if(!progress){$("updateProgressFill").style.width="";$("updateProgressPercent").textContent="";$("updateProgressBytes").textContent="";}closeBtn.hidden=!close;btn.hidden=!primary;btn.textContent=primary||"";btn.onclick=primaryAction;
+ track.hidden=!progress;meta.hidden=!progress;modal.classList.toggle("indeterminate",false);if(!progress){$("updateProgressFill").style.width="";$("updateProgressPercent").textContent="";$("updateProgressBytes").textContent="";}closeBtn.hidden=!close;closeBtn.textContent=closeLabel;btn.hidden=!primary;btn.textContent=primary||"";btn.onclick=primaryAction;
 }
 function closeUpdateModal(){if(showDeskUpdater.phase==="downloading"||showDeskUpdater.phase==="installing")return;const modal=$("updateProgressModal");if(modal)modal.hidden=true}
 function showUpdateAvailable(result,manual){
@@ -510,15 +519,15 @@ async function installShowDeskUpdate(){
  const invoke=tauriInvoke();if(!invoke||showDeskUpdater.operation)return;
  showDeskUpdater.operation="install";showUpdateProgress({phase:"downloading",version:showDeskUpdater.available?.version});
  try{await invoke("install_update")}
- catch(error){showDeskUpdater.phase="failed";const msg=error?.message||String(error);setUpdateModal({title:"Update failed",message:"ShowDesk is still running normally. "+msg,primary:"TRY AGAIN",primaryAction:installShowDeskUpdate});}
+ catch(error){showDeskUpdater.phase="failed";showUpdaterFailure(updaterFailureKind(error),error);}
  finally{showDeskUpdater.operation=null}
 }
 async function checkForShowDeskUpdate(manual=false){
  const invoke=tauriInvoke();if(!invoke)return;if(showDeskUpdater.operation){if(manual)toast("UPDATE ALREADY IN PROGRESS");return showDeskUpdater.operation;}
  showDeskUpdater.operation="check";showDeskUpdater.phase="checking";
  if(manual)setUpdateModal({title:"Checking for updates…",message:"Checking the signed ShowDesk update feed.",close:false});
- try{const result=await invoke("check_for_update");if(result?.available)showUpdateAvailable(result,manual);else{showDeskUpdater.phase="current";showDeskUpdater.available=null;if(manual)setUpdateModal({title:"ShowDesk is up to date",message:"You are running the latest published version."});}}
- catch(error){showDeskUpdater.phase="failed";if(manual)setUpdateModal({title:"Unable to check for updates",message:error?.message||String(error),primary:"TRY AGAIN",primaryAction:()=>checkForShowDeskUpdate(true)});else console.error("ShowDesk update check failed:",error);}
+ try{const result=await invoke("check_for_update");if(result?.currentVersion)showDeskUpdater.currentVersion=result.currentVersion;if(result?.available)showUpdateAvailable(result,manual);else{showDeskUpdater.phase="current";showDeskUpdater.available=null;if(manual)setUpdateModal({title:"ShowDesk is up to date",message:"You are running the latest published version."});}}
+ catch(error){showDeskUpdater.phase="failed";if(manual)showUpdaterFailure("check",error);else console.error("ShowDesk update check failed:",error);}
  finally{showDeskUpdater.operation=null}
 }
 window.checkForShowDeskUpdate=checkForShowDeskUpdate;
