@@ -45,6 +45,10 @@ function chooseConnectionMode(mode){
  const choice=$("modeChoice"),host=$("hostSetup"),viewer=$("viewerSetup");
  choice.hidden=!!mode;host.hidden=mode!=="host";viewer.hidden=mode!=="viewer";
 }
+const SHOWDESK_CONNECTION_STORAGE_KEY="showdesk.connections.v1";
+function loadRememberedConnections(){try{const saved=JSON.parse(localStorage.getItem(SHOWDESK_CONNECTION_STORAGE_KEY)||"{}");return {atemIp:validIpLike(saved.atemIp||"")?saved.atemIp:"",viewerHostIp:validIpLike(saved.viewerHostIp||"")?saved.viewerHostIp:""};}catch{return {atemIp:"",viewerHostIp:""};}}
+function rememberSuccessfulConnection(kind,ip){if(!validIpLike(ip))return;try{const saved=loadRememberedConnections();saved[kind]=ip;localStorage.setItem(SHOWDESK_CONNECTION_STORAGE_KEY,JSON.stringify(saved));}catch(err){console.warn("ShowDesk could not remember the connection address locally.",err);}}
+function restoreRememberedConnections(){const saved=loadRememberedConnections();if(saved.atemIp&&$("atemIp"))$("atemIp").value=saved.atemIp;if(saved.viewerHostIp&&$("viewerHostIp"))$("viewerHostIp").value=saved.viewerHostIp;connectionInputChanged();viewerInputChanged();}
 function viewerInputChanged(){
  const ip=$("viewerHostIp").value.trim();
  $("connectViewerBtn").disabled=!validIpLike(ip);
@@ -78,7 +82,7 @@ function ensureViewerConnectionSubscription(transport){
 }
 function enterViewerConnection(d,ctx=viewerConnectionContext){
  if(!d||!ctx||ctx.attempt!==viewerConnectionAttempt)return;
- const {ip}=ctx;connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="viewer";intentionalDisconnect=false;viewerReconnecting=false;
+ const {ip}=ctx;connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="viewer";intentionalDisconnect=false;viewerReconnecting=false;rememberSuccessfulConnection("viewerHostIp",ip);
  ensureLiveStateSubscription(window.ATEM_TRANSPORT);
  startConnectionHealth(window.ATEM_TRANSPORT);
  applyAtemStateUpdate(d);$("modelLabel").textContent=(d.name||d.productIdentifier||"ATEM Switcher")+" • "+ip;updateConnectionControls();$("setup").classList.add("hidden");addLog("SYSTEM","Viewer connected to ShowDesk Host at "+ip);render();
@@ -139,6 +143,7 @@ async function connectAtem(){
  status.style.color="";
  connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="host";intentionalDisconnect=false;
  try{ applyAtemStateUpdate(d); }catch(error){ console.error("[ShowDesk initial render]",error); status.textContent="ATEM connected, but ShowDesk could not render switcher state. "+(error?.message||String(error)); status.style.color="var(--amber)"; btn.disabled=false; btn.textContent="TRY AGAIN"; return; }
+ rememberSuccessfulConnection("atemIp",ip);
  ensureLiveStateSubscription(transport);
  ensureViewerCountSubscription(transport);
  startConnectionHealth(transport);
@@ -469,7 +474,7 @@ window.ATEM_OPS=Object.assign(window.ATEM_OPS||{},{applyStateUpdate:applyAtemSta
 })();
 
 
-restorePersistedReference();updateReferenceUI();
+restorePersistedReference();restoreRememberedConnections();updateReferenceUI();
 window.addEventListener("error",e=>{const s=$("setupStatus"),b=$("connectAtemBtn");if(s&&!$("setup").classList.contains("hidden")){s.textContent="ShowDesk browser error: "+(e.message||"Unknown error");s.style.color="var(--amber)";if(b){b.disabled=false;b.textContent="TRY AGAIN";}}});
 
 
