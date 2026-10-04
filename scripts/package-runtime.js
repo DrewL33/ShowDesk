@@ -26,11 +26,18 @@ const runtimePackage = {
 };
 fs.writeFileSync(path.join(dist, 'package.json'), JSON.stringify(runtimePackage, null, 2) + '\n');
 
-const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-execFileSync(npm, ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false'], {
-  cwd: dist,
-  stdio: 'inherit'
-});
+const npmArgs = ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false'];
+if (process.platform === 'win32') {
+  execFileSync(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', 'npm', ...npmArgs], {
+    cwd: dist,
+    stdio: 'inherit'
+  });
+} else {
+  execFileSync('npm', npmArgs, {
+    cwd: dist,
+    stdio: 'inherit'
+  });
+}
 
 for (const name of Object.keys(runtimeDependencies)) {
   const entry = path.join(dist, 'node_modules', name);
