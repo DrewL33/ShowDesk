@@ -1,5 +1,6 @@
 name: Build ShowDesk
 # Build053 authoritative native release workflow
+# Branch pushes validate by default; only commits explicitly prefixed RELEASE Build may publish.
 permissions:
   contents: write
 concurrency:
@@ -139,7 +140,7 @@ jobs:
           if-no-files-found: error
 
   publish-updater:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.event.head_commit.message, 'RELEASE Build')
     needs: tauri-shell
     runs-on: ubuntu-latest
     steps:
@@ -215,7 +216,7 @@ jobs:
           exit 1
 
   publish-field-test:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.event.head_commit.message, 'RELEASE Build')
     needs: tauri-shell
     runs-on: ubuntu-latest
     steps:
