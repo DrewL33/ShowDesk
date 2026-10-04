@@ -56,3 +56,12 @@ console.log('Viewer lifecycle, health, toolbar, and Viewer-count regression chec
  assert(!viewerApp.includes('alert("ShowDesk Host connection lost.")'),'Viewer Host loss must not spam a blocking alert');
  assert.match(viewerApp,/async function connectViewer\(\)[\s\S]*?catch\(error\)[\s\S]*?TRY AGAIN/,'Initial Viewer connection failure must remain a normal retryable setup failure');
 }
+
+// Build053 remembered connection regression guards
+{
+ assert(app.includes('const SHOWDESK_CONNECTION_STORAGE_KEY="showdesk.connections.v1"'),'Connection addresses must use dedicated local persistence');
+ assert.match(app,/function enterViewerConnection[\s\S]*?rememberSuccessfulConnection\("viewerHostIp",ip\)/,'Viewer Host IP must be saved only after Viewer connection succeeds');
+ assert.match(app,/activeConnectionMode="host"[\s\S]*?rememberSuccessfulConnection\("atemIp",ip\)/,'ATEM IP must be saved only after Host discovery succeeds');
+ assert.match(app,/function restoreRememberedConnections[\s\S]*?connectionInputChanged\(\);viewerInputChanged\(\)/,'Restored addresses must immediately revalidate Connect controls');
+ assert(app.includes('restorePersistedReference();restoreRememberedConnections();updateReferenceUI();'),'Remembered addresses must restore during startup');
+}
