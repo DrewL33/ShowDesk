@@ -200,7 +200,8 @@ async function disconnectShowDesk(){
 window.addEventListener("showdesk-native-menu",event=>{if(event.detail==="disconnect")disconnectShowDesk();});
 function selectME(index){selectedMeIndex=Number(index)||1;render()}
 function selectedME(){return (liveEngineering.mixEffects||[]).find(me=>me.index===selectedMeIndex)||(liveEngineering.mixEffects||[])[0]||null}
-function setTab(tab){toast(tab.toUpperCase()+" view");
+function openShowDeskSettings(){toast("SETTINGS • coming soon")}
+function setTab(tab){toast((tab==="engineering"?"INSPECT":tab.toUpperCase())+" view");
  $("app").className="wrap tab-"+tab;
  $("showBtn").classList.toggle("on",tab==="show");$("signalBtn").classList.toggle("on",tab==="signal");$("engBtn").classList.toggle("on",tab==="engineering");
  if(tab==="signal")renderPaths();
@@ -319,6 +320,15 @@ async function exportLogReport(){
    else {const link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download=filename;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);toast("Log report exported");}
  }catch(err){if(err?.name!=="AbortError")toast("Export failed");}
 }
+function renderActiveSources(){
+ const el=$("activeSourceGrid");if(!el)return;
+ const e=liveEngineering,items=[],seen=new Set(),add=(name,role,tone="")=>{if(!name||name==="—")return;const key=role+"|"+name;if(seen.has(key))return;seen.add(key);items.push({name,role,tone})};
+ (e.mixEffects||[]).forEach(me=>{add(me.pgm,`M/E ${me.index} • PROGRAM`,"live");add(me.pvw,`M/E ${me.index} • PREVIEW`,"ready");(me.upstreamKeyers||[]).filter(k=>k.onAir).forEach(k=>{add(k.fill,`USK ${k.index} • M/E ${me.index} FILL`,"live");add(k.key,`USK ${k.index} • M/E ${me.index} KEY`,"live")})});
+ (e.downstreamKeyers||[]).filter(k=>k.onAir).forEach(k=>{add(k.fill,`DSK ${k.index} • FILL`,"live");add(k.key,`DSK ${k.index} • KEY`,"live")});
+ (e.routing||[]).forEach(r=>add(r.route||r.source||r.value,r.name||r.label||"ACTIVE ROUTE",""));
+ el.innerHTML=items.map(x=>`<div class="activeSource ${x.tone}"><span>${x.role}</span><b>${x.name}</b></div>`).join("")||'<div class="activeSource emptyActive"><span>ACTIVE SOURCES</span><b>Awaiting live switcher state</b></div>';
+ if($("activeSourceCount"))$("activeSourceCount").textContent=`${items.length} active use${items.length===1?"":"s"}`;
+}
 function renderInputs(){
   const inputs=liveEngineering.inputs||[],me=selectedME(),selectedPgm=me?.pgm||"—",selectedPvw=me?.pvw||"—";
   $("inputGrid").innerHTML=inputs.map(x=>{const n=x.name||`SOURCE ${x.id}`,state=n===selectedPgm?"live":n===selectedPvw?"ready":"",id=Number(x.id),physical=id>0&&id<1000,label=physical?`INPUT ${id}`:(id===0?"INTERNAL SOURCE":"INTERNAL SOURCE");return `<div class="inputCard ${state}"><span class="inum">${label}</span><b>${n}</b></div>`}).join("");
@@ -393,7 +403,7 @@ function render(){
  if($("engIssues")) $("engIssues").textContent=`${mismatches.length} mismatch${mismatches.length===1?"":"es"}`;
  if($("attention")) $("attention").innerHTML=(mismatches.length?mismatches.slice(0,5).map(x=>`<div class="attentionItem mismatch"><b>${x.name} MISMATCH</b><span>Expected ${x.expected} • Actual ${x.actual}</span></div>`).join(""):`<div class="attentionItem good"><b>${baselineState.attached?"REFERENCE MATCHES":"LIVE STATE STABLE"}</b><span>${baselineState.attached?"No defined reference expectations currently differ.":"Attach a show reference to enable expected-vs-actual verification."}</span></div>`)+(lastChangeText!=="—"?`<div class="attentionItem"><b>LAST CHANGE</b><span>${lastChangeText}</span></div>`:"");
  if($("lastChange"))$("lastChange").textContent=lastChangeText;
- renderInputs();
+ renderInputs();renderActiveSources();
  const ig=$("inputGrid");
  if(ig){
    const cards=[...ig.children];
@@ -402,8 +412,8 @@ function render(){
      cards.forEach((c,i)=>{if(i>=visibleLimit)c.style.display="none";});
      const more=document.createElement("div");
      more.className="input moreInputs";
-     more.innerHTML=`<small>MORE INPUTS</small><b>+${cards.length-visibleLimit}</b><span>View in Signal Paths</span>`;
-     more.onclick=()=>setTab("signal");
+     more.innerHTML=`<small>MORE INPUTS</small><b>+${cards.length-visibleLimit}</b><span>Continue in Inspect</span>`;
+     more.onclick=()=>setTab("engineering");
      ig.appendChild(more);
      if($("inputCountLabel"))$("inputCountLabel").textContent=`${visibleLimit} / ${cards.length} inputs shown`;
    }
