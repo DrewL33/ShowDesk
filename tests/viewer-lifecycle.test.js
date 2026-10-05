@@ -20,9 +20,11 @@ assert.ok(!app.includes('• STALE'),'Operator-facing connection status must not
 assert.match(app,/function startConnectionHealth[\s\S]*?subscribeHealth/,'Connected Host and Viewer modes must subscribe to health events');
 assert.match(app,/function stopConnectionHealth[\s\S]*?clearInterval/,'Disconnect must clean up connection health monitoring');
 assert.match(app,/viewerReconnecting\?"VIEWER • RECONNECTING":activeConnectionMode\.toUpperCase\(\)\+" • CONNECTED"/,'Connected modes must show CONNECTED normally and Viewer must show RECONNECTING only during recovery');
-const desktopCss=styles.match(/@media\(min-width:1200px\)\{([\s\S]*?)\n\}/)?.[1]||'';
-assert.match(desktopCss,/\.top\{height:43px;padding-left:14px;padding-right:14px\}/,'Desktop CSS must preserve the compact 43px ShowDesk toolbar');
-assert.match(desktopCss,/\.brand\{font-size:14px\}/,'Desktop CSS must preserve the compact 14px ShowDesk wordmark');
+assert.match(styles,/\/\* Build058 — approved mockup visual specification \*\/[\s\S]*?\.sideRail\{width:80px/,'Desktop CSS must preserve the approved 80px icon rail');
+assert.match(styles,/\.top\{display:none!important\}/,'Approved desktop workspace must not restore the old website-style top toolbar');
+assert.match(styles,/\.hero\.pgm\{background:linear-gradient\(105deg,#382124/,'Program surface must retain the approved subtle live tint');
+assert.match(styles,/\.hero\.pvw\{background:linear-gradient\(105deg,#172b3b/,'Preview surface must retain the approved subtle preview tint');
+assert.match(styles,/\.activeSource\{min-height:66px/,'Show View Active Sources must retain the approved readable density');
 assert.match(server,/function broadcastViewerCount\(\)[\s\S]*?viewerClients\.size/,'Host service must derive Viewer count from active Viewer sockets');
 assert.match(server,/viewerClients\.add\(ws\);[\s\S]*?broadcastViewerCount\(\)/,'Viewer connect must refresh Host Viewer count');
 assert.match(server,/viewerClients\.delete\(ws\); broadcastViewerCount\(\)/,'Viewer close must refresh Host Viewer count');
