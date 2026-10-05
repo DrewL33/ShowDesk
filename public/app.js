@@ -32,6 +32,7 @@ let liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],routing:[],prod
 function toggleDebug(){const el=$("atemDebug");if(!el)return;el.hidden=!el.hidden;if(!el.hidden)renderDebug()}
 function renderDebug(){const el=$("atemDebug");if(!el)return;el.textContent=JSON.stringify({productIdentifier:liveEngineering.productIdentifier,videoMode:liveEngineering.videoMode,topology:liveEngineering.topology,inputs:liveEngineering.inputs,mixEffects:liveEngineering.mixEffects,downstreamKeyers:liveEngineering.downstreamKeyers,auxRoutes:{...actual},rawExposedState:liveEngineering.debug},null,2)}
 function toast(msg){let t=$("toast");if(!t)return;t.textContent=msg;t.classList.add("show");clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove("show"),1100)}
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("settingsModal")&&!$("settingsModal").hidden)closeShowDeskSettings()});
 document.addEventListener("click",e=>{
  const b=e.target.closest("button");if(!b||b.disabled)return;
  b.classList.remove("clickFlash");void b.offsetWidth;b.classList.add("clickFlash");
@@ -200,7 +201,19 @@ async function disconnectShowDesk(){
 window.addEventListener("showdesk-native-menu",event=>{if(event.detail==="disconnect")disconnectShowDesk();});
 function selectME(index){selectedMeIndex=Number(index)||1;render()}
 function selectedME(){return (liveEngineering.mixEffects||[]).find(me=>me.index===selectedMeIndex)||(liveEngineering.mixEffects||[])[0]||null}
-function openShowDeskSettings(){toast("SETTINGS • coming soon")}
+function refreshShowDeskSettings(){
+ const mode=activeConnectionMode==="host"?"HOST":activeConnectionMode==="viewer"?"VIEWER":"NOT CONNECTED";
+ if($("settingsMode"))$("settingsMode").textContent=mode;
+ if($("settingsConnection"))$("settingsConnection").textContent=activeConnectionMode?(viewerReconnecting?"RECONNECTING":"CONNECTED"):"DISCONNECTED";
+ if($("settingsDevice"))$("settingsDevice").textContent=connectedDevice?.name||connectedDevice?.productIdentifier||liveEngineering.productIdentifier||"—";
+ if($("settingsAddress"))$("settingsAddress").textContent=connectedDevice?.ip||viewerConnectionContext?.ip||"—";
+ if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
+ if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.57";
+}
+function openShowDeskSettings(){refreshShowDeskSettings();$("settingsModal").hidden=false}
+function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true}
+async function disconnectFromSettings(){closeShowDeskSettings();await disconnectShowDesk()}
+function checkUpdatesFromSettings(){closeShowDeskSettings();checkForShowDeskUpdate(true)}
 function setTab(tab){toast((tab==="engineering"?"INSPECT":tab.toUpperCase())+" view");
  $("app").className="wrap tab-"+tab;
  $("showBtn").classList.toggle("on",tab==="show");$("signalBtn").classList.toggle("on",tab==="signal");$("engBtn").classList.toggle("on",tab==="engineering");
