@@ -20,11 +20,13 @@ assert.ok(!app.includes('• STALE'),'Operator-facing connection status must not
 assert.match(app,/function startConnectionHealth[\s\S]*?subscribeHealth/,'Connected Host and Viewer modes must subscribe to health events');
 assert.match(app,/function stopConnectionHealth[\s\S]*?clearInterval/,'Disconnect must clean up connection health monitoring');
 assert.match(app,/viewerReconnecting\?"VIEWER • RECONNECTING":activeConnectionMode\.toUpperCase\(\)\+" • CONNECTED"/,'Connected modes must show CONNECTED normally and Viewer must show RECONNECTING only during recovery');
-assert.match(styles,/\/\* Build058 — approved mockup visual specification \*\/[\s\S]*?\.sideRail\{width:80px/,'Desktop CSS must preserve the approved 80px icon rail');
-assert.match(styles,/\.top\{display:none!important\}/,'Approved desktop workspace must not restore the old website-style top toolbar');
-assert.match(styles,/\.hero\.pgm\{background:linear-gradient\(105deg,#382124/,'Program surface must retain the approved subtle live tint');
-assert.match(styles,/\.hero\.pvw\{background:linear-gradient\(105deg,#172b3b/,'Preview surface must retain the approved subtle preview tint');
-assert.match(styles,/\.activeSource\{min-height:66px/,'Show View Active Sources must retain the approved readable density');
+assert.match(styles,/\/\* Build059 — consolidated native workspace visual system/,'Desktop CSS must use the consolidated workspace visual system');
+assert.match(styles,/\.railNav\.on\{background:#1d252a/,'Active rail icon must have the approved neutral active surface');
+assert.match(styles,/\.railNav:hover\{background:#1a2126/,'Rail icons must have a restrained hover state');
+assert.match(styles,/\.hero\.pgm\{background:linear-gradient\(105deg,#211d1e/,'Program surface must retain only a subtle live tint');
+assert.match(styles,/\.hero\.pvw\{background:linear-gradient\(105deg,#192229/,'Preview surface must retain only a subtle preview tint');
+assert.match(styles,/\.signalWorkspace\{padding:18px/,'Signal Paths must use the consolidated workspace surface');
+assert.match(styles,/\.engSummary\{grid-template-columns:minmax\(0,1\.15fr\)/,'Inspect must use the consolidated information layout');
 assert.match(server,/function broadcastViewerCount\(\)[\s\S]*?viewerClients\.size/,'Host service must derive Viewer count from active Viewer sockets');
 assert.match(server,/viewerClients\.add\(ws\);[\s\S]*?broadcastViewerCount\(\)/,'Viewer connect must refresh Host Viewer count');
 assert.match(server,/viewerClients\.delete\(ws\); broadcastViewerCount\(\)/,'Viewer close must refresh Host Viewer count');
