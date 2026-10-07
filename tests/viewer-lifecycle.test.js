@@ -67,7 +67,7 @@ console.log('Viewer lifecycle, health, toolbar, and Viewer-count regression chec
  assert(viewerTransport.includes('function scheduleViewerReconnect()'),'Viewer transport must schedule reconnects after established Host loss');
  assert(viewerTransport.includes('viewerReconnectInFlight'),'Viewer reconnect must prevent duplicate concurrent sockets');
  assert.match(viewerTransport,/disconnectViewer\(\) \{[\s\S]*?stopViewerReconnect\(\)/,'Intentional Viewer disconnect must disable reconnect before closing the socket');
- assert(viewerApp.includes('VIEWER • RECONNECTING'),'Viewer workspace must expose reconnecting state');
+ assert.match(viewerApp,/activeConnectionMode\.toUpperCase\(\)\+' • RECONNECTING'/,'Viewer and Host must display reconnecting status from active mode');
  assert(!viewerApp.includes('alert("ShowDesk Host connection lost.")'),'Viewer Host loss must not spam a blocking alert');
  assert.match(viewerApp,/async function connectViewer\(\)[\s\S]*?catch\(error\)[\s\S]*?TRY AGAIN/,'Initial Viewer connection failure must remain a normal retryable setup failure');
 }
@@ -86,7 +86,7 @@ assert.match(styles,/\.eng \.matrixViewport\{height:300px!important/,'Routing Ma
 assert.match(styles,/\.settingsModal\{position:fixed!important;inset:0!important/,'Settings must remain a fixed modal overlay');
 assert.match(styles,/\.settingsCard\{width:min\(520px/,'Settings must remain compact rather than full-screen');
 assert.ok(!html.includes('Build057 • 0.1.57'),'Settings About must not expose stale Build057');
-assert.match(html,/id="settingsBuild">Build064 • 0\.1\.64/,'Settings About must ship with the current Build064 fallback');
+assert.match(html,/id="settingsBuild">Build065 • 0\.1\.65/,'Settings About must ship with the current Build065 fallback');
 
 assert.match(app,/let committedMeState=new Map\(\)/,'Transition display must keep a committed M/E state');
 assert.match(app,/transitioning&&committed\?\{\.\.\.me,pgm:committed\.pgm,pvw:committed\.pvw\}/,'Intermediate transitions must retain committed PGM/PVW');
@@ -106,7 +106,7 @@ assert.match(app,/me\.ftb\?\(me\.ftb\.inTransition\?"TRANSITION":me\.ftb\.isFull
 // Build064 controlled Host/ATEM reconnect regression guards
 assert.match(app,/function ensureHostConnectionSubscription\(transport\)/,'Host must subscribe to backend ATEM connection-loss events');
 assert.match(app,/message\?\.status!==\"disconnected\"/,'Host reconnect must begin only from an explicit backend disconnect event');
-assert.match(app,/HOST • RECONNECTING/,'Host connection flag must stop claiming CONNECTED while ATEM reconnects');
+assert.match(app,/const reconnecting=activeConnectionMode==="viewer"\?viewerReconnecting:activeConnectionMode==="host"\?hostReconnecting:false/,'Host connection flag must stop claiming CONNECTED while ATEM reconnects');
 assert.match(app,/function scheduleHostReconnect\(transport\)[\s\S]*?2000/,'Host reconnect must retry on a controlled two-second cadence');
 assert.match(app,/async function attemptHostReconnect\(transport\)[\s\S]*?transport\.connect\(ip\)/,'Host reconnect must reuse the established ATEM address through the existing read-only connect path');
 assert.match(app,/intentionalDisconnect=true;viewerReconnecting=false;stopHostReconnect\(\)/,'Intentional disconnect must cancel Host reconnect');

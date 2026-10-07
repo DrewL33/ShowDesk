@@ -199,7 +199,7 @@ function markConnectionActivity(){lastHealthAt=Date.now();updateConnectionHealth
 function updateConnectionHealth(){
  const connected=activeConnectionMode==="host"||activeConnectionMode==="viewer";
  const flag=$("connectionFlag"),text=$("connectionFlagText");if(!flag||!text)return;
- if(!connected){flag.title="";return;}
+ if(!connected){flag.title="";flag.classList.remove("reconnecting");return;}
  const reconnecting=activeConnectionMode==="viewer"?viewerReconnecting:activeConnectionMode==="host"?hostReconnecting:false;
  if(reconnecting){
   text.innerHTML=activeConnectionMode.toUpperCase()+' • RECONNECTING <span class="reconnectNetwork" aria-hidden="true"><span class="reconnectEndpoint"></span><span class="reconnectDots"><i></i><i></i><i></i></span><span class="reconnectEndpoint destination"></span></span>';

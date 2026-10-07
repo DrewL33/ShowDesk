@@ -368,3 +368,7 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .reconnectDots i:nth-child(2){animation-delay:.35s}
 .reconnectDots i:nth-child(3){animation-delay:.70s}
 @keyframes showdeskReconnectDot{0%,30%,100%{opacity:.25;transform:scale(.8)}10%,20%{opacity:1;transform:scale(1.35)}}
+
+.connectionFlag.reconnecting{border-color:#87651f!important;background:#2a2313!important}
+.connectionFlag.reconnecting .connectionDot{background:var(--amber)!important;box-shadow:0 0 0 2px #87651f55!important}
+@media (prefers-reduced-motion:reduce){.reconnectDots i{animation:none!important;opacity:.8!important}}
