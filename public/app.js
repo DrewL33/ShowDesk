@@ -11,6 +11,11 @@ let selectedMeIndex=1;
 let previousMeState=new Map();
 let committedMeState=new Map();
 let viewerConnectionSubscription=null;
+let hostConnectionSubscription=null;
+let hostReconnectTimer=null;
+let hostReconnectIp=null;
+let hostReconnectInFlight=false;
+let hostReconnecting=false;
 let liveStateSubscription=null;
 let healthSubscription=null;
 let viewerCountSubscription=null;
@@ -82,6 +87,35 @@ function ensureViewerConnectionSubscription(transport){
    }
  });
 }
+function clearHostReconnectTimer(){if(hostReconnectTimer){clearTimeout(hostReconnectTimer);hostReconnectTimer=null;}}
+function stopHostReconnect(){clearHostReconnectTimer();hostReconnectIp=null;hostReconnectInFlight=false;hostReconnecting=false;}
+function ensureHostConnectionSubscription(transport){
+ if(hostConnectionSubscription||!transport?.subscribeConnection)return;
+ hostConnectionSubscription=transport.subscribeConnection(message=>{
+  if(activeConnectionMode!=="host"||intentionalDisconnect||message?.status!=="disconnected")return;
+  const ip=connectedDevice?.ip||hostReconnectIp;if(!ip)return;
+  hostReconnectIp=ip;hostReconnecting=true;stopConnectionHealth();updateConnectionControls();refreshShowDeskSettings();
+  addLog("SYSTEM","ATEM connection lost at "+ip+". Reconnecting…");
+  scheduleHostReconnect(transport);
+ });
+}
+function scheduleHostReconnect(transport){
+ if(intentionalDisconnect||activeConnectionMode!=="host"||!hostReconnectIp||hostReconnectTimer||hostReconnectInFlight)return;
+ hostReconnectTimer=setTimeout(()=>{hostReconnectTimer=null;attemptHostReconnect(transport);},2000);
+}
+async function attemptHostReconnect(transport){
+ if(intentionalDisconnect||activeConnectionMode!=="host"||!hostReconnectIp||hostReconnectInFlight)return;
+ const ip=hostReconnectIp;hostReconnectInFlight=true;
+ try{
+  const d=await transport.connect(ip);
+  if(intentionalDisconnect||activeConnectionMode!=="host"||hostReconnectIp!==ip)return;
+  connectedDevice=d;connectedDevice.ip=ip;applyAtemStateUpdate(d);hostReconnecting=false;hostReconnectIp=null;
+  startConnectionHealth(transport);$("modelLabel").textContent=(d.name||d.productIdentifier||"ATEM Switcher")+" • "+ip;updateConnectionControls();refreshShowDeskSettings();
+  addLog("SYSTEM","ATEM reconnected at "+ip);render();
+ }catch(error){
+  if(!intentionalDisconnect&&activeConnectionMode==="host"&&hostReconnectIp===ip)scheduleHostReconnect(transport);
+ }finally{hostReconnectInFlight=false;if(hostReconnecting&&!hostReconnectTimer)scheduleHostReconnect(transport);}
+}
 function enterViewerConnection(d,ctx=viewerConnectionContext){
  if(!d||!ctx||ctx.attempt!==viewerConnectionAttempt)return;
  const {ip}=ctx;connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="viewer";intentionalDisconnect=false;viewerReconnecting=false;rememberSuccessfulConnection("viewerHostIp",ip);
@@ -148,6 +182,8 @@ async function connectAtem(){
  rememberSuccessfulConnection("atemIp",ip);
  ensureLiveStateSubscription(transport);
  ensureViewerCountSubscription(transport);
+ ensureHostConnectionSubscription(transport);
+ stopHostReconnect();
  startConnectionHealth(transport);
    $("modelLabel").textContent=d.name+" • "+ip;
    updateConnectionControls();
@@ -164,7 +200,7 @@ function updateConnectionHealth(){
  const connected=activeConnectionMode==="host"||activeConnectionMode==="viewer";
  const flag=$("connectionFlag"),text=$("connectionFlagText");if(!flag||!text)return;
  if(!connected){flag.title="";return;}
- text.textContent=activeConnectionMode==="viewer"&&viewerReconnecting?"VIEWER • RECONNECTING":activeConnectionMode.toUpperCase()+" • CONNECTED";
+ text.textContent=activeConnectionMode==="viewer"&&viewerReconnecting?"VIEWER • RECONNECTING":activeConnectionMode==="host"&&hostReconnecting?"HOST • RECONNECTING":activeConnectionMode.toUpperCase()+" • CONNECTED";
  const now=Date.now(),target=connectedDevice?.ip||"—",age=connectionStartedAt?formatConnectionAge(now-connectionStartedAt):"—",last=lastHealthAt?formatConnectionAge(now-lastHealthAt)+" ago":"awaiting activity";
  flag.title=(activeConnectionMode==="host"?"ATEM":"ShowDesk Host")+" "+target+"\nConnected "+age+"\nLast activity "+last;
 }
@@ -186,7 +222,7 @@ function updateConnectionControls(){
 }
 async function disconnectShowDesk(){
  const transport=window.ATEM_TRANSPORT;if(!activeConnectionMode||!transport)return;
- intentionalDisconnect=true;viewerReconnecting=false;
+ intentionalDisconnect=true;viewerReconnecting=false;stopHostReconnect();
  ++viewerConnectionAttempt;viewerConnectionContext=null;
  clearLiveStateSubscription();
  clearViewerCountSubscription();
@@ -205,11 +241,11 @@ function selectedME(){return (liveEngineering.mixEffects||[]).find(me=>me.index=
 function refreshShowDeskSettings(){
  const mode=activeConnectionMode==="host"?"HOST":activeConnectionMode==="viewer"?"VIEWER":"NOT CONNECTED";
  if($("settingsMode"))$("settingsMode").textContent=mode;
- if($("settingsConnection"))$("settingsConnection").textContent=activeConnectionMode?(viewerReconnecting?"RECONNECTING":"CONNECTED"):"DISCONNECTED";
+ if($("settingsConnection"))$("settingsConnection").textContent=activeConnectionMode?((viewerReconnecting||hostReconnecting)?"RECONNECTING":"CONNECTED"):"DISCONNECTED";
  if($("settingsDevice"))$("settingsDevice").textContent=connectedDevice?.name||connectedDevice?.productIdentifier||liveEngineering.productIdentifier||"—";
  if($("settingsAddress"))$("settingsAddress").textContent=connectedDevice?.ip||viewerConnectionContext?.ip||"—";
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
- if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.63"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.63").split(".").pop()).padStart(3,"0")} • ${showDeskUpdater.currentVersion||"0.1.63"}`;
+ if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.64"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.64").split(".").pop()).padStart(3,"0")} • ${showDeskUpdater.currentVersion||"0.1.64"}`;
 }
 function openShowDeskSettings(){refreshShowDeskSettings();$("settingsModal").hidden=false}
 function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true}

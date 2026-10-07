@@ -86,7 +86,7 @@ assert.match(styles,/\.eng \.matrixViewport\{height:300px!important/,'Routing Ma
 assert.match(styles,/\.settingsModal\{position:fixed!important;inset:0!important/,'Settings must remain a fixed modal overlay');
 assert.match(styles,/\.settingsCard\{width:min\(520px/,'Settings must remain compact rather than full-screen');
 assert.ok(!html.includes('Build057 • 0.1.57'),'Settings About must not expose stale Build057');
-assert.match(html,/id="settingsBuild">Build063 • 0\.1\.63/,'Settings About must ship with the current Build063 fallback');
+assert.match(html,/id="settingsBuild">Build064 • 0\.1\.64/,'Settings About must ship with the current Build064 fallback');
 
 assert.match(app,/let committedMeState=new Map\(\)/,'Transition display must keep a committed M/E state');
 assert.match(app,/transitioning&&committed\?\{\.\.\.me,pgm:committed\.pgm,pvw:committed\.pvw\}/,'Intermediate transitions must retain committed PGM/PVW');
@@ -102,3 +102,11 @@ assert.ok(!styles.includes('background:#11161a!important;border-bottom-color:var
 assert.match(styles,/\.meSelector \.meSelectBtn\.on\{[^}]*background:#1c303b!important/,'M/E selection must use canonical blue-slate surface');
 assert.match(styles,/\.referencePanel \.referenceEmpty,\.referencePanel \.referenceAttached\{background:var\(--sd-panel\)!important/,'Reference attachment surfaces must use canonical slate panel');
 assert.match(app,/me\.ftb\?\(me\.ftb\.inTransition\?"TRANSITION":me\.ftb\.isFullyBlack\?"BLACK":"OFF"\)/,'FTB transition must take precedence over fully-black state');
+
+// Build064 controlled Host/ATEM reconnect regression guards
+assert.match(app,/function ensureHostConnectionSubscription\(transport\)/,'Host must subscribe to backend ATEM connection-loss events');
+assert.match(app,/message\?\.status!==\"disconnected\"/,'Host reconnect must begin only from an explicit backend disconnect event');
+assert.match(app,/HOST • RECONNECTING/,'Host connection flag must stop claiming CONNECTED while ATEM reconnects');
+assert.match(app,/function scheduleHostReconnect\(transport\)[\s\S]*?2000/,'Host reconnect must retry on a controlled two-second cadence');
+assert.match(app,/async function attemptHostReconnect\(transport\)[\s\S]*?transport\.connect\(ip\)/,'Host reconnect must reuse the established ATEM address through the existing read-only connect path');
+assert.match(app,/intentionalDisconnect=true;viewerReconnecting=false;stopHostReconnect\(\)/,'Intentional disconnect must cancel Host reconnect');
