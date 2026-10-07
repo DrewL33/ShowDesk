@@ -5,6 +5,7 @@ const assert=require('node:assert/strict');
 const app=fs.readFileSync('public/app.js','utf8');
 const transport=fs.readFileSync('public/transport.js','utf8');
 const styles=fs.readFileSync('public/styles.css','utf8');
+const html=fs.readFileSync('public/index.html','utf8');
 const server=fs.readFileSync('src/server.js','utf8');
 assert.match(app,/function enterViewerConnection[\s\S]*?ensureLiveStateSubscription\(window\.ATEM_TRANSPORT\)/,'Viewer must subscribe to live state when entering Viewer mode');
 assert.match(app,/function disconnectShowDesk[\s\S]*?clearLiveStateSubscription\(\)/,'Disconnect must clear the active live-state subscription');
