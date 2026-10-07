@@ -9,6 +9,7 @@ let expected=baselineState.routes,actual=liveState.routes,saved={},logs=[],sessi
 let selectedDestination=null;
 let selectedMeIndex=1;
 let previousMeState=new Map();
+let committedMeState=new Map();
 let viewerConnectionSubscription=null;
 let liveStateSubscription=null;
 let healthSubscription=null;
@@ -195,7 +196,7 @@ async function disconnectShowDesk(){
    else if(activeConnectionMode==="host"&&transport.disconnect)await transport.disconnect();
  }catch(error){intentionalDisconnect=false;alert("ShowDesk could not disconnect cleanly.\n\n"+(error?.message||String(error)));return;}
  addLog("SYSTEM",activeConnectionMode==="viewer"?"Disconnected from ShowDesk Host":"Disconnected from ATEM");
- activeConnectionMode=null;connectedDevice=null;previousMeState=new Map();liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],routing:[],productIdentifier:null,videoMode:null,topology:{},debug:null};
+ activeConnectionMode=null;connectedDevice=null;previousMeState=new Map();committedMeState=new Map();liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],routing:[],productIdentifier:null,videoMode:null,topology:{},debug:null};
  $("setup").classList.remove("hidden");chooseConnectionMode(null);$("modelLabel").textContent="";updateConnectionControls();$("connectAtemBtn").textContent="CONNECT & HOST";$("connectViewerBtn").textContent="CONNECT TO HOST";connectionInputChanged();viewerInputChanged();intentionalDisconnect=false;render();
 }
 window.addEventListener("showdesk-native-menu",event=>{if(event.detail==="disconnect")disconnectShowDesk();});
@@ -208,7 +209,7 @@ function refreshShowDeskSettings(){
  if($("settingsDevice"))$("settingsDevice").textContent=connectedDevice?.name||connectedDevice?.productIdentifier||liveEngineering.productIdentifier||"—";
  if($("settingsAddress"))$("settingsAddress").textContent=connectedDevice?.ip||viewerConnectionContext?.ip||"—";
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
- if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.61"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.61").split(".").pop()).padStart(3,"0")} • ${showDeskUpdater.currentVersion||"0.1.61"}`;
+ if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.62"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.62").split(".").pop()).padStart(3,"0")} • ${showDeskUpdater.currentVersion||"0.1.62"}`;
 }
 function openShowDeskSettings(){refreshShowDeskSettings();$("settingsModal").hidden=false}
 function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true}
@@ -391,10 +392,13 @@ function renderPaths(){
  scheduleSignalConnectors();
  const topo=liveEngineering.topology||{};if($("flowSources"))$("flowSources").textContent=topo.reportedSources??inputs.length;if($("flowMes"))$("flowMes").textContent=mes.length;if($("flowDests"))$("flowDests").textContent=routing.length;if($("flowIssues"))$("flowIssues").textContent=baselineState.attached?getMismatches().length:"—";
 }
+function transitionPercent(position){const n=Number(position);if(!Number.isFinite(n))return null;return Math.max(0,Math.min(100,Math.round(n>100?n/100:n)))}
+function renderTransitionStatus(){const active=(liveEngineering.mixEffects||[]).filter(me=>me.transition?.inTransition);let el=$("transitionStatus");if(!el){el=document.createElement("div");el.id="transitionStatus";el.className="transitionStatus";document.body.appendChild(el)}if(!active.length){el.hidden=true;el.innerHTML="";return}el.hidden=false;el.innerHTML=active.map(me=>{const p=transitionPercent(me.transition?.position);return `<span>M/E ${me.index} TRANSITION</span><b>${p===null?"IN PROGRESS":p+"%"}</b><i><em style="width:${p===null?0:p}%"></em></i>`}).join("")}
 function render(){
  const activeMe=selectedME(),displayPgm=activeMe?.pgm||pgm,displayPvw=activeMe?.pvw||pvw;
  if($("pgm"))$("pgm").textContent=displayPgm;if($("pvw"))$("pvw").textContent=displayPvw;
- const meSelector=$("meSelector");if(meSelector)meSelector.innerHTML=(liveEngineering.mixEffects||[]).map(me=>`<button class="tinyAction ${me.index===selectedMeIndex?"primaryAction":""}" onclick="selectME(${me.index})">M/E ${me.index}</button>`).join("");
+ const meSelector=$("meSelector");if(meSelector)meSelector.innerHTML=(liveEngineering.mixEffects||[]).map(me=>`<button class="tinyAction meSelectBtn ${me.index===selectedMeIndex?"on":""}" onclick="selectME(${me.index})">M/E ${me.index}</button>`).join("");
+ renderTransitionStatus();
 
  let total=Object.keys(actual).filter(n=>actual[n]!=="UNUSED").length;
  const changed=Object.keys(actual).filter(n=>window.routeHistory[n]&&window.routeHistory[n].from!==actual[n]);
@@ -441,7 +445,7 @@ function formatVideoMode(mode){
 function renderEngineering(){
  const e=liveEngineering,inputs=e.inputs||[],mes=e.mixEffects||[],dsks=e.downstreamKeyers||[];
  const keys=[];mes.forEach(me=>(me.upstreamKeyers||[]).forEach(k=>keys.push({...k,label:`USK ${k.index} · M/E ${me.index}`})));dsks.forEach(k=>keys.push({...k,label:`DSK ${k.index}`}));
- if($("showKeyers")){const ftbs=mes.map(me=>({index:me.index,state:me.ftb?(me.ftb.isFullyBlack?"BLACK":me.ftb.inTransition?"TRANSITION":"OFF"):"—"}));$("showKeyers").innerHTML=keys.map(k=>`<div class="key ${k.onAir?"on":""}">${k.label} • ${k.onAir?"ON AIR":"OFF"}</div>`).join("")+ftbs.map(f=>`<div class="key ${f.state==="BLACK"||f.state==="TRANSITION"?"on ftbLive":""}">FTB · M/E ${f.index} • ${f.state}</div>`).join("")}
+ if($("showKeyers")){const ftbs=mes.map(me=>({index:me.index,state:me.ftb?(me.ftb.isFullyBlack?"BLACK":me.ftb.inTransition?"TRANSITION":"OFF"):"—"}));$("showKeyers").innerHTML=keys.map(k=>`<div class="key ${k.onAir?"on":""}">${k.label} • ${k.onAir?"ON AIR":"OFF"}</div>`).join("")+ftbs.map(f=>`<div class="key ${f.state==="BLACK"||f.state==="TRANSITION"?"on ftbLive":""} ${f.state==="TRANSITION"?"ftbTransition":""}">FTB · M/E ${f.index} • ${f.state}</div>`).join("")}
  const selected=selectedME();
  if($("pgmContext"))$("pgmContext").textContent=selected?`M/E ${selected.index} • PROGRAM`:"—";
  if($("pvwContext"))$("pvwContext").textContent=selected?`M/E ${selected.index} • PREVIEW`:"—";
@@ -454,10 +458,12 @@ function renderEngineering(){
 function applyAtemStateUpdate(patch={}){
    if(Array.isArray(patch.inputs)) liveEngineering.inputs=patch.inputs;
    if(Array.isArray(patch.mixEffects)){
-     const nextMeState=new Map();
-     patch.mixEffects.forEach(me=>{const index=Number(me.index)||1,prev=previousMeState.get(index),next={pgm:me.pgm||"—",pvw:me.pvw||"—",ftb:me.ftb?{isFullyBlack:!!me.ftb.isFullyBlack,inTransition:!!me.ftb.inTransition}:null,upstreamKeyers:(me.upstreamKeyers||[]).map(k=>({index:Number(k.index)||1,onAir:!!k.onAir,fill:k.fill||"—",key:k.key||"—"}))};
-       if(prev){if(prev.pgm!==next.pgm)recordEvent(`M/E ${index}`,`PROGRAM: ${prev.pgm} → ${next.pgm}`,{me:index,field:"program",from:prev.pgm,to:next.pgm});if(prev.pvw!==next.pvw)recordEvent(`M/E ${index}`,`PREVIEW: ${prev.pvw} → ${next.pvw}`,{me:index,field:"preview",from:prev.pvw,to:next.pvw});if(prev.ftb?.isFullyBlack!==next.ftb?.isFullyBlack)recordEvent(`M/E ${index}`,`FADE TO BLACK: ${next.ftb?.isFullyBlack?"BLACK":"OFF"}`,{me:index,field:"ftb"});next.upstreamKeyers.forEach(k=>{const pk=(prev.upstreamKeyers||[]).find(x=>x.index===k.index);if(!pk)return;if(pk.onAir!==k.onAir)recordEvent(`M/E ${index}`,`USK ${k.index}: ${k.onAir?"ON AIR":"OFF"}`,{me:index,keyer:k.index,field:"onAir"});if(pk.fill!==k.fill)recordEvent(`M/E ${index}`,`USK ${k.index} FILL: ${pk.fill} → ${k.fill}`,{me:index,keyer:k.index,field:"fill"});if(pk.key!==k.key)recordEvent(`M/E ${index}`,`USK ${k.index} KEY: ${pk.key} → ${k.key}`,{me:index,keyer:k.index,field:"key"});});}nextMeState.set(index,next);});
-     previousMeState=nextMeState;liveEngineering.mixEffects=patch.mixEffects;
+     const nextMeState=new Map(),displayMixEffects=[];
+     patch.mixEffects.forEach(me=>{const index=Number(me.index)||1,transitioning=!!me.transition?.inTransition,committed=committedMeState.get(index),displayMe=transitioning&&committed?{...me,pgm:committed.pgm,pvw:committed.pvw}:{...me};
+       if(!transitioning)committedMeState.set(index,{pgm:me.pgm||"—",pvw:me.pvw||"—"});
+       const prev=previousMeState.get(index),next={pgm:displayMe.pgm||"—",pvw:displayMe.pvw||"—",ftb:displayMe.ftb?{isFullyBlack:!!displayMe.ftb.isFullyBlack,inTransition:!!displayMe.ftb.inTransition}:null,upstreamKeyers:(displayMe.upstreamKeyers||[]).map(k=>({index:Number(k.index)||1,onAir:!!k.onAir,fill:k.fill||"—",key:k.key||"—"}))};
+       if(prev){if(prev.pgm!==next.pgm)recordEvent(`M/E ${index}`,`PROGRAM: ${prev.pgm} → ${next.pgm}`,{me:index,field:"program",from:prev.pgm,to:next.pgm});if(prev.pvw!==next.pvw)recordEvent(`M/E ${index}`,`PREVIEW: ${prev.pvw} → ${next.pvw}`,{me:index,field:"preview",from:prev.pvw,to:next.pvw});if(prev.ftb?.isFullyBlack!==next.ftb?.isFullyBlack)recordEvent(`M/E ${index}`,`FADE TO BLACK: ${next.ftb?.isFullyBlack?"BLACK":"OFF"}`,{me:index,field:"ftb"});next.upstreamKeyers.forEach(k=>{const pk=(prev.upstreamKeyers||[]).find(x=>x.index===k.index);if(!pk)return;if(pk.onAir!==k.onAir)recordEvent(`M/E ${index}`,`USK ${k.index}: ${k.onAir?"ON AIR":"OFF"}`,{me:index,keyer:k.index,field:"onAir"});if(pk.fill!==k.fill)recordEvent(`M/E ${index}`,`USK ${k.index} FILL: ${pk.fill} → ${k.fill}`,{me:index,keyer:k.index,field:"fill"});if(pk.key!==k.key)recordEvent(`M/E ${index}`,`USK ${k.index} KEY: ${pk.key} → ${k.key}`,{me:index,keyer:k.index,field:"key"});});}nextMeState.set(index,next);displayMixEffects.push(displayMe);});
+     previousMeState=nextMeState;liveEngineering.mixEffects=displayMixEffects;
    }
    if(Array.isArray(patch.downstreamKeyers)) liveEngineering.downstreamKeyers=patch.downstreamKeyers;
    if(Array.isArray(patch.aux)) liveEngineering.routing=patch.aux;
@@ -482,8 +488,8 @@ function applyAtemStateUpdate(patch={}){
   }
   if(Array.isArray(patch.inputs)&&connectedDevice) connectedDevice.inputs=patch.inputs.length;
   render();
-  const root=document.querySelector(".signalPage");
-  if(root){root.classList.remove("routePulse");void root.offsetWidth;root.classList.add("routePulse");}
+  const root=document.querySelector(".signalPage"),transitionActive=(liveEngineering.mixEffects||[]).some(me=>me.transition?.inTransition);
+  if(root&&!transitionActive){root.classList.remove("routePulse");void root.offsetWidth;root.classList.add("routePulse");}
 }
 window.ATEM_OPS=Object.assign(window.ATEM_OPS||{},{applyStateUpdate:applyAtemStateUpdate});
 

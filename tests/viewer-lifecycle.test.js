@@ -88,3 +88,13 @@ assert.match(styles,/\.settingsModal\{position:fixed!important;inset:0!important
 assert.match(styles,/\.settingsCard\{width:min\(520px/,'Settings must remain compact rather than full-screen');
 assert.ok(!html.includes('Build057 • 0.1.57'),'Settings About must not expose stale Build057');
 assert.match(html,/id="settingsBuild">Build061 • 0\.1\.61/,'Settings About must ship with Build061 fallback');
+
+assert.match(app,/let committedMeState=new Map\(\)/,'Transition display must keep a committed M/E state');
+assert.match(app,/transitioning&&committed\?\{\.\.\.me,pgm:committed\.pgm,pvw:committed\.pvw\}/,'Intermediate transitions must retain committed PGM/PVW');
+assert.match(app,/function renderTransitionStatus\(\)/,'All-tab transition progress indicator must be rendered');
+assert.match(app,/root&&!transitionActive/,'Signal Path pulse must be suppressed during an active transition');
+assert.match(app,/ftbTransition/,'FTB transition must receive a flashing state class');
+assert.match(styles,/\.ftbTransition\{animation:ftbFlash/,'FTB transition must visibly flash');
+assert.match(styles,/\.meSelector \.meSelectBtn\.on\{box-shadow/,'M\/E selector must use current slate selection styling');
+assert.match(styles,/\.referencePanel \.referenceEmpty\{background:var\(--sd-raised\)/,'Reference attachment surface must use slate palette');
+assert.match(styles,/\.transitionStatus\{position:fixed!important/,'Transition progress must remain visible across tabs');
