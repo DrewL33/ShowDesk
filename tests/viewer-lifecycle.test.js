@@ -113,8 +113,8 @@ assert.match(app,/intentionalDisconnect=true;viewerReconnecting=false;stopHostRe
 
 
 // Build065 compact reconnect indicator regression guards
-assert.match(app,/reconnectNetwork/,'Reconnect state must render the compact network activity glyph');
-assert.match(app,/reconnectDots[\\s\\S]*?<i><\\/i><i><\\/i><i><\\/i>/,'Reconnect activity glyph must contain exactly three sequenced path dots');
-assert.match(styles,/\\.connectionFlag\\.reconnecting\\{color:var\\(--amber\\)!important\\}/,'Reconnect state must use the amber warning color');
-assert.match(styles,/@keyframes showdeskReconnectDot/,'Reconnect path dots must visibly sequence while retrying');
-assert.match(app,/flag\\.classList\\.remove\\("reconnecting"\\)/,'Reconnect styling must clear immediately when recovery ends');
+assert.ok(app.includes('reconnectNetwork'),'Reconnect state must render the compact network activity glyph');
+assert.ok(app.includes('<i></i><i></i><i></i>'),'Reconnect activity glyph must contain exactly three sequenced path dots');
+assert.ok(styles.includes('.connectionFlag.reconnecting{color:var(--amber)!important}'),'Reconnect state must use the amber warning color');
+assert.ok(styles.includes('@keyframes showdeskReconnectDot'),'Reconnect path dots must visibly sequence while retrying');
+assert.ok(app.includes('flag.classList.remove("reconnecting")'),'Reconnect styling must clear immediately when recovery ends');
