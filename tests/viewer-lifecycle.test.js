@@ -87,7 +87,7 @@ assert.match(styles,/\.eng \.matrixViewport\{height:300px!important/,'Routing Ma
 assert.match(styles,/\.settingsModal\{position:fixed!important;inset:0!important/,'Settings must remain a fixed modal overlay');
 assert.match(styles,/\.settingsCard\{width:min\(520px/,'Settings must remain compact rather than full-screen');
 assert.ok(!html.includes('Build057 • 0.1.57'),'Settings About must not expose stale Build057');
-assert.match(html,/id="settingsBuild">Build062 • 0\.1\.62/,'Settings About must ship with the current Build062 fallback');
+assert.match(html,/id="settingsBuild">Build063 • 0\.1\.63/,'Settings About must ship with the current Build063 fallback');
 
 assert.match(app,/let committedMeState=new Map\(\)/,'Transition display must keep a committed M/E state');
 assert.match(app,/transitioning&&committed\?\{\.\.\.me,pgm:committed\.pgm,pvw:committed\.pvw\}/,'Intermediate transitions must retain committed PGM/PVW');
@@ -98,3 +98,9 @@ assert.match(styles,/\.ftbTransition\{animation:ftbFlash/,'FTB transition must v
 assert.match(styles,/\.meSelector \.meSelectBtn\.on\{box-shadow/,'M\/E selector must use current slate selection styling');
 assert.match(styles,/\.referencePanel \.referenceEmpty\{background:var\(--sd-raised\)/,'Reference attachment surface must use slate palette');
 assert.match(styles,/\.transitionStatus\{position:fixed!important/,'Transition progress must remain visible across tabs');
+
+assert.ok(!styles.includes('ShowDesk v5.0.6 Broadcast Console visual system'),'Legacy charcoal visual layer must be removed rather than overridden');
+assert.ok(!styles.includes('background:#11161a!important;border-bottom-color:var(--accent)!important'),'Legacy charcoal selected-tab rule must not return');
+assert.match(styles,/\.meSelector \.meSelectBtn\.on\{background:#1c303b!important/,'M/E selection must use canonical blue-slate surface');
+assert.match(styles,/\.referencePanel \.referenceEmpty,\.referencePanel \.referenceAttached\{background:var\(--sd-panel\)!important/,'Reference attachment surfaces must use canonical slate panel');
+assert.match(app,/me\.ftb\?\(me\.ftb\.inTransition\?"TRANSITION":me\.ftb\.isFullyBlack\?"BLACK":"OFF"\)/,'FTB transition must take precedence over fully-black state');
