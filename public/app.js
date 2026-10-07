@@ -200,7 +200,14 @@ function updateConnectionHealth(){
  const connected=activeConnectionMode==="host"||activeConnectionMode==="viewer";
  const flag=$("connectionFlag"),text=$("connectionFlagText");if(!flag||!text)return;
  if(!connected){flag.title="";return;}
- text.textContent=activeConnectionMode==="viewer"&&viewerReconnecting?"VIEWER • RECONNECTING":activeConnectionMode==="host"&&hostReconnecting?"HOST • RECONNECTING":activeConnectionMode.toUpperCase()+" • CONNECTED";
+ const reconnecting=activeConnectionMode==="viewer"?viewerReconnecting:activeConnectionMode==="host"?hostReconnecting:false;
+ if(reconnecting){
+  text.innerHTML=activeConnectionMode.toUpperCase()+' • RECONNECTING <span class="reconnectNetwork" aria-hidden="true"><span class="reconnectEndpoint"></span><span class="reconnectDots"><i></i><i></i><i></i></span><span class="reconnectEndpoint destination"></span></span>';
+  flag.classList.add("reconnecting");
+ }else{
+  text.textContent=activeConnectionMode.toUpperCase()+" • CONNECTED";
+  flag.classList.remove("reconnecting");
+ }
  const now=Date.now(),target=connectedDevice?.ip||"—",age=connectionStartedAt?formatConnectionAge(now-connectionStartedAt):"—",last=lastHealthAt?formatConnectionAge(now-lastHealthAt)+" ago":"awaiting activity";
  flag.title=(activeConnectionMode==="host"?"ATEM":"ShowDesk Host")+" "+target+"\nConnected "+age+"\nLast activity "+last;
 }
@@ -245,7 +252,7 @@ function refreshShowDeskSettings(){
  if($("settingsDevice"))$("settingsDevice").textContent=connectedDevice?.name||connectedDevice?.productIdentifier||liveEngineering.productIdentifier||"—";
  if($("settingsAddress"))$("settingsAddress").textContent=connectedDevice?.ip||viewerConnectionContext?.ip||"—";
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
- if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.64"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.64").split(".").pop()).padStart(3,"0")} • ${showDeskUpdater.currentVersion||"0.1.64"}`;
+ if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.65"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.65").split(".").pop()).padStart(3,"0")} • ${showDeskUpdater.currentVersion||"0.1.65"}`;
 }
 function openShowDeskSettings(){refreshShowDeskSettings();$("settingsModal").hidden=false}
 function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true}

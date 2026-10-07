@@ -110,3 +110,11 @@ assert.match(app,/HOST • RECONNECTING/,'Host connection flag must stop claimin
 assert.match(app,/function scheduleHostReconnect\(transport\)[\s\S]*?2000/,'Host reconnect must retry on a controlled two-second cadence');
 assert.match(app,/async function attemptHostReconnect\(transport\)[\s\S]*?transport\.connect\(ip\)/,'Host reconnect must reuse the established ATEM address through the existing read-only connect path');
 assert.match(app,/intentionalDisconnect=true;viewerReconnecting=false;stopHostReconnect\(\)/,'Intentional disconnect must cancel Host reconnect');
+
+
+// Build065 compact reconnect indicator regression guards
+assert.match(app,/reconnectNetwork/,'Reconnect state must render the compact network activity glyph');
+assert.match(app,/reconnectDots[\\s\\S]*?<i><\\/i><i><\\/i><i><\\/i>/,'Reconnect activity glyph must contain exactly three sequenced path dots');
+assert.match(styles,/\\.connectionFlag\\.reconnecting\\{color:var\\(--amber\\)!important\\}/,'Reconnect state must use the amber warning color');
+assert.match(styles,/@keyframes showdeskReconnectDot/,'Reconnect path dots must visibly sequence while retrying');
+assert.match(app,/flag\\.classList\\.remove\\("reconnecting"\\)/,'Reconnect styling must clear immediately when recovery ends');

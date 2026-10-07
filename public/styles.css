@@ -356,3 +356,15 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .referencePanel .referenceActions{padding:10px 0!important;border-bottom:1px solid var(--sd-line-soft)!important}.referencePanel .tinyAction{background:var(--sd-raised)!important;border:1px solid var(--sd-line)!important;color:var(--sd-text)!important}.referencePanel .primaryAction{background:#1c303b!important;border-color:#41614f!important;color:#b8d8c5!important}
 .ftbTransition{animation:ftbFlash .55s steps(2,end) infinite!important}@keyframes ftbFlash{0%,100%{background:#54201d!important;color:#fff!important;box-shadow:inset 0 0 0 1px #9d3730}50%{background:#d83a32!important;color:#fff!important;box-shadow:inset 0 0 0 2px #ff7167,0 0 14px #ed3f3670}}
 .transitionStatus{position:fixed!important;z-index:35!important;left:96px!important;right:22px!important;bottom:16px!important;display:grid!important;grid-template-columns:auto auto minmax(120px,1fr)!important;align-items:center!important;gap:12px!important;padding:9px 12px!important;background:#18262f!important;border:1px solid #40535e!important;box-shadow:0 8px 24px #0008!important;color:var(--sd-text)!important;font-size:9px!important;pointer-events:none!important}.transitionStatus[hidden]{display:none!important}.transitionStatus span{font-weight:900!important;letter-spacing:.07em!important}.transitionStatus b{font-size:11px!important}.transitionStatus i{height:4px!important;background:#0b1115!important;overflow:hidden!important}.transitionStatus i em{display:block!important;height:100%!important;background:#8fa9b8!important;transition:width 60ms linear!important}
+
+
+/* Build065 — compact active network reconnect indicator */
+.connectionFlag.reconnecting{color:var(--amber)!important}
+.reconnectNetwork{display:inline-flex;align-items:center;gap:3px;margin-left:6px;vertical-align:middle;color:var(--amber)}
+.reconnectEndpoint{width:7px;height:7px;border:1px solid currentColor;display:inline-block;box-sizing:border-box}
+.reconnectEndpoint.destination{box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.reconnectDots{display:inline-flex;align-items:center;gap:3px}
+.reconnectDots i{width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.25;animation:showdeskReconnectDot 1.05s linear infinite}
+.reconnectDots i:nth-child(2){animation-delay:.35s}
+.reconnectDots i:nth-child(3){animation-delay:.70s}
+@keyframes showdeskReconnectDot{0%,30%,100%{opacity:.25;transform:scale(.8)}10%,20%{opacity:1;transform:scale(1.35)}}
