@@ -87,7 +87,7 @@ assert.match(styles,/\.eng \.matrixViewport\{height:300px!important/,'Routing Ma
 assert.match(styles,/\.settingsModal\{position:fixed!important;inset:0!important/,'Settings must remain a fixed modal overlay');
 assert.match(styles,/\.settingsCard\{width:min\(520px/,'Settings must remain compact rather than full-screen');
 assert.ok(!html.includes('Build057 • 0.1.57'),'Settings About must not expose stale Build057');
-assert.match(html,/id="settingsBuild">Build061 • 0\.1\.61/,'Settings About must ship with Build061 fallback');
+assert.match(html,/id="settingsBuild">Build062 • 0\.1\.62/,'Settings About must ship with the current Build062 fallback');
 
 assert.match(app,/let committedMeState=new Map\(\)/,'Transition display must keep a committed M/E state');
 assert.match(app,/transitioning&&committed\?\{\.\.\.me,pgm:committed\.pgm,pvw:committed\.pvw\}/,'Intermediate transitions must retain committed PGM/PVW');
