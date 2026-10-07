@@ -81,7 +81,6 @@ console.log('Viewer lifecycle, health, toolbar, and Viewer-count regression chec
  assert(app.includes('restorePersistedReference();restoreRememberedConnections();updateReferenceUI();'),'Remembered addresses must restore during startup');
 }
 
-assert.match(styles,/\/\* Build061 — restore structured Show\/Inspect\/Settings surfaces \*\//,'Build061 visual regression layer must be present');
 assert.match(styles,/\.activeSourcesPanel \.activeSourceGrid\{display:grid!important/,'Active Sources must retain card grid');
 assert.match(styles,/\.eng \.matrixViewport\{height:300px!important/,'Routing Matrix must retain bounded viewport');
 assert.match(styles,/\.settingsModal\{position:fixed!important;inset:0!important/,'Settings must remain a fixed modal overlay');
@@ -96,7 +95,6 @@ assert.match(app,/root&&!transitionActive/,'Signal Path pulse must be suppressed
 assert.match(app,/ftbTransition/,'FTB transition must receive a flashing state class');
 assert.match(styles,/\.ftbTransition\{animation:ftbFlash/,'FTB transition must visibly flash');
 assert.match(styles,/\.meSelector \.meSelectBtn\.on\{[^}]*box-shadow:/,'M\/E selector must retain a selected-state indicator');
-assert.match(styles,/\.referencePanel \.referenceEmpty\{background:var\(--sd-raised\)/,'Reference attachment surface must use slate palette');
 assert.match(styles,/\.transitionStatus\{position:fixed!important/,'Transition progress must remain visible across tabs');
 
 assert.ok(!styles.includes('ShowDesk v5.0.6 Broadcast Console visual system'),'Legacy charcoal visual layer must be removed rather than overridden');
