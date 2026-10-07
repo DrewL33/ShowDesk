@@ -79,3 +79,11 @@ console.log('Viewer lifecycle, health, toolbar, and Viewer-count regression chec
  assert.match(app,/function restoreRememberedConnections[\s\S]*?connectionInputChanged\(\);viewerInputChanged\(\)/,'Restored addresses must immediately revalidate Connect controls');
  assert(app.includes('restorePersistedReference();restoreRememberedConnections();updateReferenceUI();'),'Remembered addresses must restore during startup');
 }
+
+assert.match(styles,/\/\* Build061 — restore structured Show\/Inspect\/Settings surfaces \*\//,'Build061 visual regression layer must be present');
+assert.match(styles,/\.activeSourcesPanel \.activeSourceGrid\{display:grid!important/,'Active Sources must retain card grid');
+assert.match(styles,/\.eng \.matrixViewport\{height:300px!important/,'Routing Matrix must retain bounded viewport');
+assert.match(styles,/\.settingsModal\{position:fixed!important;inset:0!important/,'Settings must remain a fixed modal overlay');
+assert.match(styles,/\.settingsCard\{width:min\(520px/,'Settings must remain compact rather than full-screen');
+assert.ok(!html.includes('Build057 • 0.1.57'),'Settings About must not expose stale Build057');
+assert.match(html,/id="settingsBuild">Build061 • 0\.1\.61/,'Settings About must ship with Build061 fallback');
