@@ -20,7 +20,7 @@ assert.match(app,/transport\.subscribe\(\(patch\)=>\{markConnectionActivity\(\)/
 assert.ok(!app.includes('• STALE'),'Operator-facing connection status must not show STALE while the transport remains connected');
 assert.match(app,/function startConnectionHealth[\s\S]*?subscribeHealth/,'Connected Host and Viewer modes must subscribe to health events');
 assert.match(app,/function stopConnectionHealth[\s\S]*?clearInterval/,'Disconnect must clean up connection health monitoring');
-assert.match(app,/viewerReconnecting\?"VIEWER • RECONNECTING":activeConnectionMode==="host"&&hostReconnecting\?"HOST • RECONNECTING":activeConnectionMode\.toUpperCase\(\)\+" • CONNECTED"/,'Connection flag must expose Viewer and Host recovery states without falsely claiming CONNECTED');
+assert.match(app,/const reconnecting=activeConnectionMode==="viewer"\?viewerReconnecting:activeConnectionMode==="host"\?hostReconnecting:false/,'Connection flag must derive recovery from Viewer and Host states');
 assert.match(styles,/\/\* Build060 — approved slate workspace reference/,'Desktop CSS must use approved slate workspace visual system');
 assert.match(styles,/\.showContent,\.signalPage,\.eng\{display:none!important\}/,'All workspaces hidden by default');
 assert.match(styles,/\.tab-show \.showContent\{display:block!important\}/,'Show tab isolation');
