@@ -67,7 +67,7 @@ console.log('Viewer lifecycle, health, toolbar, and Viewer-count regression chec
  assert(viewerTransport.includes('function scheduleViewerReconnect()'),'Viewer transport must schedule reconnects after established Host loss');
  assert(viewerTransport.includes('viewerReconnectInFlight'),'Viewer reconnect must prevent duplicate concurrent sockets');
  assert.match(viewerTransport,/disconnectViewer\(\) \{[\s\S]*?stopViewerReconnect\(\)/,'Intentional Viewer disconnect must disable reconnect before closing the socket');
- assert.match(viewerApp,/activeConnectionMode\.toUpperCase\(\)\+' • RECONNECTING'/,'Viewer and Host must display reconnecting status from active mode');
+ assert.ok(viewerApp.includes("activeConnectionMode.toUpperCase()+' • RECONNECTING"),'Viewer and Host must display reconnecting status from active mode');
  assert(!viewerApp.includes('alert("ShowDesk Host connection lost.")'),'Viewer Host loss must not spam a blocking alert');
  assert.match(viewerApp,/async function connectViewer\(\)[\s\S]*?catch\(error\)[\s\S]*?TRY AGAIN/,'Initial Viewer connection failure must remain a normal retryable setup failure');
 }
