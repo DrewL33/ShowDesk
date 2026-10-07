@@ -95,12 +95,12 @@ assert.match(app,/function renderTransitionStatus\(\)/,'All-tab transition progr
 assert.match(app,/root&&!transitionActive/,'Signal Path pulse must be suppressed during an active transition');
 assert.match(app,/ftbTransition/,'FTB transition must receive a flashing state class');
 assert.match(styles,/\.ftbTransition\{animation:ftbFlash/,'FTB transition must visibly flash');
-assert.match(styles,/\.meSelector \.meSelectBtn\.on\{box-shadow/,'M\/E selector must use current slate selection styling');
+assert.match(styles,/\.meSelector \.meSelectBtn\.on\{[^}]*box-shadow:/,'M\/E selector must retain a selected-state indicator');
 assert.match(styles,/\.referencePanel \.referenceEmpty\{background:var\(--sd-raised\)/,'Reference attachment surface must use slate palette');
 assert.match(styles,/\.transitionStatus\{position:fixed!important/,'Transition progress must remain visible across tabs');
 
 assert.ok(!styles.includes('ShowDesk v5.0.6 Broadcast Console visual system'),'Legacy charcoal visual layer must be removed rather than overridden');
 assert.ok(!styles.includes('background:#11161a!important;border-bottom-color:var(--accent)!important'),'Legacy charcoal selected-tab rule must not return');
-assert.match(styles,/\.meSelector \.meSelectBtn\.on\{background:#1c303b!important/,'M/E selection must use canonical blue-slate surface');
+assert.match(styles,/\.meSelector \.meSelectBtn\.on\{[^}]*background:#1c303b!important/,'M/E selection must use canonical blue-slate surface');
 assert.match(styles,/\.referencePanel \.referenceEmpty,\.referencePanel \.referenceAttached\{background:var\(--sd-panel\)!important/,'Reference attachment surfaces must use canonical slate panel');
 assert.match(app,/me\.ftb\?\(me\.ftb\.inTransition\?"TRANSITION":me\.ftb\.isFullyBlack\?"BLACK":"OFF"\)/,'FTB transition must take precedence over fully-black state');
