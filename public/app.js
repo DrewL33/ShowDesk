@@ -540,7 +540,7 @@ function explorerRoute(start,end,columns,lanes,bounds){
   }else{
    const center=(start.y+end.y)/2;
    ys.sort((a,b)=>Math.abs(a-center)-Math.abs(b-center));
-   for(const x of firstXs)for(const lastX of lastXs)for(const y of ys.slice(0,35))
+   for(const x of firstXs)for(const lastX of lastXs)for(const y of ys.slice(0,60))
     candidates.push([start,{x,y:start.y},{x,y},{x:lastX,y},{x:lastX,y:end.y},end]);
   }
  }else{
