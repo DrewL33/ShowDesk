@@ -395,26 +395,46 @@ const explorerEscape=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;
 function setExplorerMode(mode){explorerMode=mode==="destination"?"destination":"source";renderPaths()}
 function selectExplorerItem(type,id){if(type==="source")explorerSelectedSource=Number(id);else explorerSelectedDestination=String(id);renderPaths()}
 function explorerDiagram(root){
- const nodeW=172,nodeH=48,stepX=194,stepY=110,margin=22,positions=[],edges=[];
- let nextLeaf=0;
- function measure(node,depth){
-  const children=node.children||[];
-  const childXs=children.map(child=>measure(child,depth+1));
-  const x=childXs.length?(childXs[0]+childXs[childXs.length-1])/2:nextLeaf++*stepX+margin+nodeW/2;
-  const y=margin+depth*stepY;
-  positions.push({node,x,y});
-  children.forEach((child,i)=>edges.push({fromX:x,fromY:y+nodeH,toX:childXs[i],toY:y+stepY}));
-  return x;
+ // Compact left-to-right node wiring. Groups are visual lanes, never invented processing stages.
+ const nodeW=156,nodeH=40,left=18,right=240,top=28,gap=48,groupGap=25;
+ const children=root.children||[],isFanout=children.length>0;
+ const category=node=>{
+  const label=node.label||"";
+  if(/^M\\/E\\s/i.test(label))return "M/E";
+  if(/^DSK\\s/i.test(label))return "DSK";
+  if(/^(AUX|AUXILIARY|ATEM ROUTING)/i.test(label)||node.kind==="route")return "AUX / ROUTING";
+  return "OTHER";
+ };
+ const groups=new Map();
+ children.forEach(node=>{const group=category(node);if(!groups.has(group))groups.set(group,[]);groups.get(group).push(node)});
+ const positions=[];let cursor=top;
+ for(const [name,nodes] of groups){
+  const labelY=cursor;cursor+=20;
+  nodes.forEach(node=>{positions.push({node,y:cursor,group:name});cursor+=gap});
+  cursor+=groupGap;
  }
- measure(root,0);
- const width=Math.max(390,nextLeaf*stepX+margin*2),height=Math.max(190,Math.max(...positions.map(p=>p.y))+nodeH+margin);
- const paths=edges.map(e=>{const mid=(e.fromY+e.toY)/2;return '<path d="M'+e.fromX+' '+e.fromY+' V'+mid+' H'+e.toX+' V'+e.toY+'"/>'}).join("");
- const nodes=positions.map(p=>{
-  const x=p.x-nodeW/2,kind=p.node.kind||"source";
-  const label=explorerEscape(p.node.label),meta=explorerEscape(p.node.meta||"");
-  return '<g class="explorerNode '+explorerEscape(kind)+'"><rect x="'+x+'" y="'+p.y+'" width="'+nodeW+'" height="'+nodeH+'" rx="2"/><text class="explorerNodeMeta" x="'+(x+11)+'" y="'+(p.y+16)+'">'+meta+'</text><text class="explorerNodeName" x="'+(x+11)+'" y="'+(p.y+34)+'">'+label+'</text><title>'+label+'</title></g>';
- }).join("");
- return '<svg class="explorerDiagram" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Live ATEM signal branches from origin to destination" viewBox="0 0 '+width+' '+height+'" width="'+width+'" height="'+height+'"><g class="explorerWires">'+paths+'</g>'+nodes+'</svg>';
+ const totalH=Math.max(142,cursor+8),originY=isFanout?Math.max(top+26,(positions[0].y+positions[positions.length-1].y)/2):top+24;
+ const width=right+nodeW+24;
+ const esc=explorerEscape;
+ const rect=(node,x,y,source)=>'<g class="explorerNode '+esc(node.kind||"source")+'"><rect x="'+x+'" y="'+y+'" width="'+nodeW+'" height="'+nodeH+'" rx="4"/><text class="explorerNodeMeta" x="'+(x+11)+'" y="'+(y+14)+'">'+esc(node.meta||"")+'</text><text class="explorerNodeName" x="'+(x+11)+'" y="'+(y+30)+'">'+esc(node.label)+'</text><circle class="explorerPort" cx="'+(source?x+nodeW:x)+'" cy="'+(y+nodeH/2)+'" r="3.5"/><title>'+esc(node.label)+'</title></g>';
+ let wires="",labels="",nodesHtml="";
+ if(isFanout){
+  const originTop=originY-nodeH/2;
+  nodesHtml+=rect(root,left,originTop,true);
+  for(const [name,nodes] of groups){
+   const first=positions.find(p=>p.group===name);
+   labels+='<text class="explorerGroupLabel" x="'+right+'" y="'+(first.y-8)+'">'+esc(name)+'</text>';
+  }
+  positions.forEach((p,i)=>{
+   const portY=p.y+nodeH/2,srcY=originY;
+   const elbow=left+nodeW+18+(i%4)*9;
+   wires+='<path class="explorerWire" d="M'+(left+nodeW)+' '+srcY+' H'+elbow+' V'+portY+' H'+right+'"/>';
+   nodesHtml+=rect(p.node,right,p.y,false);
+  });
+ }else{
+  nodesHtml+=rect(root,left,originY-nodeH/2,true);
+ }
+ return '<svg class="explorerDiagram" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ATEM signal wiring diagram" viewBox="0 0 '+width+' '+totalH+'" width="'+width+'" height="'+totalH+'"><g class="explorerWires">'+wires+'</g>'+labels+nodesHtml+'</svg>';
 }
 function renderPaths(){
  const inputs=liveEngineering.inputs||[],mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
