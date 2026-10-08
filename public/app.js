@@ -396,22 +396,24 @@ function setExplorerMode(mode){explorerMode=mode==="destination"?"destination":"
 function selectExplorerItem(type,id){if(type==="source")explorerSelectedSource=Number(id);else explorerSelectedDestination=String(id);renderPaths()}
 function explorerDiagram(root){
  // A compact left-to-right tree of reported assignments. Every edge has its own source port.
- const esc=explorerEscape, W=166,H=44,COL=220,ROW=56,LEFT=18,TOP=24;
- const positions=[],edges=[];let leaf=0,maxDepth=0;
+ const esc=explorerEscape, W=166,H=44,COL=220,ROW=56,GROUP_GAP=23,LEFT=18,TOP=24;
+ const positions=[],edges=[];let leafY=TOP,maxDepth=0,lastLeafGroup=null;
  const group=n=>/^M\/E\s/i.test(n.label)?"M/E":/^DSK\s/i.test(n.label)?"DSK":n.kind==="route"?"AUX / ROUTING":"OTHER";
  function layout(node,depth=0,seen=new Set()){
   maxDepth=Math.max(maxDepth,depth);
   const children=seen.has(node)?[]:(node.children||[]);
   const next=new Set(seen);next.add(node);
   const childY=children.map(c=>layout(c,depth+1,next));
-  const y=childY.length?(childY[0]+childY[childY.length-1])/2:TOP+leaf++*ROW;
+  let y;
+  if(childY.length)y=(childY[0]+childY[childY.length-1])/2;
+  else {const currentGroup=group(node);if(lastLeafGroup!==currentGroup){leafY+=GROUP_GAP;lastLeafGroup=currentGroup;}y=leafY;leafY+=ROW;}
   positions.push({node,depth,x:LEFT+depth*COL,y});
   children.forEach(child=>edges.push({from:node,to:child}));
   return y;
  }
  layout(root);
  const map=new Map(positions.map(p=>[p.node,p]));
- const height=Math.max(130,TOP+Math.max(1,leaf)*ROW),width=Math.max(410,LEFT+maxDepth*COL+W+20);
+ const height=Math.max(130,leafY+12),width=Math.max(410,LEFT+maxDepth*COL+W+20);
  const wires=edges.map((edge,i)=>{
   const a=map.get(edge.from),b=map.get(edge.to),siblings=edges.filter(e=>e.from===edge.from);
   if(!a||!b)return "";
@@ -423,7 +425,7 @@ function explorerDiagram(root){
  }).join("");
  const nodes=positions.map(p=>'<g class="explorerNode '+esc(p.node.kind||"source")+'"><rect x="'+p.x+'" y="'+p.y+'" width="'+W+'" height="'+H+'" rx="4"/><text class="explorerNodeMeta" x="'+(p.x+10)+'" y="'+(p.y+15)+'">'+esc(p.node.meta||"")+'</text><text class="explorerNodeName" x="'+(p.x+10)+'" y="'+(p.y+31)+'">'+esc(p.node.label)+'</text><title>'+esc(p.node.label)+'</title></g>').join("");
  // Group labels are annotations, not fictional processing nodes.
- const labels=positions.filter(p=>p.depth>0).sort((a,b)=>a.depth-b.depth||a.y-b.y).map((p,i,arr)=>i===0||p.depth!==arr[i-1].depth||group(p.node)!==group(arr[i-1].node)?'<text class="explorerGroupLabel" x="'+p.x+'" y="'+(p.y-7)+'">'+esc(group(p.node))+'</text>':"").join("");
+ const labels=positions.filter(p=>p.depth>0).sort((a,b)=>a.depth-b.depth||a.y-b.y).map((p,i,arr)=>i===0||p.depth!==arr[i-1].depth||group(p.node)!==group(arr[i-1].node)?'<text class="explorerGroupLabel" x="'+p.x+'" y="'+(p.y-11)+'">'+esc(group(p.node))+'</text>':"").join("");
  return '<svg class="explorerDiagram" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ATEM signal wiring diagram" viewBox="0 0 '+width+' '+height+'" width="'+width+'" height="'+height+'"><g class="explorerWires">'+wires+'</g>'+labels+nodes+'</svg>';
 }
 function renderPaths(){
