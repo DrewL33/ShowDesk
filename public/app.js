@@ -390,114 +390,159 @@ function renderInputs(){
 }
 function selectDestination(name){selectedDestination=name;renderPaths()}
 
-let explorerMode="source",explorerSelectedSource=null,explorerSelectedDestination=null;
-const explorerEscape=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function setExplorerMode(mode){explorerMode=mode==="destination"?"destination":"source";renderPaths()}
-function selectExplorerItem(type,id){if(type==="source")explorerSelectedSource=Number(id);else explorerSelectedDestination=String(id);renderPaths()}
-function explorerDiagram(root){
- // A compact left-to-right tree of reported assignments. Every edge has its own source port.
- const esc=explorerEscape, W=166,H=44,COL=220,ROW=56,GROUP_GAP=23,LEFT=18,TOP=24;
- const positions=[],edges=[];let leafY=TOP,maxDepth=0,lastLeafGroup=null;
- const group=n=>/^M\/E\s/i.test(n.label)?"M/E":/^DSK\s/i.test(n.label)?"DSK":n.kind==="route"?"AUX / ROUTING":"OTHER";
- function layout(node,depth=0,seen=new Set()){
-  maxDepth=Math.max(maxDepth,depth);
-  const children=seen.has(node)?[]:(node.children||[]);
-  const next=new Set(seen);next.add(node);
-  const childY=children.map(c=>layout(c,depth+1,next));
-  let y;
-  if(childY.length)y=(childY[0]+childY[childY.length-1])/2;
-  else {const currentGroup=group(node);if(lastLeafGroup!==currentGroup){leafY+=GROUP_GAP;lastLeafGroup=currentGroup;}y=leafY;leafY+=ROW;}
-  positions.push({node,depth,x:LEFT+depth*COL,y});
-  children.forEach(child=>edges.push({from:node,to:child}));
-  return y;
+// Signal Explorer: persistent, read-only live routing graph (Build071).
+let explorerPinned=null,explorerHover=null,explorerGraph=null,explorerTopology="",explorerRouteState="";
+const explorerEscape=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const explorerKey=v=>String(v).replace(/[^a-zA-Z0-9_-]/g,"_");
+function explorerInspect(id,pin=false){
+ if(pin)explorerPinned=explorerPinned===id?null:id;
+ else explorerHover=id;
+ explorerHighlight();
+}
+function explorerClear(){explorerPinned=null;explorerHover=null;explorerHighlight()}
+function explorerReach(graph,id,reverse=false){
+ const seen=new Set([id]),queue=[id],edges=graph.edges;
+ while(queue.length){
+  const current=queue.shift();
+  for(const e of edges){
+   const from=reverse?e.to:e.from,to=reverse?e.from:e.to;
+   if(from===current&&!seen.has(to)){seen.add(to);queue.push(to)}
+  }
  }
- layout(root);
- const map=new Map(positions.map(p=>[p.node,p]));
- const height=Math.max(130,leafY+12),width=Math.max(410,LEFT+maxDepth*COL+W+20);
- const wires=edges.map((edge,i)=>{
-  const a=map.get(edge.from),b=map.get(edge.to),siblings=edges.filter(e=>e.from===edge.from);
-  if(!a||!b)return "";
-  const n=siblings.indexOf(edge),ay=a.y+H*(n+1)/(siblings.length+1),by=b.y+H/2;
-  const ax=a.x+W,bx=b.x,elbow=ax+Math.min(35,Math.max(12,(bx-ax)/3));
-  const color=["#52bba8","#70a9d0","#d0a26c","#ad9bd4"][i%4];
-  const title=esc(edge.from.label+" → "+edge.to.label);
-  return '<g class="explorerRoute"><path class="explorerWire" stroke="'+color+'" d="M'+ax+' '+ay+' H'+elbow+' V'+by+' H'+bx+'"/><path class="explorerWireHit" d="M'+ax+' '+ay+' H'+elbow+' V'+by+' H'+bx+'"/><circle class="explorerPort" cx="'+ax+'" cy="'+ay+'" r="3" fill="'+color+'"/><circle class="explorerPort" cx="'+bx+'" cy="'+by+'" r="3" fill="'+color+'"/><title>'+title+'</title></g>';
+ return seen;
+}
+function explorerHighlight(){
+ const graph=explorerGraph,svg=document.querySelector("#explorerCanvas .signalOverview");
+ if(!graph||!svg)return;
+ const id=explorerPinned||explorerHover;
+ let active=null;
+ if(id&&graph.nodes.some(n=>n.id===id)){
+  const node=graph.nodes.find(n=>n.id===id);
+  active=explorerReach(graph,id,node.type==="destination");
+ }
+ svg.classList.toggle("is-filtered",!!active);
+ svg.querySelectorAll("[data-signal-node]").forEach(el=>el.classList.toggle("is-active",!active||active.has(el.getAttribute("data-signal-node"))));
+ svg.querySelectorAll("[data-signal-edge]").forEach(el=>{
+  const e=graph.edges.find(e=>e.id===el.getAttribute("data-signal-edge"));
+  el.classList.toggle("is-active",!active||!!(e&&active.has(e.from)&&active.has(e.to)));
+ });
+ const details=$("explorerDetails");
+ if(details){
+  const node=graph.nodes.find(n=>n.id===id);
+  details.innerHTML=node?'<h3>INSPECTING</h3><strong>'+explorerEscape(node.label)+'</strong><p>'+ (explorerPinned?"Pinned trace · click again to clear":"Hover trace · click to pin")+'</p><p>Reported routing only. Keyer assignments may be inactive.</p>':'<h3>LIVE OVERVIEW</h3><p>Hover a source or destination to trace its route. Click to pin; click again to clear.</p>';
+ }
+}
+function explorerBuildGraph(){
+ const inputs=liveEngineering.inputs||[],mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
+ const nodes=[],edges=[],byId=new Map();
+ const add=(id,label,type,group)=>{if(!byId.has(id)){const n={id,label,type,group};byId.set(id,n);nodes.push(n)}return id};
+ const source=id=>{
+  const input=inputs.find(i=>Number(i.id)===Number(id));
+  return add("src:"+id,input?.name||("Source "+id),"source","INPUTS");
+ };
+ inputs.forEach(i=>source(i.id));
+ const outputMe=id=>{
+  const input=inputs.find(i=>Number(i.id)===Number(id));
+  if(!input)return null;
+  const m=[input.shortName,input.name].filter(Boolean).join(" ").match(/(?:M\/?E|ME)\s*(\d+)\s*(?:PGM|PROGRAM)/i);
+  return m?mes.find(me=>Number(me.index)===Number(m[1])):null;
+ };
+ const connect=(from,to,kind="selected")=>{
+  const id=from+"->"+to;
+  if(!edges.some(e=>e.id===id))edges.push({id,from,to,kind});
+ };
+ const feed=(sourceId,destinationId,kind)=>{
+  if(sourceId===undefined||sourceId===null||!Number.isFinite(Number(sourceId)))return;
+  const me=outputMe(sourceId);
+  connect(me?"me:"+me.index:source(sourceId),destinationId,kind);
+ };
+ mes.forEach(me=>{
+  const id=add("me:"+me.index,"M/E "+me.index+" · Program","processor","M/E");
+  const pgm=add("pgm:"+me.index,"M/E "+me.index+" · PGM bus","destination","M/E");
+  const pvw=add("pvw:"+me.index,"M/E "+me.index+" · Preview","destination","M/E");
+  feed(me.pgmId,pgm,"program");
+  feed(me.pvwId,pvw,"preview");
+  connect(pgm,id,"program");
+  (me.upstreamKeyers||[]).forEach(k=>{
+   const fill=add("uskfill:"+me.index+":"+k.index,"M/E "+me.index+" · USK "+k.index+" Fill","destination","KEYERS");
+   const key=add("uskkey:"+me.index+":"+k.index,"M/E "+me.index+" · USK "+k.index+" Key","destination","KEYERS");
+   feed(k.fillId,fill,"assigned");feed(k.keyId,key,"assigned");
+   // Assignments do not imply on-air contribution.
+  });
+ });
+ dsks.forEach(k=>{
+  const fill=add("dskfill:"+k.index,"DSK "+k.index+" · Fill","destination","DSK");
+  const key=add("dskkey:"+k.index,"DSK "+k.index+" · Key","destination","DSK");
+  feed(k.fillId,fill,"assigned");feed(k.keyId,key,"assigned");
+ });
+ routing.forEach((r,i)=>{
+  const id=add("aux:"+(r.busId??r.protocolBusId??r.rawIndex??i),r.name||("ATEM Routing "+(i+1)),"destination","AUX / ROUTING");
+  feed(r.sourceId,id,"routing");
+ });
+ return {nodes,edges};
+}
+function explorerDraw(graph){
+ const W=158,H=35,ROW=48,COLS=[22,262,504],top=44;
+ const buckets=[[],[],[]];
+ graph.nodes.forEach(n=>buckets[n.type==="source"?0:n.type==="processor"?1:2].push(n));
+ // Keep stable positions across live source switching; positions depend only on device topology.
+ const pos=new Map(),labels=[];
+ buckets.forEach((bucket,col)=>{
+  let y=top,last="";
+  bucket.forEach(n=>{
+   if(n.group!==last){labels.push('<text class="overviewGroup" x="'+COLS[col]+'" y="'+(y+1)+'">'+explorerEscape(n.group)+'</text>');y+=23;last=n.group}
+   pos.set(n.id,{x:COLS[col],y});
+   y+=ROW;
+  });
+ });
+ const height=Math.max(240,...Array.from(pos.values()).map(p=>p.y+H+18)),width=COLS[2]+W+24;
+ const nodes=graph.nodes.map(n=>{
+  const p=pos.get(n.id);
+  return '<g class="overviewNode" data-signal-node="'+explorerEscape(n.id)+'" onmouseenter="explorerInspect(\''+explorerEscape(n.id)+'\')" onmouseleave="explorerInspect(null)" onclick="explorerInspect(\''+explorerEscape(n.id)+'\',true)"><rect x="'+p.x+'" y="'+p.y+'" width="'+W+'" height="'+H+'" rx="4"/><text x="'+(p.x+9)+'" y="'+(p.y+22)+'">'+explorerEscape(n.label)+'</text><title>'+explorerEscape(n.label)+'</title></g>';
  }).join("");
- const nodes=positions.map(p=>'<g class="explorerNode '+esc(p.node.kind||"source")+'"><rect x="'+p.x+'" y="'+p.y+'" width="'+W+'" height="'+H+'" rx="4"/><text class="explorerNodeMeta" x="'+(p.x+10)+'" y="'+(p.y+15)+'">'+esc(p.node.meta||"")+'</text><text class="explorerNodeName" x="'+(p.x+10)+'" y="'+(p.y+31)+'">'+esc(p.node.label)+'</text><title>'+esc(p.node.label)+'</title></g>').join("");
- // Group labels are annotations, not fictional processing nodes.
- const labels=positions.filter(p=>p.depth>0).sort((a,b)=>a.depth-b.depth||a.y-b.y).map((p,i,arr)=>i===0||p.depth!==arr[i-1].depth||group(p.node)!==group(arr[i-1].node)?'<text class="explorerGroupLabel" x="'+p.x+'" y="'+(p.y-11)+'">'+esc(group(p.node))+'</text>':"").join("");
- return '<svg class="explorerDiagram" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ATEM signal wiring diagram" viewBox="0 0 '+width+' '+height+'" width="'+width+'" height="'+height+'"><g class="explorerWires">'+wires+'</g>'+labels+nodes+'</svg>';
+ const paths=graph.edges.map(e=>{
+  const a=pos.get(e.from),b=pos.get(e.to);if(!a||!b)return "";
+  const x1=a.x+W,y1=a.y+H/2,x2=b.x,y2=b.y+H/2;
+  const mid=x1+(x2-x1)/2;
+  const d=x2>x1?'M'+x1+' '+y1+' H'+mid+' V'+y2+' H'+x2:'M'+x1+' '+y1+' H'+(x1+18)+' V'+(y2-10)+' H'+(x2-18)+' V'+y2+' H'+x2;
+  return '<path class="overviewEdge '+explorerEscape(e.kind)+'" data-signal-edge="'+explorerEscape(e.id)+'" d="'+d+'"/>';
+ }).join("");
+ return '<svg class="signalOverview" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+width+' '+height+'" width="'+width+'" height="'+height+'" role="img" aria-label="Live read-only ATEM signal overview">'+paths+labels.join("")+nodes+'</svg>';
 }
 function renderPaths(){
- const inputs=liveEngineering.inputs||[],mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
- const sourceName=id=>inputs.find(i=>Number(i.id)===Number(id))?.name||("Source "+id);
- const destinations=[
-  ...mes.flatMap(me=>[{id:"pgm:"+me.index,label:"M/E "+me.index+" · Program",sourceId:me.pgmId,kind:"program"},{id:"pvw:"+me.index,label:"M/E "+me.index+" · Preview",sourceId:me.pvwId,kind:"preview"},...(me.upstreamKeyers||[]).flatMap(k=>[{id:"uskfill:"+me.index+":"+k.index,label:"M/E "+me.index+" · USK "+k.index+" · Fill",sourceId:k.fillId,kind:"keyer"},{id:"uskkey:"+me.index+":"+k.index,label:"M/E "+me.index+" · USK "+k.index+" · Key",sourceId:k.keyId,kind:"keyer"}])]),
-  ...dsks.flatMap(k=>[{id:"dskfill:"+k.index,label:"DSK "+k.index+" · Fill",sourceId:k.fillId,kind:"keyer"},{id:"dskkey:"+k.index,label:"DSK "+k.index+" · Key",sourceId:k.keyId,kind:"keyer"}]),
-  ...routing.map((r,i)=>({id:"aux:"+(r.busId??r.protocolBusId??r.rawIndex??i),label:r.name||("ATEM Routing "+(i+1)),sourceId:r.sourceId,kind:"route"}))
- ].filter(d=>d.sourceId!==undefined&&d.sourceId!==null&&Number.isFinite(Number(d.sourceId)));
- const categoryOrder={program:0,preview:1,route:2,keyer:3};
- const sortDest=(a,b)=>(categoryOrder[a.kind]??4)-(categoryOrder[b.kind]??4)||a.label.localeCompare(b.label);
- // Only expand M/E program outputs when their input identity can be verified from ATEM's source metadata.
- function programOutputMe(id){
-  const input=inputs.find(i=>Number(i.id)===Number(id));if(!input)return null;
-  // Prefer switcher-reported source identity; names alone can be user-renamed.
-  const names=[input.shortName,input.name].filter(Boolean).join(" ");
-  const match=names.match(/(?:M\/?E|ME)\s*(\d+)\s*(?:PGM|PROGRAM)/i);
-  if(!match)return null;
-  return mes.find(me=>Number(me.index)===Number(match[1]))||null;
- }
- const asDestination=d=>({label:d.label,kind:d.kind,meta:d.kind==="keyer"?"ASSIGNED · NOT NECESSARILY ON AIR":d.kind==="route"?"ROUTING":d.kind.toUpperCase(),children:[]});
- function downstream(id,visited=new Set(),depth=0){
-  if(depth>5||visited.has(Number(id)))return [];
-  const seen=new Set(visited);seen.add(Number(id));
-  return destinations.filter(d=>Number(d.sourceId)===Number(id)).sort(sortDest).map(d=>{
-   const node=asDestination(d);
-   if(d.kind==="program"){
-    const meIndex=Number(d.id.split(":")[1]);
-    const output=inputs.find(i=>Number(programOutputMe(i.id)?.index)===meIndex&&Number(i.id)!==Number(id));
-    if(output)node.children=downstream(output.id,new Set([...seen,Number(id)]),depth+1);
-   }
-   return node;
-  });
- }
- function upstream(id,visited=new Set(),depth=0){
-  const name=sourceName(id),me=programOutputMe(id);
-  if(!me||depth>5||visited.has(Number(id))||me.pgmId===undefined||me.pgmId===null){
-   return {label:name,kind:"source",meta:"SOURCE · "+id,children:[]};
+ const graph=explorerBuildGraph(),canvas=$("explorerCanvas"),list=$("explorerList");
+ if(!canvas)return;
+ const topology=graph.nodes.map(n=>n.id+"|"+n.label+"|"+n.group).join(";"),routing=graph.edges.map(e=>e.id+"|"+e.kind).sort().join(";");
+ const changed=topology!==explorerTopology||!canvas.querySelector(".signalOverview");
+ explorerGraph=graph;
+ if(changed){
+  const scroller=canvas.querySelector(".explorerDiagramScroll"),x=scroller?.scrollLeft||0,y=scroller?.scrollTop||0;
+  canvas.innerHTML='<div class="explorerDiagramScroll">'+explorerDraw(graph)+'</div>';
+  canvas.firstElementChild.scrollLeft=x;canvas.firstElementChild.scrollTop=y;
+  explorerTopology=topology;explorerRouteState=routing;
+ }else if(routing!==explorerRouteState){
+  // Keep SVG nodes mounted; only update the edges that actually changed.
+  const svg=canvas.querySelector(".signalOverview"),old=new Map([...svg.querySelectorAll("[data-signal-edge]")].map(el=>[el.getAttribute("data-signal-edge"),el]));
+  const replacement=document.createElement("div");replacement.innerHTML=explorerDraw(graph);
+  const fresh=replacement.querySelector(".signalOverview");
+  for(const el of fresh.querySelectorAll("[data-signal-edge]")){
+   const id=el.getAttribute("data-signal-edge");
+   if(!old.has(id)){el.classList.add("is-new");svg.insertBefore(el,svg.firstChild)}
+   else old.delete(id);
   }
-  const next=new Set(visited);next.add(Number(id));
-  const root=upstream(me.pgmId,next,depth+1);
-  const processing={label:"M/E "+me.index+" · Program",kind:"program",meta:"COMPOSITED OUTPUT",children:[]};
-  let tail=root;while(tail.children.length)tail=tail.children[0];
-  tail.children=[processing];
-  return root;
+  old.forEach(el=>{el.classList.add("is-exiting");setTimeout(()=>el.remove(),180)});
+  explorerRouteState=routing;
  }
- const query=($("signalSearch")?.value||"").trim().toLowerCase(),isSource=explorerMode==="source";
- const items=isSource?inputs.map(i=>({id:Number(i.id),label:i.name||("Source "+i.id),count:destinations.filter(d=>Number(d.sourceId)===Number(i.id)).length})):destinations.map(d=>({id:d.id,label:d.label,count:1}));
- const visible=items.filter(i=>!query||i.label.toLowerCase().includes(query)||String(i.id).includes(query));
- const selectedId=isSource?explorerSelectedSource:explorerSelectedDestination;
- const selected=visible.find(i=>String(i.id)===String(selectedId))||visible[0]||null;
- if(selected){if(isSource)explorerSelectedSource=selected.id;else explorerSelectedDestination=selected.id;}
- const modes=$("explorerModes");if(modes)modes.innerHTML='<button type="button" class="'+(isSource?"active":"")+'" onclick="setExplorerMode(\'source\')">Trace from Source</button><button type="button" class="'+(!isSource?"active":"")+'" onclick="setExplorerMode(\'destination\')">Trace to Destination</button>';
- const list=$("explorerList");if(list)list.innerHTML=visible.map(i=>'<button type="button" class="explorerItem '+(selected&&String(selected.id)===String(i.id)?"selected":"")+'" onclick="selectExplorerItem(\''+(isSource?"source":"destination")+'\',\''+explorerEscape(i.id)+'\')"><span>'+explorerEscape(i.label)+'</span><small>'+(isSource&&i.count?i.count:"")+'</small></button>').join("")||'<p class="explorerEmpty">No matching items.</p>';
- const title=$("explorerTitle"),canvas=$("explorerCanvas"),details=$("explorerDetails");
- if(!selected){if(title)title.textContent="No matching routes";if(canvas)canvas.innerHTML='<p class="explorerEmpty">No matching sources or destinations.</p>';if(details)details.innerHTML="";return;}
- let root,summary;
- if(isSource){
-  root={label:selected.label,kind:"source",meta:"SOURCE · "+selected.id,children:downstream(selected.id)};
-  summary=root.children.length+" direct assignment"+(root.children.length===1?"":"s");
-  if(title)title.textContent=selected.label+" · Signal branches";
- }else{
-  const dest=destinations.find(d=>d.id===selected.id);
-  root=upstream(dest.sourceId);
-  let tip=root;while(tip.children.length)tip=tip.children[0];
-  tip.children=[asDestination(dest)];
-  summary="Source "+sourceName(dest.sourceId)+" · "+dest.label;
-  if(title)title.textContent=dest.label+" · Upstream trace";
+ const q=($("signalSearch")?.value||"").trim().toLowerCase();
+ const items=graph.nodes.filter(n=>(n.type==="source"||n.type==="destination")&&(!q||n.label.toLowerCase().includes(q)));
+ const listState=items.map(n=>n.id+"|"+n.label).join(";");
+ if(list&&list.dataset.state!==listState){
+  list.innerHTML=items.map(n=>'<button type="button" class="explorerItem" onmouseenter="explorerInspect(\''+explorerEscape(n.id)+'\')" onmouseleave="explorerInspect(null)" onclick="explorerInspect(\''+explorerEscape(n.id)+'\',true)">'+explorerEscape(n.label)+'</button>').join("")||'<p class="explorerEmpty">No matching sources or destinations.</p>';
+  list.dataset.state=listState;
  }
- if(canvas)canvas.innerHTML='<div class="explorerDiagramScroll">'+explorerDiagram(root)+'</div>'+(isSource&&!root.children.length?'<p class="explorerEmpty">No direct assignments reported for this source.</p>':'');
- if(details)details.innerHTML='<h3>'+(isSource?"SOURCE":"DESTINATION")+'</h3><strong>'+explorerEscape(selected.label)+'</strong><p>'+explorerEscape(summary)+'</p><p>Lines represent reported assignments. Keyer inputs may be assigned while off air.</p>';
+ const modes=$("explorerModes");if(modes)modes.innerHTML='<span class="overviewLiveLabel">● LIVE OVERVIEW · READ ONLY</span><button type="button" class="tinyAction" onclick="explorerClear()">CLEAR TRACE</button>';
+ const title=$("explorerTitle");if(title)title.textContent="ATEM signal overview · hover to trace either direction";
+ explorerHighlight();
 }
 function transitionPercent(position){const n=Number(position);if(!Number.isFinite(n))return null;return Math.max(0,Math.min(100,Math.round(n>100?n/100:n)))}
 function renderTransitionStatus(){const active=(liveEngineering.mixEffects||[]).filter(me=>me.transition?.inTransition);let el=$("transitionStatus");if(!el){el=document.createElement("div");el.id="transitionStatus";el.className="transitionStatus";document.body.appendChild(el)}if(!active.length){el.hidden=true;el.innerHTML="";return}el.hidden=false;el.innerHTML=active.map(me=>{const p=transitionPercent(me.transition?.position);return `<span>M/E ${me.index} TRANSITION</span><b>${p===null?"IN PROGRESS":p+"%"}</b><i><em style="width:${p===null?0:p}%"></em></i>`}).join("")}
