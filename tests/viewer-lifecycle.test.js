@@ -50,7 +50,10 @@ assert.match(app,/function explorerRoute\(/,'Wire routing must use the obstacle-
 assert.match(app,/const gapX=i=>columns\[i\]\+W/,'Routing must use gaps between node columns');
 assert.match(app,/const gutter=TOP-9\+row\*ROW/,'Short routes must traverse clear row gutters');
 assert.match(app,/const W=184,H=36,ROW=78,top=72/,'Build079 must provide more breathing room between nodes');
-assert.match(app,/nodeBottom\+24\+serial\*5/,'Long routes must use separate lower canvas lanes');
+assert.match(app,/const occupied=lanes\.get\("occupied"\)/,'Routing must reserve occupied wire segments');
+assert.match(app,/current\.h!==prior\.h/,'Routing must separate horizontal and vertical overlaps');
+assert.match(app,/Math\.abs\(current\.axis-prior\.axis\)<spacing/,'Routing must enforce spacing between parallel paths');
+assert.match(app,/bounds\.nodeBottom\+22\+lane\*spacing/,'Lower canvas must remain an optional routing candidate');
 assert.match(app,/data-signal-halo/,'Crossings must have narrow visual separation');
 assert.match(styles,/\.overviewEdgeHalo\{fill:none/,'Crossing separation must have explicit styling');
 assert.match(app,/if\(to===from\+1\)/,'Adjacent columns must use a direct corridor');
