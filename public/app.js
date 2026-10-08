@@ -667,7 +667,7 @@ function renderTransitionStatus(){
  const active=(liveEngineering.mixEffects||[]).filter(me=>me.transition?.inTransition);
  let el=$("transitionStatus");
  if(!el){el=document.createElement("div");el.id="transitionStatus";el.className="transitionStatus";document.body.appendChild(el)}
- if(transitionClearTimer){clearTimeout(transitionClearTimer);transitionClearTimer=null}
+ if(active.length&&transitionClearTimer){clearTimeout(transitionClearTimer);transitionClearTimer=null}
  if(!active.length){
   // Keep the completed frame visible briefly so the last AUTO update reaches the end.
   for(const entry of transitionDisplays.values()){
@@ -677,7 +677,7 @@ function renderTransitionStatus(){
     entry.fill.style.width="100%";
    }
   }
-  if(transitionDisplays.size){
+  if(transitionDisplays.size&&!transitionClearTimer){
    transitionClearTimer=setTimeout(()=>{el.hidden=true;el.replaceChildren();transitionDisplays.clear();transitionClearTimer=null},180);
   }else el.hidden=true;
   return;
