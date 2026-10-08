@@ -642,7 +642,14 @@ function renderPaths(){
   canvas.firstElementChild.addEventListener('wheel',explorerWheel,{passive:false});
   explorerTopology=topology;explorerRouteState=routing;
   if(!explorerViewportInitialized)requestAnimationFrame(explorerInitializeViewport);
-  else explorerZoom(explorerFitRequested?0:2);
+  else {
+   const svg=canvas.querySelector(".signalOverview"),scroll=canvas.firstElementChild;
+   const w=Number(svg.dataset.width),h=Number(svg.dataset.height);
+   svg.style.width=w*explorerScale+"px";svg.style.height=h*explorerScale+"px";
+   svg.style.marginLeft=Math.max(0,(scroll.clientWidth-w*explorerScale)/2)+"px";
+   svg.style.marginTop=Math.max(0,(scroll.clientHeight-h*explorerScale)/2)+"px";
+   scroll.scrollLeft=x;scroll.scrollTop=y;
+  }
  }else if(routing!==explorerRouteState){
   const svg=canvas.querySelector(".signalOverview"),old=new Map([...svg.querySelectorAll("[data-signal-edge]")].map(el=>[el.dataset.signalEdge,el]));
   const holder=document.createElement("div");holder.innerHTML=explorerDraw(graph);
