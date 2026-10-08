@@ -400,8 +400,8 @@ function explorerDiagram(root){
  const children=root.children||[],isFanout=children.length>0;
  const category=node=>{
   const label=node.label||"";
-  if(/^M\\/E\\s/i.test(label))return "M/E";
-  if(/^DSK\\s/i.test(label))return "DSK";
+  if(/^M\/E\s/i.test(label))return "M/E";
+  if(/^DSK\s/i.test(label))return "DSK";
   if(/^(AUX|AUXILIARY|ATEM ROUTING)/i.test(label)||node.kind==="route")return "AUX / ROUTING";
   return "OTHER";
  };
