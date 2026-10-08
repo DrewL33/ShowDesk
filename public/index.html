@@ -38,7 +38,7 @@
 </div></div>
 <aside class="sideRail" aria-label="ShowDesk navigation"><div class="railBrand">SD</div>
 <button id="showBtn" class="railNav on" onclick="setTab('show')" aria-label="Show View"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx=".5"/><path d="M9 21h6M12 17v4"/></svg><span>Show View</span></button>
-<button id="signalBtn" class="railNav" onclick="setTab('signal')" aria-label="Signal Paths"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M12 7v5M5 16v-4h14v4"/></svg><span>Signal Paths</span></button>
+<button id="signalBtn" class="railNav" onclick="setTab('signal')" aria-label="Signal Explorer"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M12 7v5M5 16v-4h14v4"/></svg><span>Signal Explorer</span></button>
 <button id="engBtn" class="railNav" onclick="setTab('engineering')" aria-label="Inspect"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="11" rx=".5"/><rect x="8" y="9" width="13" height="11" rx=".5"/></svg><span>Inspect</span></button>
 <div class="railSpacer"></div>
 <button id="settingsBtn" class="railNav" onclick="openShowDeskSettings()" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M9.4 2.8h5.2l.6 2.4c.5.2 1 .5 1.4.8l2.4-.7 2.6 4.5-1.8 1.7v1l1.8 1.7-2.6 4.5-2.4-.7c-.4.3-.9.6-1.4.8l-.6 2.4H9.4l-.6-2.4c-.5-.2-1-.5-1.4-.8l-2.4.7-2.6-4.5 1.8-1.7v-1L2.4 9.8 5 5.3l2.4.7c.4-.3.9-.6 1.4-.8l.6-2.4Z"/><circle cx="12" cy="12" r="3.1"/></svg><span>Settings</span></button>
@@ -61,14 +61,11 @@
  </div>
 </section>
 
-<section class="signalPage">
- <div class="panel signalWorkspace">
-  <div class="signalWorkspaceHead"><div><h2>SIGNAL PATHS</h2><p>Trace how sources move through the ATEM</p></div><span class="sub">read-only live ATEM state</span></div>
-  <input id="signalSearch" class="destinationSearch signalSearch" type="search" placeholder="Search inputs, sources, M/E, keyer or AUX…" oninput="renderPaths()">
-  <div class="flowSummary signalSummary"><div><span>REPORTED SOURCES</span><b id="flowSources">—</b></div><div><span>M/E BUSES</span><b id="flowMes">—</b></div><div><span>KNOWN ASSIGNMENTS</span><b id="flowDests">—</b></div><div><span>REFERENCE ISSUES</span><b id="flowIssues">—</b></div></div>
-  <div id="signalTree" class="signalTree"></div>
- </div>
-</section>
+<section class="signalPage"><div class="panel signalWorkspace explorerWorkspace">
+ <div class="signalWorkspaceHead"><div><h2>SIGNAL EXPLORER</h2><p>Trace where sources are used or see what's feeding a destination.</p></div><span class="sub">read-only live ATEM state</span></div>
+ <div class="explorerToolbar"><div id="explorerModes" class="explorerModes"></div><input id="signalSearch" class="destinationSearch signalSearch" type="search" placeholder="Search sources or destinations…" oninput="renderPaths()"></div>
+ <div class="explorerLayout"><aside class="explorerListPanel"><h3>SELECT SOURCE OR DESTINATION</h3><div id="explorerList"></div></aside><main class="explorerMain"><h3 id="explorerTitle">Signal Explorer</h3><div id="explorerCanvas"></div></main><aside id="explorerDetails" class="explorerDetails"></aside></div>
+ </div></section>
 
 <section class="eng">
  <div class="health" id="engHealth"><div class="dot"></div><div><b>INSPECT WORKSPACE</b><div class="detail">Surface exceptions and changes first; use raw state to trace the cause.</div></div><div class="spacer"></div><span id="engIssues">0 issues</span></div>
@@ -81,7 +78,7 @@
    <div id="referenceEmpty" class="referenceEmpty"><b>NO REFERENCE ATTACHED</b><span>Import a show reference to enable expected-vs-actual comparison.</span></div>
    <div id="referenceAttached" class="referenceAttached" hidden><div><span>REFERENCE</span><b id="engReferenceName">—</b><small id="referenceMeta">—</small></div><button class="tinyAction" onclick="clearReference()">REMOVE</button></div>
    <input id="referenceFile" type="file" accept=".json,.xml,.show,.atem" hidden onchange="importReferenceFile(event)">
-   <div class="actionbar referenceActions"><button class="tinyAction primaryAction" onclick="$('referenceFile').click()">IMPORT REFERENCE</button><button class="tinyAction" onclick="exportLogReport()">EXPORT LOG REPORT</button><button class="tinyAction" onclick="setTab('signal')">VIEW SIGNAL PATH</button></div>
+   <div class="actionbar referenceActions"><button class="tinyAction primaryAction" onclick="$('referenceFile').click()">IMPORT REFERENCE</button><button class="tinyAction" onclick="exportLogReport()">EXPORT LOG REPORT</button><button class="tinyAction" onclick="setTab('signal')">VIEW SIGNAL EXPLORER</button></div>
    <div class="referenceSectionLabel referenceMetricsLabel">SESSION SUMMARY</div>
    <div class="compare referenceMetrics"><div><span>MISMATCHES</span><b id="mismatchCount">—</b></div><div><span>CHANGES THIS SESSION</span><b id="sessionChangeCount">0</b></div><div><span>LOG EVENTS</span><b id="logEventCount">0</b></div></div>
   </div>
@@ -108,8 +105,7 @@
   </div>
  </div>
 </div>
-<div id="settingsModal" class="settingsModal" hidden aria-modal="true" role="dialog" aria-labelledby="settingsTitle"><div class="settingsCard"><div class="settingsHead"><div><span>SHOWDESK</span><h2 id="settingsTitle">Settings</h2></div><button class="settingsClose" type="button" onclick="closeShowDeskSettings()" aria-label="Close Settings">×</button></div><section class="settingsSection"><h3>CONNECTION</h3><div class="settingsInfo"><div><span>MODE</span><b id="settingsMode">—</b></div><div><span>STATUS</span><b id="settingsConnection">—</b></div><div><span>ATEM / HOST</span><b id="settingsDevice">—</b></div><div><span>ADDRESS</span><b id="settingsAddress">—</b></div></div><button id="settingsDisconnect" class="settingsAction dangerAction" type="button" onclick="disconnectFromSettings()">DISCONNECT</button></section><section class="settingsSection"><h3>UPDATES</h3><div class="settingsRow"><div><span>INSTALLED VERSION</span><b id="settingsVersion">0.1.65</b></div><button class="settingsAction" type="button" onclick="checkUpdatesFromSettings()">CHECK FOR UPDATES</button></div></section><section class="settingsSection settingsAbout"><h3>ABOUT</h3><p>ShowDesk provides a read-only operational view of connected ATEM switcher state.</p><span id="settingsBuild">Build065 • 0.1.65</span></section></div></div>
+<div id="settingsModal" class="settingsModal" hidden aria-modal="true" role="dialog" aria-labelledby="settingsTitle"><div class="settingsCard"><div class="settingsHead"><div><span>SHOWDESK</span><h2 id="settingsTitle">Settings</h2></div><button class="settingsClose" type="button" onclick="closeShowDeskSettings()" aria-label="Close Settings">×</button></div><section class="settingsSection"><h3>CONNECTION</h3><div class="settingsInfo"><div><span>MODE</span><b id="settingsMode">—</b></div><div><span>STATUS</span><b id="settingsConnection">—</b></div><div><span>ATEM / HOST</span><b id="settingsDevice">—</b></div><div><span>ADDRESS</span><b id="settingsAddress">—</b></div></div><button id="settingsDisconnect" class="settingsAction dangerAction" type="button" onclick="disconnectFromSettings()">DISCONNECT</button></section><section class="settingsSection"><h3>UPDATES</h3><div class="settingsRow"><div><span>INSTALLED VERSION</span><b id="settingsVersion">0.1.66</b></div><button class="settingsAction" type="button" onclick="checkUpdatesFromSettings()">CHECK FOR UPDATES</button></div></section><section class="settingsSection settingsAbout"><h3>ABOUT</h3><p>ShowDesk provides a read-only operational view of connected ATEM switcher state.</p><span id="settingsBuild">Build066 • 0.1.66</span></section></div></div>
 <script src="/app.js"></script><div id="toast" class="toast"></div><script src="/transport.js"></script>
-<script src="/signal-paths.js"></script>
 </body>
 </html>

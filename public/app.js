@@ -28,9 +28,6 @@ let viewerConnectionAttempt=0;
 let activeConnectionMode=null;
 let intentionalDisconnect=false;
 let viewerReconnecting=false;
-const signalTreeOpen=new Set(["group:physical"]);
-let signalSearchActive=false;
-function rememberSignalTreeState(){document.querySelectorAll("#signalTree details[data-tree-key]").forEach(el=>{const k=el.dataset.treeKey;if(el.open)signalTreeOpen.add(k);else signalTreeOpen.delete(k)})}
 const standard=[];
 function $(id){return document.getElementById(id)}
 
@@ -392,48 +389,42 @@ function renderInputs(){
   $("inputCountLabel").textContent=`${inputs.length} sources reported`;
 }
 function selectDestination(name){selectedDestination=name;renderPaths()}
-function drawSignalConnectors(){
- document.querySelectorAll(".treeBranches").forEach(root=>{
-  let svg=root.querySelector(":scope > .signalConnectors");
-  if(!svg){svg=document.createElementNS("http://www.w3.org/2000/svg","svg");svg.setAttribute("class","signalConnectors");root.prepend(svg)}
-  const rr=root.getBoundingClientRect(),groups=[...root.querySelectorAll(".treeBranchGroup")];
-  svg.setAttribute("viewBox",`0 0 ${Math.max(1,root.clientWidth)} ${Math.max(1,root.scrollHeight)}`);svg.innerHTML="";
-  const path=d=>{const p=document.createElementNS("http://www.w3.org/2000/svg","path");p.setAttribute("d",d);svg.appendChild(p)};
-  const top=groups.filter(g=>!g.dataset.parentBranch);
-  if(top.length){const boxes=top.map(g=>g.querySelector(":scope > .treeBranch").getBoundingClientRect()),x=5,ys=boxes.map(b=>b.top-rr.top+b.height/2),trunkTop=Math.max(0,Math.min(...ys)-22);path(`M ${x} ${trunkTop} V ${Math.max(...ys)}`);boxes.forEach((b,i)=>path(`M ${x} ${ys[i]} H ${b.left-rr.left}`))}
-  groups.filter(g=>g.dataset.parentBranch).forEach(g=>{const child=g.querySelector(":scope > .treeBranch"),parent=document.getElementById(g.dataset.parentBranch);if(!child||!parent)return;const p=parent.getBoundingClientRect(),b=child.getBoundingClientRect(),sx=p.left-rr.left+24,sy=p.bottom-rr.top,ey=b.top-rr.top+b.height/2,ex=b.left-rr.left;if(ey<sy)return;path(`M ${sx} ${sy} V ${ey} H ${ex}`)});
- });
-}
-let signalConnectorResizeBound=false;
-function scheduleSignalConnectors(){requestAnimationFrame(()=>requestAnimationFrame(drawSignalConnectors));if(!signalConnectorResizeBound){window.addEventListener("resize",scheduleSignalConnectors);signalConnectorResizeBound=true}}
+
+let explorerMode="source",explorerSelectedSource=null,explorerSelectedDestination=null;
+const explorerEscape=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function setExplorerMode(mode){explorerMode=mode==="destination"?"destination":"source";renderPaths()}
+function selectExplorerItem(type,id){if(type==="source")explorerSelectedSource=Number(id);else explorerSelectedDestination=String(id);renderPaths()}
 function renderPaths(){
- const d=connectedDevice;if(!d)return;
  const inputs=liveEngineering.inputs||[],mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
- const q=($("signalSearch")?.value||"").trim().toLowerCase();
- const searching=Boolean(q);
- // Search expansion is temporary. Preserve normal tree state when search begins,
- // but once the query is cleared return source paths to their collapsed baseline.
- if(signalSearchActive&&!searching){
-   signalTreeOpen.clear();
-   signalTreeOpen.add("group:physical");
- }else if(!signalSearchActive){
-   rememberSignalTreeState();
+  const sourceName=id=>inputs.find(i=>Number(i.id)===Number(id))?.name||("Source "+id);
+ const destinations=[
+  ...mes.flatMap(me=>[{id:"pgm:"+me.index,label:"M/E "+me.index+" · Program",sourceId:me.pgmId,kind:"program",ftb:me.ftb},{id:"pvw:"+me.index,label:"M/E "+me.index+" · Preview",sourceId:me.pvwId,kind:"preview"},...(me.upstreamKeyers||[]).flatMap(k=>[{id:"uskfill:"+me.index+":"+k.index,label:"M/E "+me.index+" · USK "+k.index+" · Fill",sourceId:k.fillId,kind:"keyer"},{id:"uskkey:"+me.index+":"+k.index,label:"M/E "+me.index+" · USK "+k.index+" · Key",sourceId:k.keyId,kind:"keyer"}])]),
+  ...dsks.flatMap(k=>[{id:"dskfill:"+k.index,label:"DSK "+k.index+" · Fill",sourceId:k.fillId,kind:"keyer"},{id:"dskkey:"+k.index,label:"DSK "+k.index+" · Key",sourceId:k.keyId,kind:"keyer"}]),
+  ...routing.map((r,i)=>({id:"aux:"+(r.busId??r.protocolBusId??r.rawIndex??i),label:r.name||("ATEM Routing "+(i+1)),sourceId:r.sourceId,kind:"route"}))
+ ].filter(d=>d.sourceId!==undefined&&d.sourceId!==null&&Number.isFinite(Number(d.sourceId)));
+ const query=($("signalSearch")?.value||"").trim().toLowerCase();
+ const isSource=explorerMode==="source";
+ const items=isSource?inputs.map(i=>({id:Number(i.id),label:i.name||("Source "+i.id),count:destinations.filter(d=>Number(d.sourceId)===Number(i.id)).length})):destinations.map(d=>({id:d.id,label:d.label,count:1}));
+ const visible=items.filter(i=>!query||i.label.toLowerCase().includes(query)||String(i.id).includes(query));
+ const selectedId=isSource?explorerSelectedSource:explorerSelectedDestination;
+ const selected=visible.find(i=>String(i.id)===String(selectedId))||visible[0]||null;
+ if(selected){if(isSource)explorerSelectedSource=selected.id;else explorerSelectedDestination=selected.id;}
+ const modes=$("explorerModes");if(modes)modes.innerHTML='<button type="button" class="'+(isSource?"active":"")+'" onclick="setExplorerMode(\'source\')">Trace from Source</button><button type="button" class="'+(!isSource?"active":"")+'" onclick="setExplorerMode(\'destination\')">Trace to Destination</button>';
+ const list=$("explorerList");if(list)list.innerHTML=visible.map(i=>'<button type="button" class="explorerItem '+(selected&&String(selected.id)===String(i.id)?"selected":"")+'" onclick="selectExplorerItem(\''+(isSource?"source":"destination")+'\',\''+explorerEscape(i.id)+'\')"><span>'+explorerEscape(i.label)+'</span><small>'+(isSource?i.count+" route"+(i.count===1?"":"s"):"")+'</small></button>').join("")||'<p class="explorerEmpty">No matching items.</p>';
+ const title=$("explorerTitle"),canvas=$("explorerCanvas"),details=$("explorerDetails");
+ if(!selected){if(title)title.textContent=query?"No matching routes":"No routing available";if(canvas)canvas.innerHTML='<p class="explorerEmpty">'+(query?'No matching sources or destinations.':'Awaiting live ATEM state.')+'</p>';if(details)details.innerHTML="";return;}
+ if(isSource){
+  const source=inputs.find(i=>Number(i.id)===Number(selected.id));
+  const uses=destinations.filter(d=>Number(d.sourceId)===Number(selected.id));
+  if(title)title.textContent=(source?.name||selected.label)+" · Active Assignments";
+  if(canvas)canvas.innerHTML='<div class="explorerSourceCard"><small>SOURCE · ATEM '+explorerEscape(source?.id)+'</small><strong>'+explorerEscape(selected.label)+'</strong></div><div class="explorerRouteGrid">'+(uses.map(d=>'<div class="explorerRouteCard '+explorerEscape(d.kind)+'"><small>'+explorerEscape(d.kind==="route"?"ATEM ROUTING":d.kind==="keyer"?"ASSIGNMENT / PROCESSING":d.kind.toUpperCase())+'</small><strong>'+explorerEscape(d.label)+'</strong>'+(d.ftb&&(d.ftb.inTransition||d.ftb.isFullyBlack)?'<em>FTB</em>':"")+'</div>').join("")||'<p class="explorerEmpty">No active assignments reported for this source.</p>')+'</div>';
+  if(details)details.innerHTML='<h3>Source Details</h3><strong>'+explorerEscape(selected.label)+'</strong><p>Source ID '+explorerEscape(selected.id)+'</p><h3>Assignments</h3><strong>'+uses.length+' active</strong><p>Program '+uses.filter(x=>x.kind==="program").length+' · Preview '+uses.filter(x=>x.kind==="preview").length+' · Routing '+uses.filter(x=>x.kind==="route").length+' · Keyers '+uses.filter(x=>x.kind==="keyer").length+'</p>';
+ }else{
+  const dest=destinations.find(d=>d.id===selected.id),name=sourceName(dest.sourceId);
+  if(title)title.textContent=dest.label+" · Current Input";
+  if(canvas)canvas.innerHTML='<div class="explorerFlow"><div class="explorerSourceCard"><small>SOURCE</small><strong>'+explorerEscape(name)+'</strong><small>Source ID '+explorerEscape(dest.sourceId)+'</small></div><span aria-hidden="true" class="explorerArrow">→</span><div class="explorerRouteCard '+explorerEscape(dest.kind)+'"><small>DESTINATION</small><strong>'+explorerEscape(dest.label)+'</strong></div></div>';
+  if(details)details.innerHTML='<h3>Destination Details</h3><strong>'+explorerEscape(dest.label)+'</strong><h3>Current Input</h3><strong>'+explorerEscape(name)+'</strong><p>Source ID '+explorerEscape(dest.sourceId)+'</p>';
  }
- signalSearchActive=searching;
- const descendants=window.ShowDeskSignalPaths.createSignalPathTracer({inputs,mixEffects:mes,downstreamKeyers:dsks,routing}).descendants;
- let branchSequence=0;
- const renderBranch=(b,depth=0,parentId="")=>{const id="signal-branch-"+(++branchSequence);return `<div class="treeBranchGroup" data-branch-group="${id}" data-parent-branch="${parentId}"><div class="treeBranch ${b.kind}" id="${id}"><small>${b.kind==="program"?"PROGRAM":b.kind==="preview"?"PREVIEW":b.kind==="route"?"ATEM ROUTING":"ASSIGNMENT / PROCESSING"}</small><b>${b.label}</b>${b.ftb&&(b.ftb.isFullyBlack||b.ftb.inTransition)?'<span class="branchFtb">FTB</span>':""}${b.sub?`<small>${b.sub}</small>`:""}</div>${b.children?.length?`<div class="treeNested">${b.children.map(x=>renderBranch(x,depth+1,id)).join("")}</div>`:""}</div>`};
- const classified=inputs.map(input=>{const name=input.name||("SOURCE "+input.id),physical=Number(input.internalPortType)===0&&Number(input.id)>0,branches=descendants(input.id,{expandMeDestinations:!physical});return {input,name,physical,branches}}).filter(x=>!q||[x.name,"input "+x.input.id,"source "+x.input.id,...x.branches.map(b=>b.label)].join(" ").toLowerCase().includes(q));
- const renderSource=x=>{const key="source:"+x.input.id,open=searching||signalTreeOpen.has(key);return `<details class="treeSource" data-tree-key="${key}" ${open?"open":""}><summary><small>${x.physical?"ATEM INPUT "+x.input.id:"INTERNAL "+x.input.id}</small><b>${x.name}</b><em>${x.branches.length} path${x.branches.length===1?"":"s"}</em></summary><div class="treeBranches">${x.branches.length?x.branches.map(renderBranch).join(""):'<div class="treeBranch idlePath"><small>STATE</small><b>NO ACTIVE PATH</b><small>Signal path will appear when this source is in use.</small></div>'}</div></details>`};
- const renderColumns=items=>{
-   if(!items.length)return '<div class="emptyRoute">No matching sources.</div>';
-   const left=[],right=[];items.forEach((item,index)=>(index%2?right:left).push(item));
-   return `<div class="treeColumn">${left.map(renderSource).join("")}</div><div class="treeColumn">${right.map(renderSource).join("")}</div>`;
- };
- const physical=classified.filter(x=>x.physical),internal=classified.filter(x=>!x.physical),tree=$("signalTree");
- if(tree)tree.innerHTML=`<details class="treeGroup" data-tree-key="group:physical" ${signalTreeOpen.has("group:physical")||searching?"open":""}><summary>PHYSICAL INPUTS <span>${physical.length}</span></summary><div class="treeGroupBody">${physical.length?renderColumns(physical):'<div class="emptyRoute">No matching physical inputs.</div>'}</div></details><details class="treeGroup" data-tree-key="group:internal" ${signalTreeOpen.has("group:internal")||searching?"open":""}><summary>INTERNAL SOURCES <span>${internal.length}</span></summary><div class="treeGroupBody">${internal.length?renderColumns(internal):'<div class="emptyRoute">No matching internal sources.</div>'}</div></details>`;
- scheduleSignalConnectors();
- const topo=liveEngineering.topology||{};if($("flowSources"))$("flowSources").textContent=topo.reportedSources??inputs.length;if($("flowMes"))$("flowMes").textContent=mes.length;if($("flowDests"))$("flowDests").textContent=routing.length;if($("flowIssues"))$("flowIssues").textContent=baselineState.attached?getMismatches().length:"—";
 }
 function transitionPercent(position){const n=Number(position);if(!Number.isFinite(n))return null;return Math.max(0,Math.min(100,Math.round(n>100?n/100:n)))}
 function renderTransitionStatus(){const active=(liveEngineering.mixEffects||[]).filter(me=>me.transition?.inTransition);let el=$("transitionStatus");if(!el){el=document.createElement("div");el.id="transitionStatus";el.className="transitionStatus";document.body.appendChild(el)}if(!active.length){el.hidden=true;el.innerHTML="";return}el.hidden=false;el.innerHTML=active.map(me=>{const p=transitionPercent(me.transition?.position);return `<span>M/E ${me.index} TRANSITION</span><b>${p===null?"IN PROGRESS":p+"%"}</b><i><em style="width:${p===null?0:p}%"></em></i>`}).join("")}
@@ -492,7 +483,7 @@ function renderEngineering(){
  const selected=selectedME();
  if($("pgmContext"))$("pgmContext").textContent=selected?`M/E ${selected.index} • PROGRAM`:"—";
  if($("pvwContext"))$("pvwContext").textContent=selected?`M/E ${selected.index} • PREVIEW`:"—";
- const mx=$("routingMatrix");if(mx){const heads=['SOURCE',...mes.flatMap(me=>[`M/E${me.index} PGM`,`M/E${me.index} PVW`]),'KEYERS','OUTPUTS'];let h=heads.map(x=>`<div class="mc mh">${x}</div>`).join('');for(const input of inputs){const ku=keys.filter(k=>k.fill===input.name||k.key===input.name).map(k=>k.label);const outs=(e.routing||[]).filter(r=>(r.route||r.source||r.value)===input.name).map(r=>r.name||r.label||(`ATEM ROUTING BUS ${r.busId??r.protocolBusId??r.rawIndex??'—'}`));h+=`<div class="mc">${input.name}</div>`+mes.flatMap(me=>[`<div class="mc ${me.pgm===input.name?'mon':''}">${me.pgm===input.name?'● LIVE':'—'}</div>`,`<div class="mc ${me.pvw===input.name?'mpv':''}">${me.pvw===input.name?'● READY':'—'}</div>`]).join('')+`<div class="mc">${ku.join(' / ')||'—'}</div><div class="mc">${outs.join(' / ')||'—'}</div>`;}const cols=`125px repeat(${Math.max(1,heads.length-1)},88px)`;mx.style.gridTemplateColumns=cols;mx.innerHTML=h||'<div class="emptyRoute">No routing state received.</div>';}
+ const mx=$("routingMatrix");if(mx){const heads=['SOURCE',...mes.flatMap(me=>[`M/E${me.index} PGM`,`M/E${me.index} PVW`]),'KEYERS','OUTPUTS'];let h=heads.map((x,i)=>`<div class="mc mh ${i===0?'matrixSource':''}">${x}</div>`).join('');for(const input of inputs){const ku=keys.filter(k=>k.fill===input.name||k.key===input.name).map(k=>k.label);const outs=(e.routing||[]).filter(r=>(r.route||r.source||r.value)===input.name).map(r=>r.name||r.label||(`ATEM ROUTING BUS ${r.busId??r.protocolBusId??r.rawIndex??'—'}`));h+=`<div class="mc matrixSource">${input.name}</div>`+mes.flatMap(me=>[`<div class="mc ${me.pgm===input.name?'mon':''}">${me.pgm===input.name?'● LIVE':'—'}</div>`,`<div class="mc ${me.pvw===input.name?'mpv':''}">${me.pvw===input.name?'● READY':'—'}</div>`]).join('')+`<div class="mc">${ku.join(' / ')||'—'}</div><div class="mc">${outs.join(' / ')||'—'}</div>`;}const cols=`125px repeat(${Math.max(1,heads.length-1)},112px)`;mx.style.gridTemplateColumns=cols;mx.innerHTML=h||'<div class="emptyRoute">No routing state received.</div>';}
  if($("meBusDetail"))$("meBusDetail").innerHTML=mes.map(me=>`<div class="busrow"><div class="lab">M/E ${me.index}</div><div class="bus"><span>PROGRAM</span><b>${me.pgm}</b></div><div class="bus"><span>PREVIEW</span><b>${me.pvw}</b></div><div class="bus ${me.ftb&&(me.ftb.isFullyBlack||me.ftb.inTransition)?'ftbLive':''}"><span>FTB</span><b>${me.ftb?(me.ftb.inTransition?'TRANSITION':me.ftb.isFullyBlack?'BLACK':'OFF'):'—'}</b></div></div>`).join('')||'<div class="emptyRoute">No M/E state received.</div>';
  if($("keyerInspector"))$("keyerInspector").innerHTML=keys.map(k=>`<div class="ins"><span>${k.label}</span><b class="${k.onAir?'ok':''}">${k.onAir?'ON AIR':'OFF'}</b><small>Fill: ${k.fill||'—'} · Key: ${k.key||'—'}</small></div>`).join('')||'<div class="emptyRoute">No keyer state received.</div>';
  renderDebug();
