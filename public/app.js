@@ -258,7 +258,7 @@ function checkUpdatesFromSettings(){closeShowDeskSettings();checkForShowDeskUpda
 function setTab(tab){toast((tab==="engineering"?"INSPECT":tab.toUpperCase())+" view");
  $("app").className="wrap tab-"+tab;
  $("showBtn").classList.toggle("on",tab==="show");$("signalBtn").classList.toggle("on",tab==="signal");$("engBtn").classList.toggle("on",tab==="engineering");
- if(tab==="signal")renderPaths();
+ if(tab==="signal"){renderPaths();requestAnimationFrame(explorerInitializeViewport)}
 }
 function recordEvent(kind,msg,data={}){const e={iso:new Date().toISOString(),t:new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}),kind,msg,data};sessionEvents.unshift(e);logs=sessionEvents;lastChangeText=msg;return e}
 function addLog(kind,msg){recordEvent(kind,msg);renderLog()}
@@ -395,22 +395,41 @@ let explorerPinned=null,explorerHover=null,explorerGraph=null,explorerTopology="
 const explorerEscape=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function explorerInspect(id,pin=false){if(pin)explorerPinned=explorerPinned===id?null:id;else explorerHover=id;explorerHighlight()}
 function explorerClear(){explorerPinned=null;explorerHover=null;explorerHighlight()}
+let explorerViewportInitialized=false;
+let explorerFitRequested=false;
 function explorerZoom(direction,clientX=null,clientY=null){
  const scroller=document.querySelector("#explorerCanvas .explorerDiagramScroll"),svg=scroller?.querySelector("svg");
- if(!svg)return;
+ if(!svg||scroller.clientWidth<100||scroller.clientHeight<100)return;
  const width=Number(svg.dataset.width),height=Number(svg.dataset.height);
- const oldScale=explorerScale,rect=scroller.getBoundingClientRect();
+ if(!width||!height)return;
+ const rect=scroller.getBoundingClientRect();
  const focalX=clientX===null?scroller.clientWidth/2:clientX-rect.left;
  const focalY=clientY===null?scroller.clientHeight/2:clientY-rect.top;
+ const oldScale=explorerScale||1;
  const oldLeft=Math.max(0,(scroller.clientWidth-width*oldScale)/2),oldTop=Math.max(0,(scroller.clientHeight-height*oldScale)/2);
  const logicalX=(scroller.scrollLeft+focalX-oldLeft)/oldScale,logicalY=(scroller.scrollTop+focalY-oldTop)/oldScale;
- if(direction===0)explorerScale=Math.max(.2,Math.min(2.5,Math.min((scroller.clientWidth-24)/width,(scroller.clientHeight-24)/height)));
- else explorerScale=Math.max(.2,Math.min(4,explorerScale*(direction>0?1.2:1/1.2)));
+ const fit=Math.min((scroller.clientWidth-32)/width,(scroller.clientHeight-32)/height);
+ if(direction===0){explorerFitRequested=true;explorerScale=Math.max(.05,Math.min(2.5,fit))}
+ else if(direction===2){explorerFitRequested=false;explorerScale=Math.max(.1,Math.min(1.5,fit*2.1))}
+ else {explorerFitRequested=false;explorerScale=Math.max(.05,Math.min(4,oldScale*(direction>0?1.2:1/1.2)))}
  svg.style.width=width*explorerScale+"px";svg.style.height=height*explorerScale+"px";
  const left=Math.max(0,(scroller.clientWidth-width*explorerScale)/2),top=Math.max(0,(scroller.clientHeight-height*explorerScale)/2);
  svg.style.marginLeft=left+"px";svg.style.marginTop=top+"px";
- scroller.scrollLeft=direction===0?0:logicalX*explorerScale+left-focalX;
- scroller.scrollTop=direction===0?0:logicalY*explorerScale+top-focalY;
+ if(direction===0){scroller.scrollLeft=0;scroller.scrollTop=0}
+ else if(direction===2){
+  scroller.scrollLeft=Math.max(0,(width*explorerScale-scroller.clientWidth)/2);
+  scroller.scrollTop=Math.max(0,(height*explorerScale-scroller.clientHeight)/2);
+ }else{
+  scroller.scrollLeft=logicalX*explorerScale+left-focalX;
+  scroller.scrollTop=logicalY*explorerScale+top-focalY;
+ }
+}
+function explorerInitializeViewport(){
+ if(explorerViewportInitialized)return;
+ const scroller=document.querySelector("#explorerCanvas .explorerDiagramScroll");
+ if(!scroller||scroller.clientWidth<100||scroller.clientHeight<100)return;
+ explorerViewportInitialized=true;
+ explorerZoom(2);
 }
 function explorerWheel(event){
  if(!event.ctrlKey&&!event.metaKey&&!event.altKey)return;
@@ -583,7 +602,7 @@ function explorerDirectionMarker(points){
  }
  if(!best)return "";
  const x=(best.a.x+best.b.x)/2,y=best.a.y,sign=best.b.x>best.a.x?1:-1;
- return "M"+(x-3*sign)+" "+(y-3)+" L"+x+" "+y+" L"+(x-3*sign)+" "+(y+3);
+ return "M"+(x-5*sign)+" "+(y-5)+" L"+x+" "+y+" L"+(x-5*sign)+" "+(y+5);
 }
 function explorerDraw(graph){
  const layout=explorerLayout(graph),{pos,labels,height,width,W,H}=layout;
@@ -622,10 +641,8 @@ function renderPaths(){
   canvas.firstElementChild.scrollLeft=x;canvas.firstElementChild.scrollTop=y;
   canvas.firstElementChild.addEventListener('wheel',explorerWheel,{passive:false});
   explorerTopology=topology;explorerRouteState=routing;
-  explorerScale=1;
-  explorerZoom(0);
-  // The tab may be hidden during the first render; refit after it becomes measurable.
-  requestAnimationFrame(()=>explorerZoom(0));
+  if(!explorerViewportInitialized)requestAnimationFrame(explorerInitializeViewport);
+  else explorerZoom(explorerFitRequested?0:2);
  }else if(routing!==explorerRouteState){
   const svg=canvas.querySelector(".signalOverview"),old=new Map([...svg.querySelectorAll("[data-signal-edge]")].map(el=>[el.dataset.signalEdge,el]));
   const holder=document.createElement("div");holder.innerHTML=explorerDraw(graph);
