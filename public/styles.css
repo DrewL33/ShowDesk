@@ -356,3 +356,15 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .explorerDetails p{margin:0}
 .explorerDetails strong{font-size:11px}
 @media(max-width:650px){.explorerLayout{grid-template-columns:minmax(135px,36%) minmax(0,1fr)!important;height:calc(100vh - 290px)}.explorerListPanel,.explorerMain{padding:8px!important}.explorerDetails{flex-wrap:wrap}}
+
+/* Build068: compact node wiring with implied functional lanes */
+.explorerLayout{grid-template-columns:minmax(155px,205px) minmax(0,1fr)!important}
+.explorerWorkspace{padding:12px!important}
+.explorerToolbar{margin:9px 0!important}
+.explorerListPanel,.explorerMain,.explorerDetails{padding:10px!important}
+.explorerDiagramScroll{padding:8px!important}
+.explorerDiagram .explorerWire{stroke:#529f95;stroke-width:1.35;fill:none;stroke-linejoin:round}
+.explorerDiagram .explorerPort{fill:#42c9a6;stroke:#102029;stroke-width:1}
+.explorerDiagram .explorerGroupLabel{fill:#9fb1bb;font-size:10px;font-weight:700;letter-spacing:.08em}
+.explorerDiagram .explorerNodeName{font-size:10.5px}
+.explorerDiagram .explorerNodeMeta{font-size:7px}
