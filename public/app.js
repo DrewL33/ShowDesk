@@ -492,71 +492,45 @@ function explorerLayout(graph){
  const width=cursor+W+40;
  return {pos,labels,height,width,W,H};
 }
-// Route on a sparse obstacle-aware orthogonal visibility grid.
-// Node rectangles are hard obstacles; previous segments are soft congestion costs.
-function explorerRoute(start,end,obstacles,occupied,bounds){
- const clearance=7,step=14;
- const blocked=(x,y)=>obstacles.some(o=>x>o.x-clearance&&x<o.x+o.w+clearance&&y>o.y-clearance&&y<o.y+o.h+clearance);
- const key=(x,y)=>x+","+y;
- const xs=new Set([start.x,end.x,start.x+step,end.x-step,8,bounds.width-8]);
- const ys=new Set([start.y,end.y,16,bounds.height-16]);
- for(const o of obstacles){xs.add(o.x-clearance-step);xs.add(o.x+o.w+clearance+step);ys.add(o.y-clearance-step);ys.add(o.y+o.h+clearance+step)}
- const xx=[...xs].filter(x=>x>=0&&x<=bounds.width).sort((a,b)=>a-b);
- const yy=[...ys].filter(y=>y>=0&&y<=bounds.height).sort((a,b)=>a-b);
- // Limit search complexity on very large Constellation inventories.
- if(xx.length*yy.length>30000)return null;
- const point=(i,j)=>({x:xx[i],y:yy[j]});
- const origin=key(start.x,start.y),target=key(end.x,end.y);
- const costs=new Map([[origin,0]]),previous=new Map(),queue=[{x:start.x,y:start.y,g:0,dir:""}],closed=new Set();
- const intersects=(a,b)=>obstacles.some(o=>{
-  if(a.x===b.x)return a.x>o.x-clearance&&a.x<o.x+o.w+clearance&&Math.max(a.y,b.y)>o.y-clearance&&Math.min(a.y,b.y)<o.y+o.h+clearance;
-  return a.y>o.y-clearance&&a.y<o.y+o.h+clearance&&Math.max(a.x,b.x)>o.x-clearance&&Math.min(a.x,b.x)<o.x+o.w+clearance;
- });
- const congestion=(a,b)=>occupied.reduce((sum,segment)=>{
-  if(a.x===b.x&&segment.a.x===segment.b.x&&Math.abs(a.x-segment.a.x)<4&&Math.min(Math.max(a.y,b.y),Math.max(segment.a.y,segment.b.y))>Math.max(Math.min(a.y,b.y),Math.min(segment.a.y,segment.b.y)))return sum+100;
-  if(a.y===b.y&&segment.a.y===segment.b.y&&Math.abs(a.y-segment.a.y)<4&&Math.min(Math.max(a.x,b.x),Math.max(segment.a.x,segment.b.x))>Math.max(Math.min(a.x,b.x),Math.min(segment.a.x,segment.b.x)))return sum+100;
-  return sum;
- },0);
- let iterations=0;
- while(queue.length&&iterations++<18000){
-  queue.sort((a,b)=>(a.g+Math.abs(a.x-end.x)+Math.abs(a.y-end.y))-(b.g+Math.abs(b.x-end.x)+Math.abs(b.y-end.y)));
-  const cur=queue.shift(),ck=key(cur.x,cur.y);if(closed.has(ck))continue;closed.add(ck);
-  if(ck===target){
-   const route=[{x:cur.x,y:cur.y}];let k=ck;
-   while(previous.has(k)){const p=previous.get(k);route.push(p.point);k=p.key}
-   route.reverse();
-   const simplified=route.filter((p,i)=>i===0||i===route.length-1||(route[i-1].x!==route[i+1].x&&route[i-1].y!==route[i+1].y));
-   for(let i=1;i<simplified.length;i++)occupied.push({a:simplified[i-1],b:simplified[i]});
-   return simplified;
-  }
-  const i=xx.indexOf(cur.x),j=yy.indexOf(cur.y);
-  for(const [di,dj,dir] of [[1,0,"h"],[-1,0,"h"],[0,1,"v"],[0,-1,"v"]]){
-   const ni=i+di,nj=j+dj;if(ni<0||nj<0||ni>=xx.length||nj>=yy.length)continue;
-   const next=point(ni,nj),nk=key(next.x,next.y);
-   if(closed.has(nk)||blocked(next.x,next.y)||intersects(cur,next))continue;
-   const cost=cur.g+Math.abs(next.x-cur.x)+Math.abs(next.y-cur.y)+(cur.dir&&cur.dir!==dir?16:0)+congestion(cur,next);
-   if(cost<(costs.get(nk)??Infinity)){costs.set(nk,cost);previous.set(nk,{key:ck,point:{x:cur.x,y:cur.y}});queue.push({...next,g:cost,dir})}
-  }
+// Build076: predictable corridors, not a maze search. Every path reaches its endpoint.
+function explorerRoute(start,end,columns,lanes,bounds){
+ const gap=4,clearance=12,header=52;
+ const forward=end.x>start.x+24;
+ const minX=Math.min(start.x,end.x),maxX=Math.max(start.x,end.x);
+ const corridors=[];
+ for(let i=0;i<columns.length-1;i++){
+  const left=columns[i],right=columns[i+1],x0=left+184+clearance,x1=right-clearance;
+  if(x1>x0+8&&x0>=minX-1&&x1<=maxX+1)corridors.push({x0,x1});
  }
- return null;
+ const key=corridors.length?corridors[Math.floor(corridors.length/2)]:null;
+ if(forward){
+  const x=key?(key.x0+key.x1)/2:(start.x+end.x)/2;
+  const slot=lanes.get(x)||0;lanes.set(x,slot+1);
+  // Keep the lane within the available gap, without pushing it into node boxes.
+  const spread=key?Math.min((key.x1-key.x0)/2-2,slot*gap):0;
+  const mid=key?Math.max(key.x0+2,Math.min(key.x1-2,x+((slot%2)?1:-1)*spread)):x;
+  return [start,{x:mid,y:start.y},{x:mid,y:end.y},end];
+ }
+ // Backward internal feeds require a return path. Route below the nodes,
+ // never through group titles or across the top of the overview.
+ const lane=lanes.get("return")||0;lanes.set("return",lane+1);
+ const bottom=bounds.height-22-lane*gap;
+ return [start,{x:start.x+12,y:start.y},{x:start.x+12,y:bottom},{x:end.x-12,y:bottom},{x:end.x-12,y:end.y},end];
 }
 function explorerDraw(graph){
  const layout=explorerLayout(graph),{pos,labels,height,width,W,H}=layout;
- const edges=graph.edges.slice().sort((a,b)=>a.id.localeCompare(b.id)),ports=new Map(),occupied=[];
+ const edges=graph.edges.slice().sort((a,b)=>a.id.localeCompare(b.id)),ports=new Map(),lanes=new Map();
+ const columns=[...new Set([...pos.values()].map(p=>p.x))].sort((a,b)=>a-b);
  const reserve=key=>{const n=ports.get(key)||0;ports.set(key,n+1);return n};
- const obstacles=[...pos.values()].map(p=>({x:p.x,y:p.y,w:W,h:H}));
  const outCount=new Map(),inCount=new Map();
  edges.forEach(e=>{outCount.set(e.from,(outCount.get(e.from)||0)+1);inCount.set(e.to,(inCount.get(e.to)||0)+1)});
  const paths=edges.map(e=>{
   const a=pos.get(e.from),b=pos.get(e.to);if(!a||!b)return "";
   const out=reserve("o:"+e.from),incoming=reserve("i:"+e.to);
   const y1=a.y+H*(out+1)/((outCount.get(e.from)||0)+1),y2=b.y+H*(incoming+1)/((inCount.get(e.to)||0)+1);
-  const start={x:a.x+W+8,y:y1},end={x:b.x-8,y:y2};
-  // Exclude the endpoint boxes only; all unrelated nodes remain obstacles.
-  const others=obstacles.filter(o=>o!==undefined&&o.x!==a.x&&o.x!==b.x||o.y!==a.y&&o.y!==b.y);
-  const route=explorerRoute(start,end,others,occupied,{width,height});
-  const pts=route||[start,{x:start.x+12,y:start.y},{x:start.x+12,y:end.y},end];
-  const d="M"+(a.x+W)+" "+y1+" L"+pts.map(p=>p.x+" "+p.y).join(" L")+" L"+b.x+" "+y2;
+  const start={x:a.x+W,y:y1},end={x:b.x,y:y2};
+  const pts=explorerRoute(start,end,columns,lanes,{width,height});
+  const d="M"+pts.map(p=>p.x+" "+p.y).join(" L");
   return '<path class="overviewEdge '+explorerEscape(e.kind)+'" data-signal-edge="'+explorerEscape(e.id)+'" d="'+d+'"/>';
  }).join("");
  const nodes=graph.nodes.map(n=>{
