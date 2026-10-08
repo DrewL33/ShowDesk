@@ -153,3 +153,13 @@ assert.ok(app.includes('<i></i><i></i><i></i>'),'Reconnect activity glyph must c
 assert.ok(styles.includes('.connectionFlag.reconnecting{color:var(--amber)!important}'),'Reconnect state must use the amber warning color');
 assert.ok(styles.includes('@keyframes showdeskReconnectDot'),'Reconnect path dots must visibly sequence while retrying');
 assert.ok(app.includes('flag.classList.remove("reconnecting")'),'Reconnect styling must clear immediately when recovery ends');
+
+
+// Build083 viewport and transition completion regression guards
+assert.match(app,/function explorerInitializeViewport\(\)/,'Explorer must initialize its viewport after layout becomes measurable');
+assert.match(app,/explorerZoom\(2\)/,'Explorer should open at readable centered focus');
+assert.match(app,/if\(direction===0\).*explorerFitRequested=true/,'Fit must remain a distinct complete-overview action');
+assert.match(app,/scroll\.scrollLeft=x;scroll\.scrollTop=y/,'Topology refresh must preserve pan');
+assert.match(app,/entry\.fill\.classList\.toggle\("is-complete",p===100\)/,'Transition fill must reach 100% without interpolation lag');
+assert.match(styles,/\.transitionStatus i em\.is-complete\{transition:none!important/,'Completed transition bar must disable animation delay');
+assert.match(app,/x-5\*sign/,'Direction chevrons must be visible at normal zoom');
