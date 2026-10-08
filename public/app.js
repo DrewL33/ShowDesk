@@ -395,49 +395,36 @@ const explorerEscape=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;
 function setExplorerMode(mode){explorerMode=mode==="destination"?"destination":"source";renderPaths()}
 function selectExplorerItem(type,id){if(type==="source")explorerSelectedSource=Number(id);else explorerSelectedDestination=String(id);renderPaths()}
 function explorerDiagram(root){
- // Compact left-to-right node wiring. Groups are visual lanes, never invented processing stages.
- const nodeW=156,nodeH=40,left=18,right=240,top=28,gap=48,groupGap=25;
- const children=root.children||[],isFanout=children.length>0;
- const category=node=>{
-  const label=node.label||"";
-  if(/^M\/E\s/i.test(label))return "M/E";
-  if(/^DSK\s/i.test(label))return "DSK";
-  if(/^(AUX|AUXILIARY|ATEM ROUTING)/i.test(label)||node.kind==="route")return "AUX / ROUTING";
-  return "OTHER";
- };
- const groups=new Map();
- children.forEach(node=>{const group=category(node);if(!groups.has(group))groups.set(group,[]);groups.get(group).push(node)});
- const positions=[];let cursor=top;
- for(const [name,nodes] of groups){
-  const labelY=cursor;cursor+=20;
-  nodes.forEach(node=>{positions.push({node,y:cursor,group:name});cursor+=gap});
-  cursor+=groupGap;
+ // A compact left-to-right tree of reported assignments. Every edge has its own source port.
+ const esc=explorerEscape, W=166,H=44,COL=220,ROW=56,LEFT=18,TOP=24;
+ const positions=[],edges=[];let leaf=0,maxDepth=0;
+ const group=n=>/^M\/E\s/i.test(n.label)?"M/E":/^DSK\s/i.test(n.label)?"DSK":n.kind==="route"?"AUX / ROUTING":"OTHER";
+ function layout(node,depth=0,seen=new Set()){
+  maxDepth=Math.max(maxDepth,depth);
+  const children=seen.has(node)?[]:(node.children||[]);
+  const next=new Set(seen);next.add(node);
+  const childY=children.map(c=>layout(c,depth+1,next));
+  const y=childY.length?(childY[0]+childY[childY.length-1])/2:TOP+leaf++*ROW;
+  positions.push({node,depth,x:LEFT+depth*COL,y});
+  children.forEach(child=>edges.push({from:node,to:child}));
+  return y;
  }
- const totalH=Math.max(142,cursor+8),originY=isFanout?Math.max(top+26,(positions[0].y+positions[positions.length-1].y)/2):top+24;
- const width=right+nodeW+24;
- const esc=explorerEscape;
- const rect=(node,x,y,source)=>'<g class="explorerNode '+esc(node.kind||"source")+'"><rect x="'+x+'" y="'+y+'" width="'+nodeW+'" height="'+nodeH+'" rx="4"/><text class="explorerNodeMeta" x="'+(x+11)+'" y="'+(y+14)+'">'+esc(node.meta||"")+'</text><text class="explorerNodeName" x="'+(x+11)+'" y="'+(y+30)+'">'+esc(node.label)+'</text><circle class="explorerPort" cx="'+(source?x+nodeW:x)+'" cy="'+(y+nodeH/2)+'" r="3.5"/><title>'+esc(node.label)+'</title></g>';
- let wires="",labels="",nodesHtml="";
- if(isFanout){
-  const originTop=originY-nodeH/2;
-  nodesHtml+=rect(root,left,originTop,true);
-  for(const [name,nodes] of groups){
-   const first=positions.find(p=>p.group===name);
-   labels+='<text class="explorerGroupLabel" x="'+right+'" y="'+(first.y-8)+'">'+esc(name)+'</text>';
-  }
-  positions.forEach((p,i)=>{
-   const portY=p.y+nodeH/2,srcY=originY;
-   const elbow=left+nodeW+18+i*8;
-   const sourcePortY=originTop+nodeH*(i+1)/(positions.length+1);
-   const color=["#52bba8","#70a9d0","#d0a26c","#ad9bd4"][i%4];
-   wires+='<path class="explorerWire" stroke="'+color+'" d="M'+(left+nodeW)+' '+sourcePortY+' H'+elbow+' V'+portY+' H'+right+'"><title>'+esc(root.label+' → '+p.node.label)+'</title></path>';
-   nodesHtml+='<circle class="explorerPort" cx="'+(left+nodeW)+'" cy="'+sourcePortY+'" r="3" fill="'+color+'"/>';
-   nodesHtml+=rect(p.node,right,p.y,false);
-  });
- }else{
-  nodesHtml+=rect(root,left,originY-nodeH/2,true);
- }
- return '<svg class="explorerDiagram" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ATEM signal wiring diagram" viewBox="0 0 '+width+' '+totalH+'" width="'+width+'" height="'+totalH+'"><g class="explorerWires">'+wires+'</g>'+labels+nodesHtml+'</svg>';
+ layout(root);
+ const map=new Map(positions.map(p=>[p.node,p]));
+ const height=Math.max(130,TOP+Math.max(1,leaf)*ROW),width=Math.max(410,LEFT+maxDepth*COL+W+20);
+ const wires=edges.map((edge,i)=>{
+  const a=map.get(edge.from),b=map.get(edge.to),siblings=edges.filter(e=>e.from===edge.from);
+  if(!a||!b)return "";
+  const n=siblings.indexOf(edge),ay=a.y+H*(n+1)/(siblings.length+1),by=b.y+H/2;
+  const ax=a.x+W,bx=b.x,elbow=ax+Math.min(35,Math.max(12,(bx-ax)/3));
+  const color=["#52bba8","#70a9d0","#d0a26c","#ad9bd4"][i%4];
+  const title=esc(edge.from.label+" → "+edge.to.label);
+  return '<g class="explorerRoute"><path class="explorerWire" stroke="'+color+'" d="M'+ax+' '+ay+' H'+elbow+' V'+by+' H'+bx+'"/><path class="explorerWireHit" d="M'+ax+' '+ay+' H'+elbow+' V'+by+' H'+bx+'"/><circle class="explorerPort" cx="'+ax+'" cy="'+ay+'" r="3" fill="'+color+'"/><circle class="explorerPort" cx="'+bx+'" cy="'+by+'" r="3" fill="'+color+'"/><title>'+title+'</title></g>';
+ }).join("");
+ const nodes=positions.map(p=>'<g class="explorerNode '+esc(p.node.kind||"source")+'"><rect x="'+p.x+'" y="'+p.y+'" width="'+W+'" height="'+H+'" rx="4"/><text class="explorerNodeMeta" x="'+(p.x+10)+'" y="'+(p.y+15)+'">'+esc(p.node.meta||"")+'</text><text class="explorerNodeName" x="'+(p.x+10)+'" y="'+(p.y+31)+'">'+esc(p.node.label)+'</text><title>'+esc(p.node.label)+'</title></g>').join("");
+ // Group labels are annotations, not fictional processing nodes.
+ const labels=positions.filter(p=>p.depth>0).sort((a,b)=>a.depth-b.depth||a.y-b.y).map((p,i,arr)=>i===0||p.depth!==arr[i-1].depth||group(p.node)!==group(arr[i-1].node)?'<text class="explorerGroupLabel" x="'+p.x+'" y="'+(p.y-7)+'">'+esc(group(p.node))+'</text>':"").join("");
+ return '<svg class="explorerDiagram" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ATEM signal wiring diagram" viewBox="0 0 '+width+' '+height+'" width="'+width+'" height="'+height+'"><g class="explorerWires">'+wires+'</g>'+labels+nodes+'</svg>';
 }
 function renderPaths(){
  const inputs=liveEngineering.inputs||[],mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
@@ -452,6 +439,7 @@ function renderPaths(){
  // Only expand M/E program outputs when their input identity can be verified from ATEM's source metadata.
  function programOutputMe(id){
   const input=inputs.find(i=>Number(i.id)===Number(id));if(!input)return null;
+  // Prefer switcher-reported source identity; names alone can be user-renamed.
   const names=[input.shortName,input.name].filter(Boolean).join(" ");
   const match=names.match(/(?:M\/?E|ME)\s*(\d+)\s*(?:PGM|PROGRAM)/i);
   if(!match)return null;
@@ -465,8 +453,8 @@ function renderPaths(){
    const node=asDestination(d);
    if(d.kind==="program"){
     const meIndex=Number(d.id.split(":")[1]);
-    const output=inputs.find(i=>programOutputMe(i.id)?.index===meIndex&&Number(i.id)!==Number(id));
-    if(output)node.children=downstream(output.id,seen,depth+1);
+    const output=inputs.find(i=>Number(programOutputMe(i.id)?.index)===meIndex&&Number(i.id)!==Number(id));
+    if(output)node.children=downstream(output.id,new Set([...seen,Number(id)]),depth+1);
    }
    return node;
   });
@@ -478,7 +466,9 @@ function renderPaths(){
   }
   const next=new Set(visited);next.add(Number(id));
   const root=upstream(me.pgmId,next,depth+1);
-  root.children=[{label:"M/E "+me.index+" · Program",kind:"program",meta:"PROCESSING",children:[]}];
+  const processing={label:"M/E "+me.index+" · Program",kind:"program",meta:"COMPOSITED OUTPUT",children:[]};
+  let tail=root;while(tail.children.length)tail=tail.children[0];
+  tail.children=[processing];
   return root;
  }
  const query=($("signalSearch")?.value||"").trim().toLowerCase(),isSource=explorerMode==="source";
