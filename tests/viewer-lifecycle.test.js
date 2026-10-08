@@ -163,3 +163,9 @@ assert.match(app,/scroll\.scrollLeft=x;scroll\.scrollTop=y/,'Topology refresh mu
 assert.match(app,/entry\.fill\.classList\.toggle\("is-complete",p===100\)/,'Transition fill must reach 100% without interpolation lag');
 assert.match(styles,/\.transitionStatus i em\.is-complete\{transition:none!important/,'Completed transition bar must disable animation delay');
 assert.match(app,/x-5\*sign/,'Direction chevrons must be visible at normal zoom');
+
+
+// Build084: backward paths must use dedicated lower return corridors.
+assert.match(app,/const returnLane=lanes\.get\("returnLane"\)\|\|0/,'Reverse routing must reserve its own lane counter');
+assert.match(app,/const returnBase=bounds\.nodeBottom\+42/,'Return paths must run below the last node');
+assert.match(app,/lanes\.set\("returnLane",\(lanes\.get\("returnLane"\)\|\|0\)\+1\)/,'Each return path must receive a separate base lane');
