@@ -423,3 +423,8 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 /* Build080: lane separation is primary; keep crossings subtle. */
 .signalOverview .overviewEdgeHalo{stroke-width:2.8;opacity:.6}
 .signalOverview.is-filtered .overviewEdgeHalo.is-active{stroke-width:4;opacity:.85}
+
+/* Build081: preserve each transition bar and interpolate received positions. */
+.transitionStatusItem{display:contents}
+.transitionStatus i em{transition:width 110ms linear!important;will-change:width}
+.explorerDiagramScroll{overscroll-behavior:contain}
