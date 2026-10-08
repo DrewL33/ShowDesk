@@ -36,11 +36,16 @@ assert.match(app,/function renderPaths\(/,'Signal Explorer must render from live
 assert.match(app,/function explorerDraw\(/,'Signal Explorer must draw a persistent signal overview');
 assert.match(styles,/\.explorerDiagramScroll\{min-height:0;flex:1;overflow:auto/,'Signal diagram must scroll independently');
 assert.match(styles,/\.explorerClearButton\[hidden\]/,'Clear trace control must be contextual');
+assert.match(html,/class="explorerLegend"/,'Legend must be available in the signal toolbar');
+assert.match(html,/id="explorerClearButton"/,'Clear Trace must be available in the toolbar');
+assert.match(styles,/\.overviewEdge\.is-active\.program\{stroke:/,'Selected program traces must preserve their red status');
+assert.match(styles,/\.overviewEdge\.is-active\.preview\{stroke:/,'Selected preview traces must preserve their blue status');
+assert.match(styles,/\.overviewEdge\.is-active\.assigned\{stroke:/,'Selected assigned traces must preserve dashed yellow status');
 assert.match(app,/function explorerLayout\(/,'Signal overview must use a stable dedicated layout');
 assert.match(app,/function explorerZoom\(/,'Signal overview must support zoom and fit');
 assert.match(app,/function explorerRoute\(/,'Wire routing must use the obstacle-aware router');
-assert.match(app,/const clearance=7,step=14/,'Routing must protect node boundaries');
-assert.match(app,/const congestion=/,'Routing must penalize wire overlap');
+assert.match(app,/const gap=4,clearance=12,header=52/,'Routing must use consistent corridor spacing');
+assert.match(app,/const forward=end\.x>start\.x\+24/,'Routing must prefer forward paths');
 assert.match(app,/type:"source",title:"EXTERNAL & OTHER SOURCES",limit:12/,'Source columns must have a 12-row cap');
 assert.match(app,/type:"bus",title:"M\/E BUSES & ASSIGNMENTS",limit:15/,'M/E bus columns must have a 15-row cap');
 assert.match(app,/type:"destination",title:"DESTINATIONS",limit:15/,'Destination columns must have a 15-row cap');
