@@ -662,11 +662,26 @@ function renderPaths(){
 }
 function transitionPercent(position){const n=Number(position);if(!Number.isFinite(n))return null;return Math.max(0,Math.min(100,Math.round(n>100?n/100:n)))}
 const transitionDisplays=new Map();
+let transitionClearTimer=null;
 function renderTransitionStatus(){
  const active=(liveEngineering.mixEffects||[]).filter(me=>me.transition?.inTransition);
  let el=$("transitionStatus");
  if(!el){el=document.createElement("div");el.id="transitionStatus";el.className="transitionStatus";document.body.appendChild(el)}
- if(!active.length){el.hidden=true;el.replaceChildren();transitionDisplays.clear();return}
+ if(transitionClearTimer){clearTimeout(transitionClearTimer);transitionClearTimer=null}
+ if(!active.length){
+  // Keep the completed frame visible briefly so the last AUTO update reaches the end.
+  for(const entry of transitionDisplays.values()){
+   if(entry.lastPercent>=95){
+    entry.number.textContent="100%";
+    entry.fill.classList.add("is-complete");
+    entry.fill.style.width="100%";
+   }
+  }
+  if(transitionDisplays.size){
+   transitionClearTimer=setTimeout(()=>{el.hidden=true;el.replaceChildren();transitionDisplays.clear();transitionClearTimer=null},180);
+  }else el.hidden=true;
+  return;
+ }
  el.hidden=false;
  const ids=new Set(active.map(me=>String(me.index)));
  for(const [id,entry] of transitionDisplays)if(!ids.has(id)){entry.element.remove();transitionDisplays.delete(id)}
@@ -677,10 +692,12 @@ function renderTransitionStatus(){
    const item=document.createElement("div");item.className="transitionStatusItem";
    const label=document.createElement("span"),number=document.createElement("b"),track=document.createElement("i"),fill=document.createElement("em");
    label.textContent="M/E "+id+" TRANSITION";track.appendChild(fill);item.append(label,number,track);el.appendChild(item);
-   entry={element:item,number,fill};transitionDisplays.set(id,entry);
+   entry={element:item,number,fill,lastPercent:0};transitionDisplays.set(id,entry);
   }
+  entry.lastPercent=p===null?entry.lastPercent:p;
   entry.number.textContent=p===null?"IN PROGRESS":p+"%";
-  entry.fill.style.width=(p===null?0:p)+"%";
+  entry.fill.classList.toggle("is-complete",p===100);
+  entry.fill.style.width=(p===null?entry.lastPercent:p)+"%";
  }
 }
 function render(){
