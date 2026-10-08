@@ -38,7 +38,9 @@ assert.match(styles,/\.explorerDiagramScroll\{min-height:0;flex:1;overflow:auto/
 assert.match(styles,/\.explorerClearButton\[hidden\]/,'Clear trace control must be contextual');
 assert.match(app,/function explorerLayout\(/,'Signal overview must use a stable dedicated layout');
 assert.match(app,/function explorerZoom\(/,'Signal overview must support zoom and fit');
-assert.match(app,/const gap=4/,'Routing lanes must have visible stroke clearance');
+assert.match(app,/function explorerRoute\(/,'Wire routing must use the obstacle-aware router');
+assert.match(app,/const clearance=7,step=14/,'Routing must protect node boundaries');
+assert.match(app,/const congestion=/,'Routing must penalize wire overlap');
 assert.match(app,/type:"source",title:"EXTERNAL & OTHER SOURCES",limit:12/,'Source columns must have a 12-row cap');
 assert.match(app,/type:"bus",title:"M\/E BUSES & ASSIGNMENTS",limit:15/,'M/E bus columns must have a 15-row cap');
 assert.match(app,/type:"destination",title:"DESTINATIONS",limit:15/,'Destination columns must have a 15-row cap');
