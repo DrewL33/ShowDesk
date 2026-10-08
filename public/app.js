@@ -497,30 +497,67 @@ function explorerLayout(graph){
 }
 // Build076: predictable corridors, not a maze search. Every path reaches its endpoint.
 function explorerRoute(start,end,columns,lanes,bounds){
- // Build078: all vertical movement occurs between node banks. Long horizontal
- // traversals use the open 18px gutters between rows, never node interiors.
- const W=184,ROW=78,TOP=72,H=36;
+ // Build080: reserve independent horizontal AND vertical tracks for each edge.
+ // All turns occur in column gaps; long spans can use row gutters or overflow.
+ const W=184,ROW=78,TOP=72,spacing=7;
  const from=columns.findIndex(x=>Math.abs(start.x-(x+W))<1);
  const to=columns.findIndex(x=>Math.abs(end.x-x)<1);
- const gapX=i=>columns[i]+W+(columns[i+1]-columns[i]-W)/2;
- const clean=points=>points.filter((p,i)=>i===0||p.x!==points[i-1].x||p.y!==points[i-1].y).filter((p,i,arr)=>i===0||i===arr.length-1||!(arr[i-1].x===arr[i+1].x||arr[i-1].y===arr[i+1].y));
+ const gap=i=>({min:columns[i]+W+8,max:columns[i+1]-8});
+ const occupied=lanes.get("occupied")||[];
+ lanes.set("occupied",occupied);
+ const segment=(a,b)=>({a,b,h:a.y===b.y,lo:Math.min(a.y===b.y?a.x:a.y,b.y===a.y?b.x:b.y),hi:Math.max(a.y===b.y?a.x:a.y,b.y===a.y?b.x:b.y),axis:a.y===b.y?a.y:a.x});
+ const score=points=>{
+  let penalty=0;
+  for(let i=1;i<points.length;i++){
+   const current=segment(points[i-1],points[i]);
+   for(const prior of occupied){
+    if(current.h!==prior.h)continue;
+    const overlap=Math.min(current.hi,prior.hi)-Math.max(current.lo,prior.lo);
+    if(overlap>0&&Math.abs(current.axis-prior.axis)<spacing)penalty+=250+overlap;
+   }
+  }
+  return penalty;
+ };
+ const commit=points=>{
+  for(let i=1;i<points.length;i++)if(points[i].x!==points[i-1].x||points[i].y!==points[i-1].y)occupied.push(segment(points[i-1],points[i]));
+  return points.filter((p,i)=>i===0||p.x!==points[i-1].x||p.y!==points[i-1].y);
+ };
+ const candidates=[];
  if(from>=0&&to>from){
-  const first=gapX(from),last=gapX(to-1);
-  if(to===from+1)return clean([start,{x:first,y:start.y},{x:first,y:end.y},end]);
-  const serial=lanes.get("trunk")||0;lanes.set("trunk",serial+1);
-  // Choose a row gutter close to the two endpoints, distributing congestion.
-  const center=(start.y+end.y)/2;
-  const row=Math.max(0,Math.min(14,Math.round((center-(TOP-9))/ROW)));
-  const gutter=TOP-9+row*ROW;
-  const offset=((serial%5)-2)*3;
-  const nodeBottom=bounds.nodeBottom;
-  const y=(to-from>=4)?nodeBottom+24+serial*5:gutter+offset;
-  return clean([start,{x:first,y:start.y},{x:first,y},{x:last,y},{x:last,y:end.y},end]);
+  const first=gap(from),last=gap(to-1);
+  const xs=[];
+  for(let x=first.min;x<=first.max;x+=spacing)xs.push(x);
+  const firstXs=xs.length?xs:[(first.min+first.max)/2];
+  const lastXs=to===from+1?firstXs:[last.min+8,(last.min+last.max)/2,last.max-8];
+  const ys=[];
+  for(let row=0;row<15;row++)for(const offset of [-14,-7,0,7,14]){
+   const y=TOP-18+row*ROW+offset;
+   if(y>45&&y<bounds.nodeBottom)ys.push(y);
+  }
+  for(let lane=0;lane<Math.min(48,Math.ceil(occupied.length/3)+8);lane++)ys.push(bounds.nodeBottom+22+lane*spacing);
+  if(to===from+1){
+   for(const x of firstXs)candidates.push([start,{x,y:start.y},{x,y:end.y},end]);
+  }else{
+   const center=(start.y+end.y)/2;
+   ys.sort((a,b)=>Math.abs(a-center)-Math.abs(b-center));
+   for(const x of firstXs)for(const lastX of lastXs)for(const y of ys.slice(0,35))
+    candidates.push([start,{x,y:start.y},{x,y},{x:lastX,y},{x:lastX,y:end.y},end]);
+  }
+ }else{
+  const xs=[start.x+12,start.x+20,start.x+28];
+  for(const x of xs)for(let lane=0;lane<48;lane++){
+   const y=bounds.nodeBottom+22+lane*spacing;
+   candidates.push([start,{x,y:start.y},{x,y},{x:end.x-20,y},{x:end.x-20,y:end.y},end]);
+  }
  }
- // Reverse edges cannot cross intervening nodes: use the clear bottom perimeter.
- const serial=lanes.get("return")||0;lanes.set("return",serial+1);
- const y=bounds.nodeBottom+24+serial*5;
- return clean([start,{x:start.x+12,y:start.y},{x:start.x+12,y},{x:end.x-12,y},{x:end.x-12,y:end.y},end]);
+ let best=null,bestScore=Infinity;
+ for(const points of candidates){
+  const bends=points.length-2;
+  const distance=points.slice(1).reduce((sum,p,i)=>sum+Math.abs(p.x-points[i].x)+Math.abs(p.y-points[i].y),0);
+  const cost=score(points)+distance*.035+bends*2;
+  if(cost<bestScore){best=points;bestScore=cost}
+ }
+ return commit(best||[start,{x:(start.x+end.x)/2,y:start.y},{x:(start.x+end.x)/2,y:end.y},end]);
 }
 function explorerDraw(graph){
  const layout=explorerLayout(graph),{pos,labels,height,width,W,H}=layout;
