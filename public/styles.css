@@ -370,3 +370,8 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .explorerClearButton[hidden]{display:none!important}
 .explorerDetails{display:flex;align-items:center;gap:12px;padding:8px 4px!important;min-height:0;flex:0 0 auto;font-size:11px;color:var(--sd-muted);border:0!important}
 @media(max-width:650px){.explorerWorkspace{height:calc(100vh - 80px)}.explorerWorkspace .explorerToolbar{flex-wrap:wrap}.explorerWorkspace .signalSearch{max-width:100%;width:100%}}
+
+/* Build075: emphasize the selected route above background wiring. */
+.signalOverview .overviewEdge.is-active{paint-order:stroke;filter:drop-shadow(0 0 1.5px #06141b)}
+.signalOverview.is-filtered .overviewEdge.is-active{stroke:#65ddc5;stroke-width:2.4;opacity:1}
+.signalOverview.is-filtered .overviewNode.is-active{opacity:1}
