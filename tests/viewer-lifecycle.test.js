@@ -48,7 +48,11 @@ assert.match(app,/function explorerLayout\(/,'Signal overview must use a stable 
 assert.match(app,/function explorerZoom\(/,'Signal overview must support zoom and fit');
 assert.match(app,/function explorerRoute\(/,'Wire routing must use the obstacle-aware router');
 assert.match(app,/const gapX=i=>columns\[i\]\+W/,'Routing must use gaps between node columns');
-assert.match(app,/const gutter=TOP-9\+row\*ROW/,'Long routes must traverse clear row gutters');
+assert.match(app,/const gutter=TOP-9\+row\*ROW/,'Short routes must traverse clear row gutters');
+assert.match(app,/const W=184,H=36,ROW=78,top=72/,'Build079 must provide more breathing room between nodes');
+assert.match(app,/nodeBottom\+24\+serial\*5/,'Long routes must use separate lower canvas lanes');
+assert.match(app,/data-signal-halo/,'Crossings must have narrow visual separation');
+assert.match(styles,/\.overviewEdgeHalo\{fill:none/,'Crossing separation must have explicit styling');
 assert.match(app,/if\(to===from\+1\)/,'Adjacent columns must use a direct corridor');
 assert.match(app,/more=document\.createElement\("button"\)/,'More Inputs navigation must use an accessible button');
 assert.match(styles,/\.overviewEdge\.preview\{stroke:#42b5ff/,'Preview must stand out from generic routing');
