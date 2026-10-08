@@ -390,84 +390,64 @@ function renderInputs(){
 }
 function selectDestination(name){selectedDestination=name;renderPaths()}
 
-// Signal Explorer: persistent, read-only live routing graph (Build071).
-let explorerPinned=null,explorerHover=null,explorerGraph=null,explorerTopology="",explorerRouteState="";
+// Build072: stable full-workspace, bidirectional signal overview.
+let explorerPinned=null,explorerHover=null,explorerGraph=null,explorerTopology="",explorerRouteState="",explorerScale=1;
 const explorerEscape=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const explorerKey=v=>String(v).replace(/[^a-zA-Z0-9_-]/g,"_");
-function explorerInspect(id,pin=false){
- if(pin)explorerPinned=explorerPinned===id?null:id;
- else explorerHover=id;
- explorerHighlight();
-}
+function explorerInspect(id,pin=false){if(pin)explorerPinned=explorerPinned===id?null:id;else explorerHover=id;explorerHighlight()}
 function explorerClear(){explorerPinned=null;explorerHover=null;explorerHighlight()}
+function explorerZoom(direction){
+ const scroller=document.querySelector("#explorerCanvas .explorerDiagramScroll"),svg=scroller?.querySelector("svg");
+ if(!svg)return;
+ if(direction===0){explorerScale=Math.min(1,scroller.clientWidth/Number(svg.dataset.width),scroller.clientHeight/Number(svg.dataset.height));}
+ else explorerScale=Math.max(.3,Math.min(2.5,explorerScale*(direction>0?1.2:1/1.2)));
+ svg.style.width=(Number(svg.dataset.width)*explorerScale)+"px";svg.style.height=(Number(svg.dataset.height)*explorerScale)+"px";
+}
 function explorerReach(graph,id,reverse=false){
- const seen=new Set([id]),queue=[id],edges=graph.edges;
- while(queue.length){
-  const current=queue.shift();
-  for(const e of edges){
-   const from=reverse?e.to:e.from,to=reverse?e.from:e.to;
-   if(from===current&&!seen.has(to)){seen.add(to);queue.push(to)}
-  }
- }
+ const seen=new Set([id]),queue=[id];
+ while(queue.length){const current=queue.shift();for(const e of graph.edges){const from=reverse?e.to:e.from,to=reverse?e.from:e.to;if(from===current&&!seen.has(to)){seen.add(to);queue.push(to)}}}
  return seen;
 }
 function explorerHighlight(){
- const graph=explorerGraph,svg=document.querySelector("#explorerCanvas .signalOverview");
- if(!graph||!svg)return;
- const id=explorerPinned||explorerHover;
+ const graph=explorerGraph,svg=document.querySelector("#explorerCanvas .signalOverview");if(!graph||!svg)return;
+ const id=explorerPinned||explorerHover,node=graph.nodes.find(n=>n.id===id);
  let active=null;
- if(id&&graph.nodes.some(n=>n.id===id)){
-  const node=graph.nodes.find(n=>n.id===id);
-  active=explorerReach(graph,id,node.type==="destination");
+ if(node){
+  // M/E nodes are inspection junctions: show upstream contributors and downstream consumers.
+  active=node.type==="processor"?new Set([...explorerReach(graph,id,true),...explorerReach(graph,id,false)]):explorerReach(graph,id,node.type==="destination");
  }
  svg.classList.toggle("is-filtered",!!active);
- svg.querySelectorAll("[data-signal-node]").forEach(el=>el.classList.toggle("is-active",!active||active.has(el.getAttribute("data-signal-node"))));
- svg.querySelectorAll("[data-signal-edge]").forEach(el=>{
-  const e=graph.edges.find(e=>e.id===el.getAttribute("data-signal-edge"));
-  el.classList.toggle("is-active",!active||!!(e&&active.has(e.from)&&active.has(e.to)));
- });
+ svg.querySelectorAll("[data-signal-node]").forEach(el=>el.classList.toggle("is-active",!active||active.has(el.dataset.signalNode)));
+ const activeEdges=new Set(graph.edges.filter(e=>!active||active.has(e.from)&&active.has(e.to)).map(e=>e.id));
+ svg.querySelectorAll("[data-signal-edge]").forEach(el=>el.classList.toggle("is-active",activeEdges.has(el.dataset.signalEdge)));
+ const clear=$("explorerClearButton");if(clear)clear.hidden=!explorerPinned;
  const details=$("explorerDetails");
- if(details){
-  const node=graph.nodes.find(n=>n.id===id);
-  details.innerHTML=node?'<h3>INSPECTING</h3><strong>'+explorerEscape(node.label)+'</strong><p>'+ (explorerPinned?"Pinned trace · click again to clear":"Hover trace · click to pin")+'</p><p>Reported routing only. Keyer assignments may be inactive.</p>':'<h3>LIVE OVERVIEW</h3><p>Hover a source or destination to trace its route. Click to pin; click again to clear.</p>';
- }
+ if(details)details.textContent=node?(node.label+" · "+(explorerPinned?"Pinned inspection":"Hover inspection")+" · solid: selected; dashed: assigned, not necessarily on air"):"Hover any source, M/E or destination to inspect the live signal path.";
 }
 function explorerBuildGraph(){
  const inputs=liveEngineering.inputs||[],mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
- const nodes=[],edges=[],byId=new Map();
+ const nodes=[],edges=[],byId=new Map(),edgeIds=new Set();
  const add=(id,label,type,group)=>{if(!byId.has(id)){const n={id,label,type,group};byId.set(id,n);nodes.push(n)}return id};
- const source=id=>{
-  const input=inputs.find(i=>Number(i.id)===Number(id));
-  return add("src:"+id,input?.name||("Source "+id),"source","INPUTS");
- };
+ const source=id=>{const input=inputs.find(i=>Number(i.id)===Number(id));return add("src:"+id,input?.name||("Source "+id),"source","INPUTS")};
  inputs.forEach(i=>source(i.id));
  const outputMe=id=>{
-  const input=inputs.find(i=>Number(i.id)===Number(id));
-  if(!input)return null;
+  const input=inputs.find(i=>Number(i.id)===Number(id));if(!input)return null;
   const m=[input.shortName,input.name].filter(Boolean).join(" ").match(/(?:M\/?E|ME)\s*(\d+)\s*(?:PGM|PROGRAM)/i);
   return m?mes.find(me=>Number(me.index)===Number(m[1])):null;
  };
- const connect=(from,to,kind="selected")=>{
-  const id=from+"->"+to;
-  if(!edges.some(e=>e.id===id))edges.push({id,from,to,kind});
- };
- const feed=(sourceId,destinationId,kind)=>{
-  if(sourceId===undefined||sourceId===null||!Number.isFinite(Number(sourceId)))return;
-  const me=outputMe(sourceId);
-  connect(me?"me:"+me.index:source(sourceId),destinationId,kind);
- };
+ const connect=(from,to,kind="selected")=>{const id=from+"->"+to;if(from===to||edgeIds.has(id))return;edgeIds.add(id);edges.push({id,from,to,kind})};
+ const feed=(id,to,kind)=>{if(id===undefined||id===null||!Number.isFinite(Number(id)))return;const me=outputMe(id);connect(me?"me:"+me.index:source(id),to,kind)};
+ // Physical source -> bus -> processing output. Never create a reverse edge to an earlier column.
  mes.forEach(me=>{
-  const id=add("me:"+me.index,"M/E "+me.index+" · Program","processor","M/E");
-  const pgm=add("pgm:"+me.index,"M/E "+me.index+" · PGM bus","destination","M/E");
-  const pvw=add("pvw:"+me.index,"M/E "+me.index+" · Preview","destination","M/E");
-  feed(me.pgmId,pgm,"program");
-  feed(me.pvwId,pvw,"preview");
-  connect(pgm,id,"program");
+  add("me:"+me.index,"M/E "+me.index+" · Program","processor","M/E OUTPUTS");
+  add("pgm:"+me.index,"M/E "+me.index+" · PGM","bus","M/E BUSES");
+  add("pvw:"+me.index,"M/E "+me.index+" · Preview","bus","M/E BUSES");
+  feed(me.pgmId,"pgm:"+me.index,"program");feed(me.pvwId,"pvw:"+me.index,"preview");
+  connect("pgm:"+me.index,"me:"+me.index,"program");
   (me.upstreamKeyers||[]).forEach(k=>{
-   const fill=add("uskfill:"+me.index+":"+k.index,"M/E "+me.index+" · USK "+k.index+" Fill","destination","KEYERS");
-   const key=add("uskkey:"+me.index+":"+k.index,"M/E "+me.index+" · USK "+k.index+" Key","destination","KEYERS");
+   const fill=add("uskfill:"+me.index+":"+k.index,"M/E "+me.index+" · USK "+k.index+" Fill","bus","KEYER ASSIGNMENTS");
+   const key=add("uskkey:"+me.index+":"+k.index,"M/E "+me.index+" · USK "+k.index+" Key","bus","KEYER ASSIGNMENTS");
    feed(k.fillId,fill,"assigned");feed(k.keyId,key,"assigned");
-   // Assignments do not imply on-air contribution.
+   // Reported assignment only; keyer state must be verified before claiming contribution.
   });
  });
  dsks.forEach(k=>{
@@ -475,43 +455,53 @@ function explorerBuildGraph(){
   const key=add("dskkey:"+k.index,"DSK "+k.index+" · Key","destination","DSK");
   feed(k.fillId,fill,"assigned");feed(k.keyId,key,"assigned");
  });
- routing.forEach((r,i)=>{
-  const id=add("aux:"+(r.busId??r.protocolBusId??r.rawIndex??i),r.name||("ATEM Routing "+(i+1)),"destination","AUX / ROUTING");
-  feed(r.sourceId,id,"routing");
- });
+ routing.forEach((r,i)=>{const id=add("aux:"+(r.busId??r.protocolBusId??r.rawIndex??i),r.name||("ATEM Routing "+(i+1)),"destination","AUX / ROUTING");feed(r.sourceId,id,"routing")});
  return {nodes,edges};
 }
-function explorerDraw(graph){
- const W=158,H=35,ROW=48,COLS=[22,262,504],top=44;
- const buckets=[[],[],[]];
- graph.nodes.forEach(n=>buckets[n.type==="source"?0:n.type==="processor"?1:2].push(n));
- // Keep stable positions across live source switching; positions depend only on device topology.
- const pos=new Map(),labels=[];
+function explorerLayout(graph){
+ const W=174,H=38,ROW=58,COLS=[32,350,690,1030],top=60;
+ const buckets=[[],[],[],[]],pos=new Map(),labels=[];
+ const column=n=>n.type==="source"?0:n.type==="bus"?1:n.type==="processor"?2:3;
+ graph.nodes.forEach(n=>buckets[column(n)].push(n));
+ // Stable topology order; dynamic edges never move nodes.
  buckets.forEach((bucket,col)=>{
   let y=top,last="";
   bucket.forEach(n=>{
-   if(n.group!==last){labels.push('<text class="overviewGroup" x="'+COLS[col]+'" y="'+(y+1)+'">'+explorerEscape(n.group)+'</text>');y+=23;last=n.group}
-   pos.set(n.id,{x:COLS[col],y});
-   y+=ROW;
+   if(n.group!==last){labels.push('<text class="overviewGroup" x="'+COLS[col]+'" y="'+(y+4)+'">'+explorerEscape(n.group)+'</text>');y+=32;last=n.group}
+   pos.set(n.id,{x:COLS[col],y});y+=ROW;
   });
  });
- const height=Math.max(240,...Array.from(pos.values()).map(p=>p.y+H+18)),width=COLS[2]+W+24;
- const nodes=graph.nodes.map(n=>{
-  const p=pos.get(n.id);
-  return '<g class="overviewNode" data-signal-node="'+explorerEscape(n.id)+'" onmouseenter="explorerInspect(\''+explorerEscape(n.id)+'\')" onmouseleave="explorerInspect(null)" onclick="explorerInspect(\''+explorerEscape(n.id)+'\',true)"><rect x="'+p.x+'" y="'+p.y+'" width="'+W+'" height="'+H+'" rx="4"/><text x="'+(p.x+9)+'" y="'+(p.y+22)+'">'+explorerEscape(n.label)+'</text><title>'+explorerEscape(n.label)+'</title></g>';
- }).join("");
- const paths=graph.edges.map(e=>{
+ const height=Math.max(340,...[...pos.values()].map(p=>p.y+H+60)),width=COLS[3]+W+60;
+ return {pos,labels,height,width,W,H};
+}
+function explorerDraw(graph){
+ const layout=explorerLayout(graph),{pos,labels,height,width,W,H}=layout;
+ const edges=graph.edges.slice().sort((a,b)=>a.id.localeCompare(b.id)),lanes=new Map(),ports=new Map();
+ const reserve=(key)=>{const n=ports.get(key)||0;ports.set(key,n+1);return n};
+ const paths=edges.map((e,i)=>{
   const a=pos.get(e.from),b=pos.get(e.to);if(!a||!b)return "";
-  const x1=a.x+W,y1=a.y+H/2,x2=b.x,y2=b.y+H/2;
-  const mid=x1+(x2-x1)/2;
-  const d=x2>x1?'M'+x1+' '+y1+' H'+mid+' V'+y2+' H'+x2:'M'+x1+' '+y1+' H'+(x1+18)+' V'+(y2-10)+' H'+(x2-18)+' V'+y2+' H'+x2;
+  const out=reserve("o:"+e.from),incoming=reserve("i:"+e.to);
+  const outgoing=edges.filter(x=>x.from===e.from).length,arriving=edges.filter(x=>x.to===e.to).length;
+  const y1=a.y+H*(out+1)/(outgoing+1),y2=b.y+H*(incoming+1)/(arriving+1);
+  const x1=a.x+W,x2=b.x;
+  // A lane per connection: 2px visible clearance for 1.5px strokes.
+  const gap=4;
+  const laneKey=a.x+"|"+b.x,used=lanes.get(laneKey)||0;lanes.set(laneKey,used+1);
+  const lane=x1+32+used*gap;
+  // A source may feed an earlier visual column (nested M/E). Use a dedicated exterior lane
+  // rather than drawing a rectangular loop around the source or through a node.
+  const xMid=x2>x1?Math.min(x2-24,lane):Math.max(width-26,x1+32+used*gap);
+  const d=x2>x1?'M'+x1+' '+y1+' H'+xMid+' V'+y2+' H'+x2:'M'+x1+' '+y1+' H'+xMid+' V'+y2+' H'+(x2-18)+' V'+y2+' H'+x2;
   return '<path class="overviewEdge '+explorerEscape(e.kind)+'" data-signal-edge="'+explorerEscape(e.id)+'" d="'+d+'"/>';
  }).join("");
- return '<svg class="signalOverview" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+width+' '+height+'" width="'+width+'" height="'+height+'" role="img" aria-label="Live read-only ATEM signal overview">'+paths+labels.join("")+nodes+'</svg>';
+ const nodes=graph.nodes.map(n=>{
+  const p=pos.get(n.id);
+  return '<g class="overviewNode" data-signal-node="'+explorerEscape(n.id)+'" onmouseenter="explorerInspect(\''+explorerEscape(n.id)+'\')" onmouseleave="explorerInspect(null)" onclick="explorerInspect(\''+explorerEscape(n.id)+'\',true)"><rect x="'+p.x+'" y="'+p.y+'" width="'+W+'" height="'+H+'" rx="4"/><text x="'+(p.x+9)+'" y="'+(p.y+24)+'">'+explorerEscape(n.label)+'</text><title>'+explorerEscape(n.label)+'</title></g>';
+ }).join("");
+ return '<svg class="signalOverview" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+width+' '+height+'" width="'+width+'" height="'+height+'" data-width="'+width+'" data-height="'+height+'" role="img" aria-label="Live ATEM signal overview">'+paths+labels.join("")+nodes+'</svg>';
 }
 function renderPaths(){
- const graph=explorerBuildGraph(),canvas=$("explorerCanvas"),list=$("explorerList");
- if(!canvas)return;
+ const graph=explorerBuildGraph(),canvas=$("explorerCanvas");if(!canvas)return;
  const topology=graph.nodes.map(n=>n.id+"|"+n.label+"|"+n.group).join(";"),routing=graph.edges.map(e=>e.id+"|"+e.kind).sort().join(";");
  const changed=topology!==explorerTopology||!canvas.querySelector(".signalOverview");
  explorerGraph=graph;
@@ -520,28 +510,20 @@ function renderPaths(){
   canvas.innerHTML='<div class="explorerDiagramScroll">'+explorerDraw(graph)+'</div>';
   canvas.firstElementChild.scrollLeft=x;canvas.firstElementChild.scrollTop=y;
   explorerTopology=topology;explorerRouteState=routing;
+  explorerZoom(0);
  }else if(routing!==explorerRouteState){
-  // Keep SVG nodes mounted; only update the edges that actually changed.
-  const svg=canvas.querySelector(".signalOverview"),old=new Map([...svg.querySelectorAll("[data-signal-edge]")].map(el=>[el.getAttribute("data-signal-edge"),el]));
-  const replacement=document.createElement("div");replacement.innerHTML=explorerDraw(graph);
-  const fresh=replacement.querySelector(".signalOverview");
-  for(const el of fresh.querySelectorAll("[data-signal-edge]")){
-   const id=el.getAttribute("data-signal-edge");
+  const svg=canvas.querySelector(".signalOverview"),old=new Map([...svg.querySelectorAll("[data-signal-edge]")].map(el=>[el.dataset.signalEdge,el]));
+  const holder=document.createElement("div");holder.innerHTML=explorerDraw(graph);
+  for(const el of holder.querySelectorAll("[data-signal-edge]")){
+   const id=el.dataset.signalEdge;
    if(!old.has(id)){el.classList.add("is-new");svg.insertBefore(el,svg.firstChild)}
-   else old.delete(id);
+   else {const existing=old.get(id);existing.setAttribute("d",el.getAttribute("d"));existing.setAttribute("class",el.getAttribute("class"));old.delete(id)}
   }
   old.forEach(el=>{el.classList.add("is-exiting");setTimeout(()=>el.remove(),180)});
   explorerRouteState=routing;
  }
  const q=($("signalSearch")?.value||"").trim().toLowerCase();
- const items=graph.nodes.filter(n=>(n.type==="source"||n.type==="destination")&&(!q||n.label.toLowerCase().includes(q)));
- const listState=items.map(n=>n.id+"|"+n.label).join(";");
- if(list&&list.dataset.state!==listState){
-  list.innerHTML=items.map(n=>'<button type="button" class="explorerItem" onmouseenter="explorerInspect(\''+explorerEscape(n.id)+'\')" onmouseleave="explorerInspect(null)" onclick="explorerInspect(\''+explorerEscape(n.id)+'\',true)">'+explorerEscape(n.label)+'</button>').join("")||'<p class="explorerEmpty">No matching sources or destinations.</p>';
-  list.dataset.state=listState;
- }
- const modes=$("explorerModes");if(modes)modes.innerHTML='<span class="overviewLiveLabel">● LIVE OVERVIEW · READ ONLY</span><button type="button" class="tinyAction" onclick="explorerClear()">CLEAR TRACE</button>';
- const title=$("explorerTitle");if(title)title.textContent="ATEM signal overview · hover to trace either direction";
+ if(q){const match=graph.nodes.find(n=>n.label.toLowerCase().includes(q));if(match)explorerHover=match.id;else explorerHover=null}
  explorerHighlight();
 }
 function transitionPercent(position){const n=Number(position);if(!Number.isFinite(n))return null;return Math.max(0,Math.min(100,Math.round(n>100?n/100:n)))}
