@@ -1,6 +1,6 @@
 name: ShowDesk CI
 # Development pushes validate the current source. Only explicit RELEASE Build### commits publish.
-# Build077: package v0.1.77 for the native updater release.
+# Build078: package v0.1.78 for the native updater release.
 permissions:
   contents: write
 concurrency:
