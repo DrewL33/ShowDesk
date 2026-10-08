@@ -368,3 +368,13 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .explorerDiagram .explorerGroupLabel{fill:#9fb1bb;font-size:10px;font-weight:700;letter-spacing:.08em}
 .explorerDiagram .explorerNodeName{font-size:10.5px}
 .explorerDiagram .explorerNodeMeta{font-size:7px}
+
+/* Build069 — route inspection without obscuring the node labels */
+.explorerRoute .explorerWire{fill:none;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
+.explorerRoute .explorerWireHit{fill:none;stroke:transparent;stroke-width:13;pointer-events:stroke}
+.explorerRoute{cursor:crosshair}
+.explorerWires:has(.explorerRoute:hover) .explorerRoute:not(:hover){opacity:.14}
+.explorerRoute:hover .explorerWire{stroke-width:3;filter:drop-shadow(0 0 3px currentColor)}
+.explorerRoute:hover .explorerPort{r:4}
+.explorerDiagram .explorerNode{pointer-events:none}
+.explorerDiagram .explorerGroupLabel{pointer-events:none}
