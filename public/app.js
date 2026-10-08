@@ -427,8 +427,11 @@ function explorerDiagram(root){
   }
   positions.forEach((p,i)=>{
    const portY=p.y+nodeH/2,srcY=originY;
-   const elbow=left+nodeW+18+(i%4)*9;
-   wires+='<path class="explorerWire" d="M'+(left+nodeW)+' '+srcY+' H'+elbow+' V'+portY+' H'+right+'"/>';
+   const elbow=left+nodeW+18+i*8;
+   const sourcePortY=originTop+nodeH*(i+1)/(positions.length+1);
+   const color=["#52bba8","#70a9d0","#d0a26c","#ad9bd4"][i%4];
+   wires+='<path class="explorerWire" stroke="'+color+'" d="M'+(left+nodeW)+' '+sourcePortY+' H'+elbow+' V'+portY+' H'+right+'"><title>'+esc(root.label+' → '+p.node.label)+'</title></path>';
+   nodesHtml+='<circle class="explorerPort" cx="'+(left+nodeW)+'" cy="'+sourcePortY+'" r="3" fill="'+color+'"/>';
    nodesHtml+=rect(p.node,right,p.y,false);
   });
  }else{
