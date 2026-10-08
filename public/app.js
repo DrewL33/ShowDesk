@@ -625,7 +625,28 @@ function renderPaths(){
  explorerHighlight();
 }
 function transitionPercent(position){const n=Number(position);if(!Number.isFinite(n))return null;return Math.max(0,Math.min(100,Math.round(n>100?n/100:n)))}
-function renderTransitionStatus(){const active=(liveEngineering.mixEffects||[]).filter(me=>me.transition?.inTransition);let el=$("transitionStatus");if(!el){el=document.createElement("div");el.id="transitionStatus";el.className="transitionStatus";document.body.appendChild(el)}if(!active.length){el.hidden=true;el.innerHTML="";return}el.hidden=false;el.innerHTML=active.map(me=>{const p=transitionPercent(me.transition?.position);return `<span>M/E ${me.index} TRANSITION</span><b>${p===null?"IN PROGRESS":p+"%"}</b><i><em style="width:${p===null?0:p}%"></em></i>`}).join("")}
+const transitionDisplays=new Map();
+function renderTransitionStatus(){
+ const active=(liveEngineering.mixEffects||[]).filter(me=>me.transition?.inTransition);
+ let el=$("transitionStatus");
+ if(!el){el=document.createElement("div");el.id="transitionStatus";el.className="transitionStatus";document.body.appendChild(el)}
+ if(!active.length){el.hidden=true;el.replaceChildren();transitionDisplays.clear();return}
+ el.hidden=false;
+ const ids=new Set(active.map(me=>String(me.index)));
+ for(const [id,entry] of transitionDisplays)if(!ids.has(id)){entry.element.remove();transitionDisplays.delete(id)}
+ for(const me of active){
+  const id=String(me.index),p=transitionPercent(me.transition?.position);
+  let entry=transitionDisplays.get(id);
+  if(!entry){
+   const item=document.createElement("div");item.className="transitionStatusItem";
+   const label=document.createElement("span"),number=document.createElement("b"),track=document.createElement("i"),fill=document.createElement("em");
+   label.textContent="M/E "+id+" TRANSITION";track.appendChild(fill);item.append(label,number,track);el.appendChild(item);
+   entry={element:item,number,fill};transitionDisplays.set(id,entry);
+  }
+  entry.number.textContent=p===null?"IN PROGRESS":p+"%";
+  entry.fill.style.width=(p===null?0:p)+"%";
+ }
+}
 function render(){
  const activeMe=selectedME(),displayPgm=activeMe?.pgm||pgm,displayPvw=activeMe?.pvw||pvw;
  if($("pgm"))$("pgm").textContent=displayPgm;if($("pvw"))$("pvw").textContent=displayPvw;
