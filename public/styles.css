@@ -419,3 +419,7 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .signalOverview .overviewEdgeHalo{fill:none;stroke:#0d1921;stroke-width:3.7;opacity:.85;pointer-events:none}
 .signalOverview.is-filtered .overviewEdgeHalo:not(.is-active){opacity:.06}
 .signalOverview.is-filtered .overviewEdgeHalo.is-active{opacity:1;stroke-width:5}
+
+/* Build080: lane separation is primary; keep crossings subtle. */
+.signalOverview .overviewEdgeHalo{stroke-width:2.8;opacity:.6}
+.signalOverview.is-filtered .overviewEdgeHalo.is-active{stroke-width:4;opacity:.85}
