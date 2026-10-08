@@ -498,7 +498,7 @@ function explorerLayout(graph){
 function explorerRoute(start,end,columns,lanes,bounds){
  // Build078: all vertical movement occurs between node banks. Long horizontal
  // traversals use the open 18px gutters between rows, never node interiors.
- const W=184,ROW=54,TOP=62,H=36;
+ const W=184,ROW=78,TOP=72,H=36;
  const from=columns.findIndex(x=>Math.abs(start.x-(x+W))<1);
  const to=columns.findIndex(x=>Math.abs(end.x-x)<1);
  const gapX=i=>columns[i]+W+(columns[i+1]-columns[i]-W)/2;
@@ -511,13 +511,14 @@ function explorerRoute(start,end,columns,lanes,bounds){
   const center=(start.y+end.y)/2;
   const row=Math.max(0,Math.min(14,Math.round((center-(TOP-9))/ROW)));
   const gutter=TOP-9+row*ROW;
-  const offset=((serial%3)-1)*2;
-  const y=gutter+offset;
+  const offset=((serial%5)-2)*3;
+  const nodeBottom=bounds.nodeBottom;
+  const y=(to-from>=4)?nodeBottom+24+serial*5:gutter+offset;
   return clean([start,{x:first,y:start.y},{x:first,y},{x:last,y},{x:last,y:end.y},end]);
  }
  // Reverse edges cannot cross intervening nodes: use the clear bottom perimeter.
  const serial=lanes.get("return")||0;lanes.set("return",serial+1);
- const y=bounds.height-30-serial*3;
+ const y=bounds.nodeBottom+24+serial*5;
  return clean([start,{x:start.x+12,y:start.y},{x:start.x+12,y},{x:end.x-12,y},{x:end.x-12,y:end.y},end]);
 }
 function explorerDraw(graph){
@@ -532,7 +533,7 @@ function explorerDraw(graph){
   const out=reserve("o:"+e.from),incoming=reserve("i:"+e.to);
   const y1=a.y+H*(out+1)/((outCount.get(e.from)||0)+1),y2=b.y+H*(incoming+1)/((inCount.get(e.to)||0)+1);
   const start={x:a.x+W,y:y1},end={x:b.x,y:y2};
-  const pts=explorerRoute(start,end,columns,lanes,{width,height});
+  const pts=explorerRoute(start,end,columns,lanes,{width,height,nodeBottom:Math.max(...[...pos.values()].map(p=>p.y+H))});
   const d="M"+pts.map(p=>p.x+" "+p.y).join(" L");
   return '<path class="overviewEdge '+explorerEscape(e.kind)+'" data-signal-edge="'+explorerEscape(e.id)+'" d="'+d+'"/>';
  }).join("");
