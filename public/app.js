@@ -580,20 +580,23 @@ function explorerDraw(graph){
  const reserve=key=>{const n=ports.get(key)||0;ports.set(key,n+1);return n};
  const outCount=new Map(),inCount=new Map();
  edges.forEach(e=>{outCount.set(e.from,(outCount.get(e.from)||0)+1);inCount.set(e.to,(inCount.get(e.to)||0)+1)});
- let routedBottom=0;\n const paths=edges.map(e=>{
+ let routedBottom=0;
+ const paths=edges.map(e=>{
   const a=pos.get(e.from),b=pos.get(e.to);if(!a||!b)return "";
   const out=reserve("o:"+e.from),incoming=reserve("i:"+e.to);
   const y1=a.y+H*(out+1)/((outCount.get(e.from)||0)+1),y2=b.y+H*(incoming+1)/((inCount.get(e.to)||0)+1);
   const start={x:a.x+W,y:y1},end={x:b.x,y:y2};
   const pts=explorerRoute(start,end,columns,lanes,{width,height,nodeBottom:Math.max(...[...pos.values()].map(p=>p.y+H))});
-  routedBottom=Math.max(routedBottom,...pts.map(p=>p.y));\n  const d="M"+pts.map(p=>p.x+" "+p.y).join(" L");
+  routedBottom=Math.max(routedBottom,...pts.map(p=>p.y));
+  const d="M"+pts.map(p=>p.x+" "+p.y).join(" L");
   return '<path class="overviewEdgeHalo" data-signal-halo="'+explorerEscape(e.id)+'" d="'+d+'"/><path class="overviewEdge '+explorerEscape(e.kind)+'" data-signal-edge="'+explorerEscape(e.id)+'" d="'+d+'"/>';
  }).join("");
  const nodes=graph.nodes.map(n=>{
   const p=pos.get(n.id);
   return '<g class="overviewNode" data-signal-node="'+explorerEscape(n.id)+'" onmouseenter="explorerInspect(\''+explorerEscape(n.id)+'\')" onmouseleave="explorerInspect(null)" onclick="explorerInspect(\''+explorerEscape(n.id)+'\',true)"><rect x="'+p.x+'" y="'+p.y+'" width="'+W+'" height="'+H+'" rx="4"/><text x="'+(p.x+9)+'" y="'+(p.y+24)+'">'+explorerEscape(n.label)+'</text><title>'+explorerEscape(n.label)+'</title></g>';
  }).join("");
- const fittedHeight=Math.min(height,Math.max(routedBottom+40,Math.max(...[...pos.values()].map(p=>p.y+H))+30));\n return '<svg class="signalOverview" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+width+' '+fittedHeight+'" width="'+width+'" height="'+fittedHeight+'" data-width="'+width+'" data-height="'+fittedHeight+'" role="img" aria-label="Live ATEM signal overview">'+paths+labels.join("")+nodes+'</svg>';
+ const fittedHeight=Math.min(height,Math.max(routedBottom+40,Math.max(...[...pos.values()].map(p=>p.y+H))+30));
+ return '<svg class="signalOverview" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+width+' '+fittedHeight+'" width="'+width+'" height="'+fittedHeight+'" data-width="'+width+'" data-height="'+fittedHeight+'" role="img" aria-label="Live ATEM signal overview">'+paths+labels.join("")+nodes+'</svg>';
 }
 function renderPaths(){
  const graph=explorerBuildGraph(),canvas=$("explorerCanvas");if(!canvas)return;
@@ -603,7 +606,8 @@ function renderPaths(){
  if(changed){
   const scroller=canvas.querySelector(".explorerDiagramScroll"),x=scroller?.scrollLeft||0,y=scroller?.scrollTop||0;
   canvas.innerHTML='<div class="explorerDiagramScroll">'+explorerDraw(graph)+'</div>';
-  canvas.firstElementChild.scrollLeft=x;canvas.firstElementChild.scrollTop=y;\n  canvas.firstElementChild.addEventListener('wheel',explorerWheel,{passive:false});
+  canvas.firstElementChild.scrollLeft=x;canvas.firstElementChild.scrollTop=y;
+  canvas.firstElementChild.addEventListener('wheel',explorerWheel,{passive:false});
   explorerTopology=topology;explorerRouteState=routing;
   explorerScale=1;
   explorerZoom(0);
