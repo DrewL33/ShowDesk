@@ -335,3 +335,24 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 /* Build066: align all routing-matrix cells with grid tracks and keep every SOURCE cell pinned. */
 .eng .matrixViewport .mc:not(.matrixSource){min-width:0!important;max-width:none!important;box-sizing:border-box!important}
 .eng .matrixViewport .mc.matrixSource{width:125px!important;min-width:125px!important;max-width:125px!important;box-sizing:border-box!important}
+
+/* Build067 — compact branching schematic, independent selector and canvas scrolling */
+.explorerLayout{grid-template-columns:minmax(180px,250px) minmax(0,1fr)!important;height:min(660px,calc(100vh - 255px));min-height:400px!important}
+.explorerListPanel{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+#explorerList{overflow-y:auto;min-height:0;flex:1;scrollbar-width:thin}
+.explorerMain{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}
+#explorerCanvas{min-height:0;flex:1;overflow:hidden;display:flex;flex-direction:column}
+.explorerDiagramScroll{min-height:0;flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:flex-start;scrollbar-width:thin;padding:12px}
+.explorerDiagram{display:block;flex:none;max-width:none}
+.explorerWires{fill:none;stroke:#72858f;stroke-width:1.5;stroke-linecap:square;stroke-linejoin:miter}
+.explorerNode rect{fill:#1a2730;stroke:#4a5b66;stroke-width:1}
+.explorerNode.source rect{stroke:#b8474c;stroke-width:2}
+.explorerNode.program rect{stroke:#a34749}
+.explorerNode.preview rect,.explorerNode.route rect{stroke:#4d82a4}
+.explorerNodeName{fill:#e5ebee;font-size:11px;font-weight:650}
+.explorerNodeMeta{fill:#9caeb8;font-size:7.5px;letter-spacing:.35px}
+.explorerDetails{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:9px 14px!important;min-height:0}
+.explorerDetails h3{margin:0!important}
+.explorerDetails p{margin:0}
+.explorerDetails strong{font-size:11px}
+@media(max-width:650px){.explorerLayout{grid-template-columns:minmax(135px,36%) minmax(0,1fr)!important;height:calc(100vh - 290px)}.explorerListPanel,.explorerMain{padding:8px!important}.explorerDetails{flex-wrap:wrap}}

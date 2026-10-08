@@ -32,6 +32,9 @@ assert.match(styles,/\.explorerLayout\{display:grid/,'Signal Explorer must retai
 assert.ok(!styles.includes('.signalTree'),'Retired signal tree styling must not return');
 assert.match(app,/function setExplorerMode\(/,'Signal Explorer must support two trace directions');
 assert.match(app,/function renderPaths\(/,'Signal Explorer must render from live routing state');
+assert.match(app,/function explorerDiagram\(/,'Signal Explorer must draw connected SVG branches');
+assert.match(styles,/\.explorerDiagramScroll\{min-height:0;flex:1;overflow:auto/,'Signal diagram must scroll independently');
+assert.match(styles,/#explorerList\{overflow-y:auto/,'Source list must scroll independently');
 assert.match(app,/class="mc matrixSource"/,'Routing Matrix must mark every source row for sticky scrolling');
 assert.match(styles,/\.engSummary\{grid-template-columns:minmax\(0,1\.15fr\)/,'Inspect consolidated layout');
 assert.match(server,/function broadcastViewerCount\(\)[\s\S]*?viewerClients\.size/,'Host service must derive Viewer count from active Viewer sockets');
@@ -90,7 +93,7 @@ assert.match(styles,/\.eng \.matrixViewport\{height:300px!important/,'Routing Ma
 assert.match(styles,/\.settingsModal\{position:fixed!important;inset:0!important/,'Settings must remain a fixed modal overlay');
 assert.match(styles,/\.settingsCard\{width:min\(520px/,'Settings must remain compact rather than full-screen');
 assert.ok(!html.includes('Build057 • 0.1.57'),'Settings About must not expose stale Build057');
-assert.match(html,/id="settingsBuild">Build066 • 0\.1\.66/,'Settings About must ship with the current Build066 fallback');
+assert.match(html,/id="settingsBuild">Build067 • 0\.1\.67/,'Settings About must ship with the current Build067 fallback');
 
 assert.match(app,/let committedMeState=new Map\(\)/,'Transition display must keep a committed M/E state');
 assert.match(app,/transitioning&&committed\?\{\.\.\.me,pgm:committed\.pgm,pvw:committed\.pvw\}/,'Intermediate transitions must retain committed PGM/PVW');

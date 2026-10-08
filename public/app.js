@@ -394,37 +394,95 @@ let explorerMode="source",explorerSelectedSource=null,explorerSelectedDestinatio
 const explorerEscape=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function setExplorerMode(mode){explorerMode=mode==="destination"?"destination":"source";renderPaths()}
 function selectExplorerItem(type,id){if(type==="source")explorerSelectedSource=Number(id);else explorerSelectedDestination=String(id);renderPaths()}
+function explorerDiagram(root){
+ const nodeW=172,nodeH=48,stepX=194,stepY=110,margin=22,positions=[],edges=[];
+ let nextLeaf=0;
+ function measure(node,depth){
+  const children=node.children||[];
+  const childXs=children.map(child=>measure(child,depth+1));
+  const x=childXs.length?(childXs[0]+childXs[childXs.length-1])/2:nextLeaf++*stepX+margin+nodeW/2;
+  const y=margin+depth*stepY;
+  positions.push({node,x,y});
+  children.forEach((child,i)=>edges.push({fromX:x,fromY:y+nodeH,toX:childXs[i],toY:y+stepY}));
+  return x;
+ }
+ measure(root,0);
+ const width=Math.max(390,nextLeaf*stepX+margin*2),height=Math.max(190,Math.max(...positions.map(p=>p.y))+nodeH+margin);
+ const paths=edges.map(e=>{const mid=(e.fromY+e.toY)/2;return '<path d="M'+e.fromX+' '+e.fromY+' V'+mid+' H'+e.toX+' V'+e.toY+'"/>'}).join("");
+ const nodes=positions.map(p=>{
+  const x=p.x-nodeW/2,kind=p.node.kind||"source";
+  const label=explorerEscape(p.node.label),meta=explorerEscape(p.node.meta||"");
+  return '<g class="explorerNode '+explorerEscape(kind)+'"><rect x="'+x+'" y="'+p.y+'" width="'+nodeW+'" height="'+nodeH+'" rx="2"/><text class="explorerNodeMeta" x="'+(x+11)+'" y="'+(p.y+16)+'">'+meta+'</text><text class="explorerNodeName" x="'+(x+11)+'" y="'+(p.y+34)+'">'+label+'</text><title>'+label+'</title></g>';
+ }).join("");
+ return '<svg class="explorerDiagram" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Live ATEM signal branches from origin to destination" viewBox="0 0 '+width+' '+height+'" width="'+width+'" height="'+height+'"><g class="explorerWires">'+paths+'</g>'+nodes+'</svg>';
+}
 function renderPaths(){
  const inputs=liveEngineering.inputs||[],mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
-  const sourceName=id=>inputs.find(i=>Number(i.id)===Number(id))?.name||("Source "+id);
+ const sourceName=id=>inputs.find(i=>Number(i.id)===Number(id))?.name||("Source "+id);
  const destinations=[
-  ...mes.flatMap(me=>[{id:"pgm:"+me.index,label:"M/E "+me.index+" · Program",sourceId:me.pgmId,kind:"program",ftb:me.ftb},{id:"pvw:"+me.index,label:"M/E "+me.index+" · Preview",sourceId:me.pvwId,kind:"preview"},...(me.upstreamKeyers||[]).flatMap(k=>[{id:"uskfill:"+me.index+":"+k.index,label:"M/E "+me.index+" · USK "+k.index+" · Fill",sourceId:k.fillId,kind:"keyer"},{id:"uskkey:"+me.index+":"+k.index,label:"M/E "+me.index+" · USK "+k.index+" · Key",sourceId:k.keyId,kind:"keyer"}])]),
+  ...mes.flatMap(me=>[{id:"pgm:"+me.index,label:"M/E "+me.index+" · Program",sourceId:me.pgmId,kind:"program"},{id:"pvw:"+me.index,label:"M/E "+me.index+" · Preview",sourceId:me.pvwId,kind:"preview"},...(me.upstreamKeyers||[]).flatMap(k=>[{id:"uskfill:"+me.index+":"+k.index,label:"M/E "+me.index+" · USK "+k.index+" · Fill",sourceId:k.fillId,kind:"keyer"},{id:"uskkey:"+me.index+":"+k.index,label:"M/E "+me.index+" · USK "+k.index+" · Key",sourceId:k.keyId,kind:"keyer"}])]),
   ...dsks.flatMap(k=>[{id:"dskfill:"+k.index,label:"DSK "+k.index+" · Fill",sourceId:k.fillId,kind:"keyer"},{id:"dskkey:"+k.index,label:"DSK "+k.index+" · Key",sourceId:k.keyId,kind:"keyer"}]),
   ...routing.map((r,i)=>({id:"aux:"+(r.busId??r.protocolBusId??r.rawIndex??i),label:r.name||("ATEM Routing "+(i+1)),sourceId:r.sourceId,kind:"route"}))
  ].filter(d=>d.sourceId!==undefined&&d.sourceId!==null&&Number.isFinite(Number(d.sourceId)));
- const query=($("signalSearch")?.value||"").trim().toLowerCase();
- const isSource=explorerMode==="source";
+ const categoryOrder={program:0,preview:1,route:2,keyer:3};
+ const sortDest=(a,b)=>(categoryOrder[a.kind]??4)-(categoryOrder[b.kind]??4)||a.label.localeCompare(b.label);
+ // Only expand M/E program outputs when their input identity can be verified from ATEM's source metadata.
+ function programOutputMe(id){
+  const input=inputs.find(i=>Number(i.id)===Number(id));if(!input)return null;
+  const names=[input.shortName,input.name].filter(Boolean).join(" ");
+  const match=names.match(/(?:M\/?E|ME)\s*(\d+)\s*(?:PGM|PROGRAM)/i);
+  if(!match)return null;
+  return mes.find(me=>Number(me.index)===Number(match[1]))||null;
+ }
+ const asDestination=d=>({label:d.label,kind:d.kind,meta:d.kind==="keyer"?"ASSIGNED · NOT NECESSARILY ON AIR":d.kind==="route"?"ROUTING":d.kind.toUpperCase(),children:[]});
+ function downstream(id,visited=new Set(),depth=0){
+  if(depth>5||visited.has(Number(id)))return [];
+  const seen=new Set(visited);seen.add(Number(id));
+  return destinations.filter(d=>Number(d.sourceId)===Number(id)).sort(sortDest).map(d=>{
+   const node=asDestination(d);
+   if(d.kind==="program"){
+    const meIndex=Number(d.id.split(":")[1]);
+    const output=inputs.find(i=>programOutputMe(i.id)?.index===meIndex&&Number(i.id)!==Number(id));
+    if(output)node.children=downstream(output.id,seen,depth+1);
+   }
+   return node;
+  });
+ }
+ function upstream(id,visited=new Set(),depth=0){
+  const name=sourceName(id),me=programOutputMe(id);
+  if(!me||depth>5||visited.has(Number(id))||me.pgmId===undefined||me.pgmId===null){
+   return {label:name,kind:"source",meta:"SOURCE · "+id,children:[]};
+  }
+  const next=new Set(visited);next.add(Number(id));
+  const root=upstream(me.pgmId,next,depth+1);
+  root.children=[{label:"M/E "+me.index+" · Program",kind:"program",meta:"PROCESSING",children:[]}];
+  return root;
+ }
+ const query=($("signalSearch")?.value||"").trim().toLowerCase(),isSource=explorerMode==="source";
  const items=isSource?inputs.map(i=>({id:Number(i.id),label:i.name||("Source "+i.id),count:destinations.filter(d=>Number(d.sourceId)===Number(i.id)).length})):destinations.map(d=>({id:d.id,label:d.label,count:1}));
  const visible=items.filter(i=>!query||i.label.toLowerCase().includes(query)||String(i.id).includes(query));
  const selectedId=isSource?explorerSelectedSource:explorerSelectedDestination;
  const selected=visible.find(i=>String(i.id)===String(selectedId))||visible[0]||null;
  if(selected){if(isSource)explorerSelectedSource=selected.id;else explorerSelectedDestination=selected.id;}
  const modes=$("explorerModes");if(modes)modes.innerHTML='<button type="button" class="'+(isSource?"active":"")+'" onclick="setExplorerMode(\'source\')">Trace from Source</button><button type="button" class="'+(!isSource?"active":"")+'" onclick="setExplorerMode(\'destination\')">Trace to Destination</button>';
- const list=$("explorerList");if(list)list.innerHTML=visible.map(i=>'<button type="button" class="explorerItem '+(selected&&String(selected.id)===String(i.id)?"selected":"")+'" onclick="selectExplorerItem(\''+(isSource?"source":"destination")+'\',\''+explorerEscape(i.id)+'\')"><span>'+explorerEscape(i.label)+'</span><small>'+(isSource?i.count+" route"+(i.count===1?"":"s"):"")+'</small></button>').join("")||'<p class="explorerEmpty">No matching items.</p>';
+ const list=$("explorerList");if(list)list.innerHTML=visible.map(i=>'<button type="button" class="explorerItem '+(selected&&String(selected.id)===String(i.id)?"selected":"")+'" onclick="selectExplorerItem(\''+(isSource?"source":"destination")+'\',\''+explorerEscape(i.id)+'\')"><span>'+explorerEscape(i.label)+'</span><small>'+(isSource&&i.count?i.count:"")+'</small></button>').join("")||'<p class="explorerEmpty">No matching items.</p>';
  const title=$("explorerTitle"),canvas=$("explorerCanvas"),details=$("explorerDetails");
- if(!selected){if(title)title.textContent=query?"No matching routes":"No routing available";if(canvas)canvas.innerHTML='<p class="explorerEmpty">'+(query?'No matching sources or destinations.':'Awaiting live ATEM state.')+'</p>';if(details)details.innerHTML="";return;}
+ if(!selected){if(title)title.textContent="No matching routes";if(canvas)canvas.innerHTML='<p class="explorerEmpty">No matching sources or destinations.</p>';if(details)details.innerHTML="";return;}
+ let root,summary;
  if(isSource){
-  const source=inputs.find(i=>Number(i.id)===Number(selected.id));
-  const uses=destinations.filter(d=>Number(d.sourceId)===Number(selected.id));
-  if(title)title.textContent=(source?.name||selected.label)+" · Active Assignments";
-  if(canvas)canvas.innerHTML='<div class="explorerSourceCard"><small>SOURCE · ATEM '+explorerEscape(source?.id)+'</small><strong>'+explorerEscape(selected.label)+'</strong></div><div class="explorerRouteGrid">'+(uses.map(d=>'<div class="explorerRouteCard '+explorerEscape(d.kind)+'"><small>'+explorerEscape(d.kind==="route"?"ATEM ROUTING":d.kind==="keyer"?"ASSIGNMENT / PROCESSING":d.kind.toUpperCase())+'</small><strong>'+explorerEscape(d.label)+'</strong>'+(d.ftb&&(d.ftb.inTransition||d.ftb.isFullyBlack)?'<em>FTB</em>':"")+'</div>').join("")||'<p class="explorerEmpty">No active assignments reported for this source.</p>')+'</div>';
-  if(details)details.innerHTML='<h3>Source Details</h3><strong>'+explorerEscape(selected.label)+'</strong><p>Source ID '+explorerEscape(selected.id)+'</p><h3>Assignments</h3><strong>'+uses.length+' active</strong><p>Program '+uses.filter(x=>x.kind==="program").length+' · Preview '+uses.filter(x=>x.kind==="preview").length+' · Routing '+uses.filter(x=>x.kind==="route").length+' · Keyers '+uses.filter(x=>x.kind==="keyer").length+'</p>';
+  root={label:selected.label,kind:"source",meta:"SOURCE · "+selected.id,children:downstream(selected.id)};
+  summary=root.children.length+" direct assignment"+(root.children.length===1?"":"s");
+  if(title)title.textContent=selected.label+" · Signal branches";
  }else{
-  const dest=destinations.find(d=>d.id===selected.id),name=sourceName(dest.sourceId);
-  if(title)title.textContent=dest.label+" · Current Input";
-  if(canvas)canvas.innerHTML='<div class="explorerFlow"><div class="explorerSourceCard"><small>SOURCE</small><strong>'+explorerEscape(name)+'</strong><small>Source ID '+explorerEscape(dest.sourceId)+'</small></div><span aria-hidden="true" class="explorerArrow">→</span><div class="explorerRouteCard '+explorerEscape(dest.kind)+'"><small>DESTINATION</small><strong>'+explorerEscape(dest.label)+'</strong></div></div>';
-  if(details)details.innerHTML='<h3>Destination Details</h3><strong>'+explorerEscape(dest.label)+'</strong><h3>Current Input</h3><strong>'+explorerEscape(name)+'</strong><p>Source ID '+explorerEscape(dest.sourceId)+'</p>';
+  const dest=destinations.find(d=>d.id===selected.id);
+  root=upstream(dest.sourceId);
+  let tip=root;while(tip.children.length)tip=tip.children[0];
+  tip.children=[asDestination(dest)];
+  summary="Source "+sourceName(dest.sourceId)+" · "+dest.label;
+  if(title)title.textContent=dest.label+" · Upstream trace";
  }
+ if(canvas)canvas.innerHTML='<div class="explorerDiagramScroll">'+explorerDiagram(root)+'</div>'+(isSource&&!root.children.length?'<p class="explorerEmpty">No direct assignments reported for this source.</p>':'');
+ if(details)details.innerHTML='<h3>'+(isSource?"SOURCE":"DESTINATION")+'</h3><strong>'+explorerEscape(selected.label)+'</strong><p>'+explorerEscape(summary)+'</p><p>Lines represent reported assignments. Keyer inputs may be assigned while off air.</p>';
 }
 function transitionPercent(position){const n=Number(position);if(!Number.isFinite(n))return null;return Math.max(0,Math.min(100,Math.round(n>100?n/100:n)))}
 function renderTransitionStatus(){const active=(liveEngineering.mixEffects||[]).filter(me=>me.transition?.inTransition);let el=$("transitionStatus");if(!el){el=document.createElement("div");el.id="transitionStatus";el.className="transitionStatus";document.body.appendChild(el)}if(!active.length){el.hidden=true;el.innerHTML="";return}el.hidden=false;el.innerHTML=active.map(me=>{const p=transitionPercent(me.transition?.position);return `<span>M/E ${me.index} TRANSITION</span><b>${p===null?"IN PROGRESS":p+"%"}</b><i><em style="width:${p===null?0:p}%"></em></i>`}).join("")}
