@@ -28,7 +28,11 @@ assert.match(styles,/\.tab-signal \.signalPage\{display:block!important\}/,'Sign
 assert.match(styles,/\.tab-engineering \.eng\{display:block!important\}/,'Inspect tab isolation');
 assert.match(styles,/\.hero\.pgm\{background:linear-gradient\(105deg,#241f21/,'Restrained Program surface');
 assert.match(styles,/\.hero\.pvw\{background:linear-gradient\(105deg,#182630/,'Restrained Preview surface');
-assert.match(styles,/\.signalTree \.treeSource\[open\]>\.treeBranches\{background:#19242b!important/,'Expanded signal path slate hierarchy');
+assert.match(styles,/\.explorerLayout\{display:grid/,'Signal Explorer must retain its two-way layout');
+assert.ok(!styles.includes('.signalTree'),'Retired signal tree styling must not return');
+assert.match(app,/function setExplorerMode\(/,'Signal Explorer must support two trace directions');
+assert.match(app,/function renderPaths\(/,'Signal Explorer must render from live routing state');
+assert.match(app,/\.mc matrixSource/,'Routing Matrix must mark every source row for sticky scrolling');
 assert.match(styles,/\.engSummary\{grid-template-columns:minmax\(0,1\.15fr\)/,'Inspect consolidated layout');
 assert.match(server,/function broadcastViewerCount\(\)[\s\S]*?viewerClients\.size/,'Host service must derive Viewer count from active Viewer sockets');
 assert.match(server,/viewerClients\.add\(ws\);[\s\S]*?broadcastViewerCount\(\)/,'Viewer connect must refresh Host Viewer count');
@@ -86,7 +90,7 @@ assert.match(styles,/\.eng \.matrixViewport\{height:300px!important/,'Routing Ma
 assert.match(styles,/\.settingsModal\{position:fixed!important;inset:0!important/,'Settings must remain a fixed modal overlay');
 assert.match(styles,/\.settingsCard\{width:min\(520px/,'Settings must remain compact rather than full-screen');
 assert.ok(!html.includes('Build057 • 0.1.57'),'Settings About must not expose stale Build057');
-assert.match(html,/id="settingsBuild">Build065 • 0\.1\.65/,'Settings About must ship with the current Build065 fallback');
+assert.match(html,/id="settingsBuild">Build066 • 0\.1\.66/,'Settings About must ship with the current Build066 fallback');
 
 assert.match(app,/let committedMeState=new Map\(\)/,'Transition display must keep a committed M/E state');
 assert.match(app,/transitioning&&committed\?\{\.\.\.me,pgm:committed\.pgm,pvw:committed\.pvw\}/,'Intermediate transitions must retain committed PGM/PVW');
