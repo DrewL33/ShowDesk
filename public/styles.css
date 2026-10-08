@@ -337,20 +337,24 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .eng .matrixViewport .mc.matrixSource{width:125px!important;min-width:125px!important;max-width:125px!important;box-sizing:border-box!important}
 
 
-/* Build071: persistent, non-editable live signal overview. Legacy Build067-070 diagram rules removed. */
-.explorerLayout{display:grid;grid-template-columns:minmax(170px,225px) minmax(0,1fr)!important;height:min(740px,calc(100vh - 230px));min-height:420px!important}
-.explorerListPanel{display:flex;flex-direction:column;min-height:0;overflow:hidden;padding:10px!important}
-#explorerList{overflow:auto;min-height:0;flex:1;scrollbar-width:thin}
-.explorerMain{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;padding:10px!important}
+
+/* Build072: full-workspace schematic. Retired Build071 sidebar and fixed-height rules. */
+.signalPage{min-height:0}
+.explorerWorkspace{padding:12px!important;display:flex;flex-direction:column;height:calc(100vh - 100px);min-height:580px;box-sizing:border-box}
+.explorerWorkspace .signalWorkspaceHead{flex:0 0 auto;margin-bottom:4px}
+.explorerWorkspace .explorerToolbar{display:flex;align-items:center;gap:8px;margin:6px 0 10px!important;flex:0 0 auto}
+.explorerWorkspace .signalSearch{margin-right:auto;max-width:370px}
+.explorerLayout{display:grid;grid-template-columns:minmax(0,1fr)!important;min-height:0!important;height:auto!important;flex:1;overflow:hidden}
+.explorerMain{position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;padding:0!important}
 #explorerCanvas{min-height:0;flex:1;overflow:hidden;display:flex;flex-direction:column}
 .explorerDiagramScroll{min-height:0;flex:1;overflow:auto;padding:12px;scrollbar-width:thin}
-.signalOverview{display:block;max-width:none;user-select:none;-webkit-user-select:none}
+.signalOverview{display:block;max-width:none;user-select:none;-webkit-user-select:none;flex:none}
 .signalOverview *{cursor:default!important}
 .signalOverview .overviewNode rect{fill:#1b2a35;stroke:#506575;stroke-width:1;transition:stroke .15s,fill .15s,opacity .15s}
-.signalOverview .overviewNode text{fill:#e0eaf0;font-size:10.5px;font-weight:600;pointer-events:none}
+.signalOverview .overviewNode text{fill:#e0eaf0;font-size:11px;font-weight:600;pointer-events:none}
 .signalOverview .overviewNode{transition:opacity .15s}
-.signalOverview .overviewNode:hover rect,.signalOverview .overviewNode.is-active:hover rect{stroke:#77c6da;stroke-width:2}
-.signalOverview .overviewGroup{fill:#9fb3bf;font-size:10px;font-weight:700;letter-spacing:.08em;pointer-events:none}
+.signalOverview .overviewNode:hover rect{stroke:#77c6da;stroke-width:2}
+.signalOverview .overviewGroup{fill:#9fb3bf;font-size:11px;font-weight:700;letter-spacing:.08em;pointer-events:none}
 .signalOverview .overviewEdge{fill:none;stroke:#54788a;stroke-width:1.5;opacity:.65;pointer-events:none;transition:opacity .18s,stroke .18s,stroke-width .18s}
 .signalOverview .overviewEdge.program{stroke:#c87171}
 .signalOverview .overviewEdge.preview{stroke:#5e9fc5}
@@ -362,7 +366,7 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .signalOverview .overviewEdge.is-exiting{opacity:0;transition:opacity .18s}
 @keyframes overviewArrive{from{opacity:0}to{opacity:.65}}
 .overviewLiveLabel{color:#8bd7bf;font-size:11px;font-weight:700;letter-spacing:.06em}
-.explorerDetails{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:10px!important;min-height:0}
-.explorerDetails h3,.explorerDetails p{margin:0!important}
-.explorerDetails strong{font-size:11px}
-@media(max-width:650px){.explorerLayout{grid-template-columns:minmax(135px,36%) minmax(0,1fr)!important}.explorerListPanel,.explorerMain{padding:8px!important}.explorerDetails{flex-wrap:wrap}}
+.explorerClearButton{position:absolute;right:20px;top:18px;z-index:3;background:#1c3540!important;border:1px solid #5ba4ad!important;color:#d8f2f0!important;padding:9px 14px!important}
+.explorerClearButton[hidden]{display:none!important}
+.explorerDetails{display:flex;align-items:center;gap:12px;padding:8px 4px!important;min-height:0;flex:0 0 auto;font-size:11px;color:var(--sd-muted);border:0!important}
+@media(max-width:650px){.explorerWorkspace{height:calc(100vh - 80px)}.explorerWorkspace .explorerToolbar{flex-wrap:wrap}.explorerWorkspace .signalSearch{max-width:100%;width:100%}}
