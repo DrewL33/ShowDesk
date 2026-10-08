@@ -401,3 +401,16 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .signalOverview:not(.is-filtered) .overviewNode.is-unlinked{opacity:.4}
 .signalOverview:not(.is-filtered) .overviewNode.is-unlinked:hover{opacity:1}
 .signalOverview.is-filtered .overviewNode.is-unlinked.is-active{opacity:1}
+
+/* Build078: Preview is vivid blue; neutral routing stays visually subordinate. */
+.signalOverview .overviewEdge{stroke:#465d69;stroke-width:1.25;opacity:.42}
+.signalOverview .overviewEdge.routing,.signalOverview .overviewEdge.selected{stroke:#465d69;stroke-width:1.25}
+.signalOverview .overviewEdge.program{stroke:#d97878;stroke-width:1.8;opacity:.85}
+.signalOverview .overviewEdge.preview{stroke:#42b5ff;stroke-width:2.1;opacity:.95}
+.signalOverview .overviewEdge.assigned{stroke:#d5ad65;stroke-width:1.5;opacity:.72;stroke-dasharray:5 4}
+.signalOverview.is-filtered .overviewEdge.is-active.preview{stroke:#42b5ff;stroke-width:3;opacity:1}
+.signalOverview.is-filtered .overviewEdge.is-active.routing,.signalOverview.is-filtered .overviewEdge.is-active.selected{stroke:#718c9b}
+.explorerLegend .legendStroke.preview{border-color:#42b5ff;border-top-width:3px}
+.explorerLegend .legendStroke.routing{border-color:#465d69}
+.moreInputs{appearance:none;text-align:left;color:inherit;font:inherit;width:100%;cursor:pointer}
+.moreInputs:focus-visible{outline:2px solid #42b5ff;outline-offset:2px}
