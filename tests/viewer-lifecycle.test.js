@@ -47,8 +47,11 @@ assert.match(styles,/\.overviewEdge\.is-active\.assigned\{stroke:/,'Selected ass
 assert.match(app,/function explorerLayout\(/,'Signal overview must use a stable dedicated layout');
 assert.match(app,/function explorerZoom\(/,'Signal overview must support zoom and fit');
 assert.match(app,/function explorerRoute\(/,'Wire routing must use the obstacle-aware router');
-assert.match(app,/const gap=4,clearance=12,header=52/,'Routing must use consistent corridor spacing');
-assert.match(app,/const forward=end\.x>start\.x\+24/,'Routing must prefer forward paths');
+assert.match(app,/const gapX=i=>columns\[i\]\+W/,'Routing must use gaps between node columns');
+assert.match(app,/const gutter=TOP-9\+row\*ROW/,'Long routes must traverse clear row gutters');
+assert.match(app,/if\(to===from\+1\)/,'Adjacent columns must use a direct corridor');
+assert.match(app,/more=document\.createElement\("button"\)/,'More Inputs navigation must use an accessible button');
+assert.match(styles,/\.overviewEdge\.preview\{stroke:#42b5ff/,'Preview must stand out from generic routing');
 assert.match(app,/type:"source",title:"EXTERNAL & OTHER SOURCES",limit:12/,'Source columns must have a 12-row cap');
 assert.match(app,/type:"bus",title:"M\/E BUSES & ASSIGNMENTS",limit:15/,'M/E bus columns must have a 15-row cap');
 assert.match(app,/type:"destination",title:"DESTINATIONS",limit:15/,'Destination columns must have a 15-row cap');
