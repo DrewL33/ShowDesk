@@ -37,6 +37,9 @@ assert.match(app,/function explorerDraw\(/,'Signal Explorer must draw a persiste
 assert.match(styles,/\.explorerDiagramScroll\{min-height:0;flex:1;overflow:auto/,'Signal diagram must scroll independently');
 assert.match(styles,/\.explorerClearButton\[hidden\]/,'Clear trace control must be contextual');
 assert.match(html,/class="explorerLegend"/,'Legend must be available in the signal toolbar');
+assert.match(html,/id="explorerDimUnlinked"[^>]*checked/,'Dim Unlinked must default on');
+assert.match(app,/const linked=new Set\(graph\.edges\.flatMap/,'Unlinked detection must include all graph node types');
+assert.match(styles,/\.overviewNode\.is-unlinked/,'Unlinked nodes must have dimmed styling');
 assert.match(html,/id="explorerClearButton"/,'Clear Trace must be available in the toolbar');
 assert.match(styles,/\.overviewEdge\.is-active\.program\{stroke:/,'Selected program traces must preserve their red status');
 assert.match(styles,/\.overviewEdge\.is-active\.preview\{stroke:/,'Selected preview traces must preserve their blue status');
