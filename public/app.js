@@ -496,28 +496,29 @@ function explorerLayout(graph){
 }
 // Build076: predictable corridors, not a maze search. Every path reaches its endpoint.
 function explorerRoute(start,end,columns,lanes,bounds){
- const gap=4,clearance=12,header=52;
- const forward=end.x>start.x+24;
- const minX=Math.min(start.x,end.x),maxX=Math.max(start.x,end.x);
- const corridors=[];
- for(let i=0;i<columns.length-1;i++){
-  const left=columns[i],right=columns[i+1],x0=left+184+clearance,x1=right-clearance;
-  if(x1>x0+8&&x0>=minX-1&&x1<=maxX+1)corridors.push({x0,x1});
+ // Build078: all vertical movement occurs between node banks. Long horizontal
+ // traversals use the open 18px gutters between rows, never node interiors.
+ const W=184,ROW=54,TOP=62,H=36;
+ const from=columns.findIndex(x=>Math.abs(start.x-(x+W))<1);
+ const to=columns.findIndex(x=>Math.abs(end.x-x)<1);
+ const gapX=i=>columns[i]+W+(columns[i+1]-columns[i]-W)/2;
+ const clean=points=>points.filter((p,i)=>i===0||p.x!==points[i-1].x||p.y!==points[i-1].y).filter((p,i,arr)=>i===0||i===arr.length-1||!(arr[i-1].x===arr[i+1].x||arr[i-1].y===arr[i+1].y));
+ if(from>=0&&to>from){
+  const first=gapX(from),last=gapX(to-1);
+  if(to===from+1)return clean([start,{x:first,y:start.y},{x:first,y:end.y},end]);
+  const serial=lanes.get("trunk")||0;lanes.set("trunk",serial+1);
+  // Choose a row gutter close to the two endpoints, distributing congestion.
+  const center=(start.y+end.y)/2;
+  const row=Math.max(0,Math.min(14,Math.round((center-(TOP-9))/ROW)));
+  const gutter=TOP-9+row*ROW;
+  const offset=((serial%3)-1)*2;
+  const y=gutter+offset;
+  return clean([start,{x:first,y:start.y},{x:first,y},{x:last,y},{x:last,y:end.y},end]);
  }
- const key=corridors.length?corridors[Math.floor(corridors.length/2)]:null;
- if(forward){
-  const x=key?(key.x0+key.x1)/2:(start.x+end.x)/2;
-  const slot=lanes.get(x)||0;lanes.set(x,slot+1);
-  // Keep the lane within the available gap, without pushing it into node boxes.
-  const spread=key?Math.min((key.x1-key.x0)/2-2,slot*gap):0;
-  const mid=key?Math.max(key.x0+2,Math.min(key.x1-2,x+((slot%2)?1:-1)*spread)):x;
-  return [start,{x:mid,y:start.y},{x:mid,y:end.y},end];
- }
- // Backward internal feeds require a return path. Route below the nodes,
- // never through group titles or across the top of the overview.
- const lane=lanes.get("return")||0;lanes.set("return",lane+1);
- const bottom=bounds.height-22-lane*gap;
- return [start,{x:start.x+12,y:start.y},{x:start.x+12,y:bottom},{x:end.x-12,y:bottom},{x:end.x-12,y:end.y},end];
+ // Reverse edges cannot cross intervening nodes: use the clear bottom perimeter.
+ const serial=lanes.get("return")||0;lanes.set("return",serial+1);
+ const y=bounds.height-30-serial*3;
+ return clean([start,{x:start.x+12,y:start.y},{x:start.x+12,y},{x:end.x-12,y},{x:end.x-12,y:end.y},end]);
 }
 function explorerDraw(graph){
  const layout=explorerLayout(graph),{pos,labels,height,width,W,H}=layout;
@@ -605,8 +606,10 @@ function render(){
    const visibleLimit=24;
    if(cards.length>visibleLimit){
      cards.forEach((c,i)=>{if(i>=visibleLimit)c.style.display="none";});
-     const more=document.createElement("div");
+     const more=document.createElement("button");
      more.className="input moreInputs";
+     more.type="button";
+     more.setAttribute("aria-label","View all inputs in Inspect");
      more.innerHTML=`<small>MORE INPUTS</small><b>+${cards.length-visibleLimit}</b><span>Continue in Inspect</span>`;
      more.onclick=()=>setTab("engineering");
      ig.appendChild(more);
