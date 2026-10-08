@@ -61,10 +61,11 @@
  </div>
 </section>
 
-<section class="signalPage"><div class="panel signalWorkspace explorerWorkspace">
- <div class="signalWorkspaceHead"><div><h2>SIGNAL EXPLORER</h2><p>Live overview of reported ATEM routing. Hover either end to trace; click to pin.</p></div><span class="sub">read-only live ATEM state</span></div>
- <div class="explorerToolbar"><div id="explorerModes" class="explorerModes"></div><input id="signalSearch" class="destinationSearch signalSearch" type="search" placeholder="Search sources or destinations…" oninput="renderPaths()"></div>
- <div class="explorerLayout"><aside class="explorerListPanel"><h3>SOURCES & DESTINATIONS</h3><div id="explorerList"></div></aside><main class="explorerMain"><h3 id="explorerTitle">Signal Explorer</h3><div id="explorerCanvas"></div></main><aside id="explorerDetails" class="explorerDetails"></aside></div>
+<section class="signalPage"><div class="signalWorkspace explorerWorkspace">
+ <div class="signalWorkspaceHead"><div><h2>SIGNAL EXPLORER</h2><p>Live ATEM signal overview · hover to trace in either direction; click to pin.</p></div></div>
+ <div class="explorerToolbar"><input id="signalSearch" class="destinationSearch signalSearch" type="search" placeholder="Find a source or destination…" oninput="renderPaths()"><span class="overviewLiveLabel">● LIVE OVERVIEW</span><button class="tinyAction" type="button" onclick="explorerZoom(-1)">−</button><button class="tinyAction" type="button" onclick="explorerZoom(0)">FIT</button><button class="tinyAction" type="button" onclick="explorerZoom(1)">+</button></div>
+ <div class="explorerLayout"><main class="explorerMain"><div id="explorerCanvas"></div><button id="explorerClearButton" type="button" class="tinyAction explorerClearButton" onclick="explorerClear()" hidden>✕ CLEAR TRACE</button></main></div>
+ <div id="explorerDetails" class="explorerDetails">Hover any node to inspect its signal path.</div>
  </div></section>
 
 <section class="eng">
