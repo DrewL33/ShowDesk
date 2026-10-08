@@ -395,12 +395,26 @@ let explorerPinned=null,explorerHover=null,explorerGraph=null,explorerTopology="
 const explorerEscape=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function explorerInspect(id,pin=false){if(pin)explorerPinned=explorerPinned===id?null:id;else explorerHover=id;explorerHighlight()}
 function explorerClear(){explorerPinned=null;explorerHover=null;explorerHighlight()}
-function explorerZoom(direction){
+function explorerZoom(direction,clientX=null,clientY=null){
  const scroller=document.querySelector("#explorerCanvas .explorerDiagramScroll"),svg=scroller?.querySelector("svg");
  if(!svg)return;
- if(direction===0){const w=scroller.clientWidth;if(w<80)return;explorerScale=Math.max(.35,Math.min(1,w/Number(svg.dataset.width)));}
- else explorerScale=Math.max(.3,Math.min(2.5,explorerScale*(direction>0?1.2:1/1.2)));
- svg.style.width=(Number(svg.dataset.width)*explorerScale)+"px";svg.style.height=(Number(svg.dataset.height)*explorerScale)+"px";
+ const width=Number(svg.dataset.width),height=Number(svg.dataset.height);
+ const oldScale=explorerScale,rect=scroller.getBoundingClientRect();
+ const focalX=clientX===null?scroller.clientWidth/2:clientX-rect.left;
+ const focalY=clientY===null?scroller.clientHeight/2:clientY-rect.top;
+ const oldLeft=Math.max(0,(scroller.clientWidth-width*oldScale)/2),oldTop=Math.max(0,(scroller.clientHeight-height*oldScale)/2);
+ const logicalX=(scroller.scrollLeft+focalX-oldLeft)/oldScale,logicalY=(scroller.scrollTop+focalY-oldTop)/oldScale;
+ if(direction===0)explorerScale=Math.max(.2,Math.min(2.5,Math.min((scroller.clientWidth-24)/width,(scroller.clientHeight-24)/height)));
+ else explorerScale=Math.max(.2,Math.min(4,explorerScale*(direction>0?1.2:1/1.2)));
+ svg.style.width=width*explorerScale+"px";svg.style.height=height*explorerScale+"px";
+ const left=Math.max(0,(scroller.clientWidth-width*explorerScale)/2),top=Math.max(0,(scroller.clientHeight-height*explorerScale)/2);
+ svg.style.marginLeft=left+"px";svg.style.marginTop=top+"px";
+ scroller.scrollLeft=direction===0?0:logicalX*explorerScale+left-focalX;
+ scroller.scrollTop=direction===0?0:logicalY*explorerScale+top-focalY;
+}
+function explorerWheel(event){
+ if(!event.ctrlKey&&!event.metaKey&&!event.altKey)return;
+ event.preventDefault();explorerZoom(event.deltaY<0?1:-1,event.clientX,event.clientY);
 }
 function explorerReach(graph,id,reverse=false){
  const seen=new Set([id]),queue=[id];
@@ -409,7 +423,7 @@ function explorerReach(graph,id,reverse=false){
 }
 function explorerHighlight(){
  const graph=explorerGraph,svg=document.querySelector("#explorerCanvas .signalOverview");if(!graph||!svg)return;
- const id=explorerPinned||explorerHover,node=graph.nodes.find(n=>n.id===id);
+ const id=explorerHover||explorerPinned,node=graph.nodes.find(n=>n.id===id);
  let active=null;
  if(node){
   // M/E nodes are inspection junctions: show upstream contributors and downstream consumers.
@@ -424,7 +438,7 @@ function explorerHighlight(){
  svg.querySelectorAll("[data-signal-halo]").forEach(el=>el.classList.toggle("is-active",activeEdges.has(el.dataset.signalHalo)));
  const clear=$("explorerClearButton");if(clear)clear.hidden=!explorerPinned;
  const details=$("explorerDetails");
- if(details)details.textContent=node?(node.label+" · "+(explorerPinned?"Pinned inspection":"Hover inspection")+" · solid: selected; dashed: assigned, not necessarily on air"):"Hover any source, M/E or destination to inspect the live signal path.";
+ if(details)details.textContent=node?(node.label+" · "+(explorerHover?"Hover inspection":"Pinned inspection")+" · solid: selected; dashed: assigned, not necessarily on air"):"Hover any source, M/E or destination to inspect the live signal path.";
 }
 function explorerBuildGraph(){
  const inputs=liveEngineering.inputs||[],mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
@@ -566,20 +580,20 @@ function explorerDraw(graph){
  const reserve=key=>{const n=ports.get(key)||0;ports.set(key,n+1);return n};
  const outCount=new Map(),inCount=new Map();
  edges.forEach(e=>{outCount.set(e.from,(outCount.get(e.from)||0)+1);inCount.set(e.to,(inCount.get(e.to)||0)+1)});
- const paths=edges.map(e=>{
+ let routedBottom=0;\n const paths=edges.map(e=>{
   const a=pos.get(e.from),b=pos.get(e.to);if(!a||!b)return "";
   const out=reserve("o:"+e.from),incoming=reserve("i:"+e.to);
   const y1=a.y+H*(out+1)/((outCount.get(e.from)||0)+1),y2=b.y+H*(incoming+1)/((inCount.get(e.to)||0)+1);
   const start={x:a.x+W,y:y1},end={x:b.x,y:y2};
   const pts=explorerRoute(start,end,columns,lanes,{width,height,nodeBottom:Math.max(...[...pos.values()].map(p=>p.y+H))});
-  const d="M"+pts.map(p=>p.x+" "+p.y).join(" L");
+  routedBottom=Math.max(routedBottom,...pts.map(p=>p.y));\n  const d="M"+pts.map(p=>p.x+" "+p.y).join(" L");
   return '<path class="overviewEdgeHalo" data-signal-halo="'+explorerEscape(e.id)+'" d="'+d+'"/><path class="overviewEdge '+explorerEscape(e.kind)+'" data-signal-edge="'+explorerEscape(e.id)+'" d="'+d+'"/>';
  }).join("");
  const nodes=graph.nodes.map(n=>{
   const p=pos.get(n.id);
   return '<g class="overviewNode" data-signal-node="'+explorerEscape(n.id)+'" onmouseenter="explorerInspect(\''+explorerEscape(n.id)+'\')" onmouseleave="explorerInspect(null)" onclick="explorerInspect(\''+explorerEscape(n.id)+'\',true)"><rect x="'+p.x+'" y="'+p.y+'" width="'+W+'" height="'+H+'" rx="4"/><text x="'+(p.x+9)+'" y="'+(p.y+24)+'">'+explorerEscape(n.label)+'</text><title>'+explorerEscape(n.label)+'</title></g>';
  }).join("");
- return '<svg class="signalOverview" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+width+' '+height+'" width="'+width+'" height="'+height+'" data-width="'+width+'" data-height="'+height+'" role="img" aria-label="Live ATEM signal overview">'+paths+labels.join("")+nodes+'</svg>';
+ const fittedHeight=Math.min(height,Math.max(routedBottom+40,Math.max(...[...pos.values()].map(p=>p.y+H))+30));\n return '<svg class="signalOverview" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+width+' '+fittedHeight+'" width="'+width+'" height="'+fittedHeight+'" data-width="'+width+'" data-height="'+fittedHeight+'" role="img" aria-label="Live ATEM signal overview">'+paths+labels.join("")+nodes+'</svg>';
 }
 function renderPaths(){
  const graph=explorerBuildGraph(),canvas=$("explorerCanvas");if(!canvas)return;
@@ -589,7 +603,7 @@ function renderPaths(){
  if(changed){
   const scroller=canvas.querySelector(".explorerDiagramScroll"),x=scroller?.scrollLeft||0,y=scroller?.scrollTop||0;
   canvas.innerHTML='<div class="explorerDiagramScroll">'+explorerDraw(graph)+'</div>';
-  canvas.firstElementChild.scrollLeft=x;canvas.firstElementChild.scrollTop=y;
+  canvas.firstElementChild.scrollLeft=x;canvas.firstElementChild.scrollTop=y;\n  canvas.firstElementChild.addEventListener('wheel',explorerWheel,{passive:false});
   explorerTopology=topology;explorerRouteState=routing;
   explorerScale=1;
   explorerZoom(0);
