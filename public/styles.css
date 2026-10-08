@@ -336,50 +336,33 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .eng .matrixViewport .mc:not(.matrixSource){min-width:0!important;max-width:none!important;box-sizing:border-box!important}
 .eng .matrixViewport .mc.matrixSource{width:125px!important;min-width:125px!important;max-width:125px!important;box-sizing:border-box!important}
 
-/* Build067 — compact branching schematic, independent selector and canvas scrolling */
-.explorerLayout{grid-template-columns:minmax(180px,250px) minmax(0,1fr)!important;height:min(660px,calc(100vh - 255px));min-height:400px!important}
-.explorerListPanel{display:flex;flex-direction:column;min-height:0;overflow:hidden}
-#explorerList{overflow-y:auto;min-height:0;flex:1;scrollbar-width:thin}
-.explorerMain{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}
+
+/* Build071: persistent, non-editable live signal overview. Legacy Build067-070 diagram rules removed. */
+.explorerLayout{display:grid;grid-template-columns:minmax(170px,225px) minmax(0,1fr)!important;height:min(740px,calc(100vh - 230px));min-height:420px!important}
+.explorerListPanel{display:flex;flex-direction:column;min-height:0;overflow:hidden;padding:10px!important}
+#explorerList{overflow:auto;min-height:0;flex:1;scrollbar-width:thin}
+.explorerMain{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;padding:10px!important}
 #explorerCanvas{min-height:0;flex:1;overflow:hidden;display:flex;flex-direction:column}
-.explorerDiagramScroll{min-height:0;flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:flex-start;scrollbar-width:thin;padding:12px}
-.explorerDiagram{display:block;flex:none;max-width:none}
-.explorerWires{fill:none;stroke:#72858f;stroke-width:1.5;stroke-linecap:square;stroke-linejoin:miter}
-.explorerNode rect{fill:#1a2730;stroke:#4a5b66;stroke-width:1}
-.explorerNode.source rect{stroke:#b8474c;stroke-width:2}
-.explorerNode.program rect{stroke:#a34749}
-.explorerNode.preview rect,.explorerNode.route rect{stroke:#4d82a4}
-.explorerNodeName{fill:#e5ebee;font-size:11px;font-weight:650}
-.explorerNodeMeta{fill:#9caeb8;font-size:7.5px;letter-spacing:.35px}
-.explorerDetails{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:9px 14px!important;min-height:0}
-.explorerDetails h3{margin:0!important}
-.explorerDetails p{margin:0}
+.explorerDiagramScroll{min-height:0;flex:1;overflow:auto;padding:12px;scrollbar-width:thin}
+.signalOverview{display:block;max-width:none;user-select:none;-webkit-user-select:none}
+.signalOverview *{cursor:default!important}
+.signalOverview .overviewNode rect{fill:#1b2a35;stroke:#506575;stroke-width:1;transition:stroke .15s,fill .15s,opacity .15s}
+.signalOverview .overviewNode text{fill:#e0eaf0;font-size:10.5px;font-weight:600;pointer-events:none}
+.signalOverview .overviewNode{transition:opacity .15s}
+.signalOverview .overviewNode:hover rect,.signalOverview .overviewNode.is-active:hover rect{stroke:#77c6da;stroke-width:2}
+.signalOverview .overviewGroup{fill:#9fb3bf;font-size:10px;font-weight:700;letter-spacing:.08em;pointer-events:none}
+.signalOverview .overviewEdge{fill:none;stroke:#54788a;stroke-width:1.5;opacity:.65;pointer-events:none;transition:opacity .18s,stroke .18s,stroke-width .18s}
+.signalOverview .overviewEdge.program{stroke:#c87171}
+.signalOverview .overviewEdge.preview{stroke:#5e9fc5}
+.signalOverview .overviewEdge.assigned{stroke:#a98b68;stroke-dasharray:4 4}
+.signalOverview.is-filtered .overviewEdge:not(.is-active),.signalOverview.is-filtered .overviewNode:not(.is-active){opacity:.09}
+.signalOverview.is-filtered .overviewEdge.is-active{opacity:1;stroke:#65ddc5;stroke-width:2.8}
+.signalOverview.is-filtered .overviewNode.is-active rect{stroke:#65ddc5}
+.signalOverview .overviewEdge.is-new{animation:overviewArrive .2s ease-out both}
+.signalOverview .overviewEdge.is-exiting{opacity:0;transition:opacity .18s}
+@keyframes overviewArrive{from{opacity:0}to{opacity:.65}}
+.overviewLiveLabel{color:#8bd7bf;font-size:11px;font-weight:700;letter-spacing:.06em}
+.explorerDetails{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:10px!important;min-height:0}
+.explorerDetails h3,.explorerDetails p{margin:0!important}
 .explorerDetails strong{font-size:11px}
-@media(max-width:650px){.explorerLayout{grid-template-columns:minmax(135px,36%) minmax(0,1fr)!important;height:calc(100vh - 290px)}.explorerListPanel,.explorerMain{padding:8px!important}.explorerDetails{flex-wrap:wrap}}
-
-/* Build068: compact node wiring with implied functional lanes */
-.explorerLayout{grid-template-columns:minmax(155px,205px) minmax(0,1fr)!important}
-.explorerWorkspace{padding:12px!important}
-.explorerToolbar{margin:9px 0!important}
-.explorerListPanel,.explorerMain,.explorerDetails{padding:10px!important}
-.explorerDiagramScroll{padding:8px!important}
-.explorerDiagram .explorerWire{stroke:#529f95;stroke-width:1.35;fill:none;stroke-linejoin:round}
-.explorerDiagram .explorerPort{fill:#42c9a6;stroke:#102029;stroke-width:1}
-.explorerDiagram .explorerGroupLabel{fill:#9fb1bb;font-size:10px;font-weight:700;letter-spacing:.08em}
-.explorerDiagram .explorerNodeName{font-size:10.5px}
-.explorerDiagram .explorerNodeMeta{font-size:7px}
-
-/* Build069 — route inspection without obscuring the node labels */
-.explorerRoute .explorerWire{fill:none;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
-.explorerRoute .explorerWireHit{fill:none;stroke:transparent;stroke-width:13;pointer-events:stroke}
-.explorerRoute{cursor:default}
-.explorerWires:has(.explorerRoute:hover) .explorerRoute:not(:hover){opacity:.14}
-.explorerRoute:hover .explorerWire{stroke-width:3;filter:drop-shadow(0 0 3px currentColor)}
-.explorerRoute:hover .explorerPort{r:4}
-.explorerDiagram .explorerNode{pointer-events:none}
-.explorerDiagram .explorerGroupLabel{pointer-events:none}
-
-/* Build070: diagnostic-only cursor and consistent group header spacing */
-.explorerDiagram,.explorerDiagram *{cursor:default!important;user-select:none;-webkit-user-select:none}
-.explorerDiagram .explorerGroupLabel{pointer-events:none}
-.explorerDiagram .explorerRoute{cursor:default!important}
+@media(max-width:650px){.explorerLayout{grid-template-columns:minmax(135px,36%) minmax(0,1fr)!important}.explorerListPanel,.explorerMain{padding:8px!important}.explorerDetails{flex-wrap:wrap}}
