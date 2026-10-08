@@ -47,8 +47,8 @@ assert.match(styles,/\.overviewEdge\.is-active\.assigned\{stroke:/,'Selected ass
 assert.match(app,/function explorerLayout\(/,'Signal overview must use a stable dedicated layout');
 assert.match(app,/function explorerZoom\(/,'Signal overview must support zoom and fit');
 assert.match(app,/function explorerRoute\(/,'Wire routing must use the obstacle-aware router');
-assert.match(app,/const gapX=i=>columns\[i\]\+W/,'Routing must use gaps between node columns');
-assert.match(app,/const gutter=TOP-9\+row\*ROW/,'Short routes must traverse clear row gutters');
+assert.match(app,/const gap=i=>\(\{min:columns\[i\]\+W\+8/,'Routing must use gaps between node columns');
+assert.match(app,/const y=TOP-18\+row\*ROW\+offset/,'Routing must consider available row gutters');
 assert.match(app,/const W=184,H=36,ROW=78,top=72/,'Build079 must provide more breathing room between nodes');
 assert.match(app,/const occupied=lanes\.get\("occupied"\)/,'Routing must reserve occupied wire segments');
 assert.match(app,/current\.h!==prior\.h/,'Routing must separate horizontal and vertical overlaps');
