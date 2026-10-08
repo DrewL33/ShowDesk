@@ -32,7 +32,7 @@ assert.match(styles,/\.explorerLayout\{display:grid/,'Signal Explorer must retai
 assert.ok(!styles.includes('.signalTree'),'Retired signal tree styling must not return');
 assert.match(app,/function setExplorerMode\(/,'Signal Explorer must support two trace directions');
 assert.match(app,/function renderPaths\(/,'Signal Explorer must render from live routing state');
-assert.match(app,/\.mc matrixSource/,'Routing Matrix must mark every source row for sticky scrolling');
+assert.match(app,/class="mc matrixSource"/,'Routing Matrix must mark every source row for sticky scrolling');
 assert.match(styles,/\.engSummary\{grid-template-columns:minmax\(0,1\.15fr\)/,'Inspect consolidated layout');
 assert.match(server,/function broadcastViewerCount\(\)[\s\S]*?viewerClients\.size/,'Host service must derive Viewer count from active Viewer sockets');
 assert.match(server,/viewerClients\.add\(ws\);[\s\S]*?broadcastViewerCount\(\)/,'Viewer connect must refresh Host Viewer count');
