@@ -578,10 +578,17 @@ function explorerRoute(start,end,columns,lanes,bounds){
     candidates.push([start,{x,y:start.y},{x,y},{x:lastX,y},{x:lastX,y:end.y},end]);
   }
  }else{
-  const xs=[start.x+12,start.x+20,start.x+28];
-  for(const x of xs)for(let lane=0;lane<48;lane++){
-   const y=bounds.nodeBottom+22+lane*spacing;
-   candidates.push([start,{x,y:start.y},{x,y},{x:end.x-20,y},{x:end.x-20,y:end.y},end]);
+  // Build084: reverse/return connections use reserved lower corridors, not
+  // the same row gutters used by normal left-to-right signal flow.
+  // Keep vertical legs in the column gaps and the long run below every node.
+  const returnLane=lanes.get("returnLane")||0;
+  const returnBase=bounds.nodeBottom+42;
+  const entryXs=[start.x+12,start.x+20,start.x+28];
+  const exitXs=[end.x-12,end.x-20,end.x-28];
+  for(let lane=returnLane;lane<returnLane+24;lane++){
+   const y=returnBase+lane*spacing;
+   for(const x of entryXs)for(const exitX of exitXs)
+    candidates.push([start,{x,y:start.y},{x,y},{x:exitX,y},{x:exitX,y:end.y},end]);
   }
  }
  let best=null,bestScore=Infinity;
@@ -591,6 +598,7 @@ function explorerRoute(start,end,columns,lanes,bounds){
   const cost=score(points)+distance*.035+bends*2;
   if(cost<bestScore){best=points;bestScore=cost}
  }
+ if(to<=from)lanes.set("returnLane",(lanes.get("returnLane")||0)+1);
  return commit(best||[start,{x:(start.x+end.x)/2,y:start.y},{x:(start.x+end.x)/2,y:end.y},end]);
 }
 function explorerDirectionMarker(points){
