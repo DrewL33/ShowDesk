@@ -416,7 +416,9 @@ function explorerHighlight(){
   active=(node.type==="processor"||node.type==="internal")?new Set([...explorerReach(graph,id,true),...explorerReach(graph,id,false)]):explorerReach(graph,id,node.type==="destination");
  }
  svg.classList.toggle("is-filtered",!!active);
- svg.querySelectorAll("[data-signal-node]").forEach(el=>el.classList.toggle("is-active",!active||active.has(el.dataset.signalNode)));
+ const linked=new Set(graph.edges.flatMap(e=>[e.from,e.to]));
+ const dimUnlinked=$("explorerDimUnlinked")?.checked!==false;
+ svg.querySelectorAll("[data-signal-node]").forEach(el=>{el.classList.toggle("is-active",!active||active.has(el.dataset.signalNode));el.classList.toggle("is-unlinked",dimUnlinked&&!linked.has(el.dataset.signalNode));});
  const activeEdges=new Set(graph.edges.filter(e=>!active||active.has(e.from)&&active.has(e.to)).map(e=>e.id));
  svg.querySelectorAll("[data-signal-edge]").forEach(el=>el.classList.toggle("is-active",activeEdges.has(el.dataset.signalEdge)));
  const clear=$("explorerClearButton");if(clear)clear.hidden=!explorerPinned;
