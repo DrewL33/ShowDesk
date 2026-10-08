@@ -372,9 +372,14 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 /* Build069 — route inspection without obscuring the node labels */
 .explorerRoute .explorerWire{fill:none;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
 .explorerRoute .explorerWireHit{fill:none;stroke:transparent;stroke-width:13;pointer-events:stroke}
-.explorerRoute{cursor:crosshair}
+.explorerRoute{cursor:default}
 .explorerWires:has(.explorerRoute:hover) .explorerRoute:not(:hover){opacity:.14}
 .explorerRoute:hover .explorerWire{stroke-width:3;filter:drop-shadow(0 0 3px currentColor)}
 .explorerRoute:hover .explorerPort{r:4}
 .explorerDiagram .explorerNode{pointer-events:none}
 .explorerDiagram .explorerGroupLabel{pointer-events:none}
+
+/* Build070: diagnostic-only cursor and consistent group header spacing */
+.explorerDiagram,.explorerDiagram *{cursor:default!important;user-select:none;-webkit-user-select:none}
+.explorerDiagram .explorerGroupLabel{pointer-events:none}
+.explorerDiagram .explorerRoute{cursor:default!important}
