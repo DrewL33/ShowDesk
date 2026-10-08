@@ -394,3 +394,10 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .signalOverview.is-filtered .overviewEdge.is-active.assigned{stroke:#e4bc72;stroke-dasharray:5 4}
 .signalOverview.is-filtered .overviewEdge.is-active.routing{stroke:#8fb7ca}
 .signalOverview.is-filtered .overviewEdge.is-active.selected{stroke:#8fb7ca}
+
+/* Build077: unlinked graph nodes recede without disappearing. */
+.explorerDimToggle{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;color:#b4c6cf;font-size:10px;font-weight:700;letter-spacing:.04em;cursor:pointer}
+.explorerDimToggle input{accent-color:#7baebf}
+.signalOverview:not(.is-filtered) .overviewNode.is-unlinked{opacity:.4}
+.signalOverview:not(.is-filtered) .overviewNode.is-unlinked:hover{opacity:1}
+.signalOverview.is-filtered .overviewNode.is-unlinked.is-active{opacity:1}
