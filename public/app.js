@@ -398,7 +398,7 @@ function explorerClear(){explorerPinned=null;explorerHover=null;explorerHighligh
 function explorerZoom(direction){
  const scroller=document.querySelector("#explorerCanvas .explorerDiagramScroll"),svg=scroller?.querySelector("svg");
  if(!svg)return;
- if(direction===0){explorerScale=Math.min(1,scroller.clientWidth/Number(svg.dataset.width),scroller.clientHeight/Number(svg.dataset.height));}
+ if(direction===0){explorerScale=Math.min(1,scroller.clientWidth/Number(svg.dataset.width));}
  else explorerScale=Math.max(.3,Math.min(2.5,explorerScale*(direction>0?1.2:1/1.2)));
  svg.style.width=(Number(svg.dataset.width)*explorerScale)+"px";svg.style.height=(Number(svg.dataset.height)*explorerScale)+"px";
 }
@@ -413,7 +413,7 @@ function explorerHighlight(){
  let active=null;
  if(node){
   // M/E nodes are inspection junctions: show upstream contributors and downstream consumers.
-  active=node.type==="processor"?new Set([...explorerReach(graph,id,true),...explorerReach(graph,id,false)]):explorerReach(graph,id,node.type==="destination");
+  active=(node.type==="processor"||node.type==="internal")?new Set([...explorerReach(graph,id,true),...explorerReach(graph,id,false)]):explorerReach(graph,id,node.type==="destination");
  }
  svg.classList.toggle("is-filtered",!!active);
  svg.querySelectorAll("[data-signal-node]").forEach(el=>el.classList.toggle("is-active",!active||active.has(el.dataset.signalNode)));
@@ -427,22 +427,32 @@ function explorerBuildGraph(){
  const inputs=liveEngineering.inputs||[],mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
  const nodes=[],edges=[],byId=new Map(),edgeIds=new Set();
  const add=(id,label,type,group)=>{if(!byId.has(id)){const n={id,label,type,group};byId.set(id,n);nodes.push(n)}return id};
- const source=id=>{const input=inputs.find(i=>Number(i.id)===Number(id));return add("src:"+id,input?.name||("Source "+id),"source","INPUTS")};
- inputs.forEach(i=>source(i.id));
- const outputMe=id=>{
-  const input=inputs.find(i=>Number(i.id)===Number(id));if(!input)return null;
-  const m=[input.shortName,input.name].filter(Boolean).join(" ").match(/(?:M\/?E|ME)\s*(\d+)\s*(?:PGM|PROGRAM)/i);
-  return m?mes.find(me=>Number(me.index)===Number(m[1])):null;
+ const internal=new Map();
+ // Blackmagic's internal M/E Program/Preview source IDs are stable; labels are user-editable.
+ // IDs 10000/10001, 10010/10011, etc. are reserved for M/E 1..4 program/preview.
+ mes.forEach((me,i)=>{
+  const index=Number(me.index)||i+1,base=10000+(index-1)*10;
+  internal.set(base,{index,kind:"program"});internal.set(base+1,{index,kind:"preview"});
+ });
+ const source=id=>{
+  const input=inputs.find(i=>Number(i.id)===Number(id)),info=internal.get(Number(id));
+  if(info)return add("meout:"+info.index+":"+info.kind,input?.name||("M/E "+info.index+" "+info.kind.toUpperCase()),"internal","M/E INTERNAL OUTPUTS");
+  return add("src:"+id,input?.name||("Source "+id),"source","INPUTS");
  };
+ inputs.forEach(i=>source(i.id));
  const connect=(from,to,kind="selected")=>{const id=from+"->"+to;if(from===to||edgeIds.has(id))return;edgeIds.add(id);edges.push({id,from,to,kind})};
- const feed=(id,to,kind)=>{if(id===undefined||id===null||!Number.isFinite(Number(id)))return;const me=outputMe(id);connect(me?"me:"+me.index:source(id),to,kind)};
+ const feed=(id,to,kind)=>{if(id===undefined||id===null||!Number.isFinite(Number(id)))return;connect(source(id),to,kind)};
  // Physical source -> bus -> processing output. Never create a reverse edge to an earlier column.
  mes.forEach(me=>{
-  add("me:"+me.index,"M/E "+me.index+" · Program","processor","M/E OUTPUTS");
+  add("me:"+me.index,"M/E "+me.index+" · Processing","processor","M/E PROCESSORS");
+  const base=10000+(Number(me.index)-1)*10;
+  const pgmOut=source(base),pvwOut=source(base+1);
+  connect("me:"+me.index,pgmOut,"program");
   add("pgm:"+me.index,"M/E "+me.index+" · PGM","bus","M/E BUSES");
   add("pvw:"+me.index,"M/E "+me.index+" · Preview","bus","M/E BUSES");
   feed(me.pgmId,"pgm:"+me.index,"program");feed(me.pvwId,"pvw:"+me.index,"preview");
   connect("pgm:"+me.index,"me:"+me.index,"program");
+  connect("pvw:"+me.index,pvwOut,"preview");
   (me.upstreamKeyers||[]).forEach(k=>{
    const fill=add("uskfill:"+me.index+":"+k.index,"M/E "+me.index+" · USK "+k.index+" Fill","bus","KEYER ASSIGNMENTS");
    const key=add("uskkey:"+me.index+":"+k.index,"M/E "+me.index+" · USK "+k.index+" Key","bus","KEYER ASSIGNMENTS");
@@ -459,19 +469,26 @@ function explorerBuildGraph(){
  return {nodes,edges};
 }
 function explorerLayout(graph){
- const W=174,H=38,ROW=58,COLS=[32,350,690,1030],top=60;
- const buckets=[[],[],[],[]],pos=new Map(),labels=[];
- const column=n=>n.type==="source"?0:n.type==="bus"?1:n.type==="processor"?2:3;
- graph.nodes.forEach(n=>buckets[column(n)].push(n));
- // Stable topology order; dynamic edges never move nodes.
- buckets.forEach((bucket,col)=>{
-  let y=top,last="";
-  bucket.forEach(n=>{
-   if(n.group!==last){labels.push('<text class="overviewGroup" x="'+COLS[col]+'" y="'+(y+4)+'">'+explorerEscape(n.group)+'</text>');y+=32;last=n.group}
-   pos.set(n.id,{x:COLS[col],y});y+=ROW;
-  });
+ const W=184,H=36,ROW=54,top=62,pos=new Map(),labels=[];
+ const sources=graph.nodes.filter(n=>n.type==="source"),bus=graph.nodes.filter(n=>n.type==="bus"),
+ processors=graph.nodes.filter(n=>n.type==="processor"),internal=graph.nodes.filter(n=>n.type==="internal"),
+ destinations=graph.nodes.filter(n=>n.type==="destination");
+ // Use the horizontal workspace: distribute large input inventories into several short banks.
+ // Positioning is topology-stable and does not jump when the operator switches sources.
+ const perBank=12,bankWidth=238,sourceBanks=Math.max(1,Math.ceil(sources.length/perBank));
+ sources.forEach((n,i)=>pos.set(n.id,{x:32+Math.floor(i/perBank)*bankWidth,y:top+(i%perBank)*ROW}));
+ const baseX=32+sourceBanks*bankWidth+70;
+ const columns=[{nodes:bus,x:baseX,title:"M/E BUSES & ASSIGNMENTS"},
+ {nodes:processors,x:baseX+300,title:"M/E PROCESSORS"},
+ {nodes:internal,x:baseX+550,title:"M/E INTERNAL OUTPUTS"},
+ {nodes:destinations,x:baseX+820,title:"DESTINATIONS"}];
+ labels.push('<text class="overviewGroup" x="32" y="32">EXTERNAL & OTHER SOURCES</text>');
+ columns.forEach(col=>{
+  labels.push('<text class="overviewGroup" x="'+col.x+'" y="32">'+col.title+'</text>');
+  col.nodes.forEach((n,i)=>pos.set(n.id,{x:col.x,y:top+i*ROW}));
  });
- const height=Math.max(340,...[...pos.values()].map(p=>p.y+H+60)),width=COLS[3]+W+60;
+ const height=Math.max(760,...[...pos.values()].map(p=>p.y+H+55));
+ const width=baseX+820+W+80;
  return {pos,labels,height,width,W,H};
 }
 function explorerDraw(graph){
