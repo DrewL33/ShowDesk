@@ -398,7 +398,7 @@ function explorerClear(){explorerPinned=null;explorerHover=null;explorerHighligh
 function explorerZoom(direction){
  const scroller=document.querySelector("#explorerCanvas .explorerDiagramScroll"),svg=scroller?.querySelector("svg");
  if(!svg)return;
- if(direction===0){explorerScale=Math.min(1,scroller.clientWidth/Number(svg.dataset.width));}
+ if(direction===0){const w=scroller.clientWidth;if(w<80)return;explorerScale=Math.max(.35,Math.min(1,w/Number(svg.dataset.width)));}
  else explorerScale=Math.max(.3,Math.min(2.5,explorerScale*(direction>0?1.2:1/1.2)));
  svg.style.width=(Number(svg.dataset.width)*explorerScale)+"px";svg.style.height=(Number(svg.dataset.height)*explorerScale)+"px";
 }
@@ -470,25 +470,26 @@ function explorerBuildGraph(){
 }
 function explorerLayout(graph){
  const W=184,H=36,ROW=54,top=62,pos=new Map(),labels=[];
- const sources=graph.nodes.filter(n=>n.type==="source"),bus=graph.nodes.filter(n=>n.type==="bus"),
- processors=graph.nodes.filter(n=>n.type==="processor"),internal=graph.nodes.filter(n=>n.type==="internal"),
- destinations=graph.nodes.filter(n=>n.type==="destination");
- // Use the horizontal workspace: distribute large input inventories into several short banks.
- // Positioning is topology-stable and does not jump when the operator switches sources.
- const perBank=12,bankWidth=238,sourceBanks=Math.max(1,Math.ceil(sources.length/perBank));
- sources.forEach((n,i)=>pos.set(n.id,{x:32+Math.floor(i/perBank)*bankWidth,y:top+(i%perBank)*ROW}));
- const baseX=32+sourceBanks*bankWidth+70;
- const columns=[{nodes:bus,x:baseX,title:"M/E BUSES & ASSIGNMENTS"},
- {nodes:processors,x:baseX+300,title:"M/E PROCESSORS"},
- {nodes:internal,x:baseX+550,title:"M/E INTERNAL OUTPUTS"},
- {nodes:destinations,x:baseX+820,title:"DESTINATIONS"}];
- labels.push('<text class="overviewGroup" x="32" y="32">EXTERNAL & OTHER SOURCES</text>');
- columns.forEach(col=>{
-  labels.push('<text class="overviewGroup" x="'+col.x+'" y="32">'+col.title+'</text>');
-  col.nodes.forEach((n,i)=>pos.set(n.id,{x:col.x,y:top+i*ROW}));
+ const groups=[
+  {type:"source",title:"EXTERNAL & OTHER SOURCES",limit:12},
+  {type:"bus",title:"M/E BUSES & ASSIGNMENTS",limit:15},
+  {type:"processor",title:"M/E PROCESSORS",limit:15},
+  {type:"internal",title:"M/E INTERNAL OUTPUTS",limit:15},
+  {type:"destination",title:"DESTINATIONS",limit:15}
+ ];
+ // Each category has its own row cap. Routing changes do not affect placement.
+ let cursor=32;
+ groups.forEach(group=>{
+  const nodes=graph.nodes.filter(n=>n.type===group.type),banks=Math.max(1,Math.ceil(nodes.length/group.limit));
+  for(let bank=0;bank<banks;bank++){
+   const x=cursor+bank*238;
+   labels.push('<text class="overviewGroup" x="'+x+'" y="32">'+explorerEscape(group.title)+(bank?' · '+(bank+1):'')+'</text>');
+  }
+  nodes.forEach((n,i)=>pos.set(n.id,{x:cursor+Math.floor(i/group.limit)*238,y:top+(i%group.limit)*ROW}));
+  cursor+=banks*238+64;
  });
  const height=Math.max(760,...[...pos.values()].map(p=>p.y+H+55));
- const width=baseX+820+W+80;
+ const width=cursor+W+40;
  return {pos,labels,height,width,W,H};
 }
 function explorerDraw(graph){
@@ -527,7 +528,10 @@ function renderPaths(){
   canvas.innerHTML='<div class="explorerDiagramScroll">'+explorerDraw(graph)+'</div>';
   canvas.firstElementChild.scrollLeft=x;canvas.firstElementChild.scrollTop=y;
   explorerTopology=topology;explorerRouteState=routing;
+  explorerScale=1;
   explorerZoom(0);
+  // The tab may be hidden during the first render; refit after it becomes measurable.
+  requestAnimationFrame(()=>explorerZoom(0));
  }else if(routing!==explorerRouteState){
   const svg=canvas.querySelector(".signalOverview"),old=new Map([...svg.querySelectorAll("[data-signal-edge]")].map(el=>[el.dataset.signalEdge,el]));
   const holder=document.createElement("div");holder.innerHTML=explorerDraw(graph);
