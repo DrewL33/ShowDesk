@@ -635,7 +635,7 @@ function renderPaths(){
    else {const existing=old.get(id);existing.setAttribute("d",el.getAttribute("d"));existing.setAttribute("class",el.getAttribute("class"));const halo=svg.querySelectorAll("[data-signal-halo]");halo.forEach(h=>{if(h.dataset.signalHalo===id)h.setAttribute("d",el.getAttribute("d"))});old.delete(id)}
   }
   svg.querySelectorAll("[data-signal-direction]").forEach(el=>el.remove());
-  for(const marker of holder.querySelectorAll("[data-signal-direction]"))svg.appendChild(marker);
+  for(const marker of holder.querySelectorAll("[data-signal-direction]"))svg.insertBefore(marker,svg.querySelector(".overviewGroup, .overviewNode"));
   old.forEach(el=>{el.classList.add("is-exiting");setTimeout(()=>el.remove(),180)});
   explorerRouteState=routing;
  }
