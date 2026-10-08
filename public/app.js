@@ -421,6 +421,7 @@ function explorerHighlight(){
  svg.querySelectorAll("[data-signal-node]").forEach(el=>{el.classList.toggle("is-active",!active||active.has(el.dataset.signalNode));el.classList.toggle("is-unlinked",dimUnlinked&&!linked.has(el.dataset.signalNode));});
  const activeEdges=new Set(graph.edges.filter(e=>!active||active.has(e.from)&&active.has(e.to)).map(e=>e.id));
  svg.querySelectorAll("[data-signal-edge]").forEach(el=>el.classList.toggle("is-active",activeEdges.has(el.dataset.signalEdge)));
+ svg.querySelectorAll("[data-signal-halo]").forEach(el=>el.classList.toggle("is-active",activeEdges.has(el.dataset.signalHalo)));
  const clear=$("explorerClearButton");if(clear)clear.hidden=!explorerPinned;
  const details=$("explorerDetails");
  if(details)details.textContent=node?(node.label+" · "+(explorerPinned?"Pinned inspection":"Hover inspection")+" · solid: selected; dashed: assigned, not necessarily on air"):"Hover any source, M/E or destination to inspect the live signal path.";
@@ -490,7 +491,7 @@ function explorerLayout(graph){
   nodes.forEach((n,i)=>pos.set(n.id,{x:cursor+Math.floor(i/group.limit)*306,y:top+(i%group.limit)*ROW}));
   cursor+=banks*306+90;
  });
- const height=Math.max(1120,...[...pos.values()].map(p=>p.y+H+260));
+ const height=Math.max(1120,...[...pos.values()].map(p=>p.y+H+Math.max(260,graph.edges.length*5+50)));
  const width=cursor+W+40;
  return {pos,labels,height,width,W,H};
 }
@@ -535,7 +536,7 @@ function explorerDraw(graph){
   const start={x:a.x+W,y:y1},end={x:b.x,y:y2};
   const pts=explorerRoute(start,end,columns,lanes,{width,height,nodeBottom:Math.max(...[...pos.values()].map(p=>p.y+H))});
   const d="M"+pts.map(p=>p.x+" "+p.y).join(" L");
-  return '<path class="overviewEdge '+explorerEscape(e.kind)+'" data-signal-edge="'+explorerEscape(e.id)+'" d="'+d+'"/>';
+  return '<path class="overviewEdgeHalo" data-signal-halo="'+explorerEscape(e.id)+'" d="'+d+'"/><path class="overviewEdge '+explorerEscape(e.kind)+'" data-signal-edge="'+explorerEscape(e.id)+'" d="'+d+'"/>';
  }).join("");
  const nodes=graph.nodes.map(n=>{
   const p=pos.get(n.id);
@@ -563,7 +564,7 @@ function renderPaths(){
   for(const el of holder.querySelectorAll("[data-signal-edge]")){
    const id=el.dataset.signalEdge;
    if(!old.has(id)){el.classList.add("is-new");svg.insertBefore(el,svg.firstChild)}
-   else {const existing=old.get(id);existing.setAttribute("d",el.getAttribute("d"));existing.setAttribute("class",el.getAttribute("class"));old.delete(id)}
+   else {const existing=old.get(id);existing.setAttribute("d",el.getAttribute("d"));existing.setAttribute("class",el.getAttribute("class"));const halo=svg.querySelectorAll("[data-signal-halo]");halo.forEach(h=>{if(h.dataset.signalHalo===id)h.setAttribute("d",el.getAttribute("d"))});old.delete(id)}
   }
   old.forEach(el=>{el.classList.add("is-exiting");setTimeout(()=>el.remove(),180)});
   explorerRouteState=routing;
