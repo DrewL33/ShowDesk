@@ -30,11 +30,12 @@ assert.match(styles,/\.hero\.pgm\{background:linear-gradient\(105deg,#241f21/,'R
 assert.match(styles,/\.hero\.pvw\{background:linear-gradient\(105deg,#182630/,'Restrained Preview surface');
 assert.match(styles,/\.explorerLayout\{display:grid/,'Signal Explorer must retain its two-way layout');
 assert.ok(!styles.includes('.signalTree'),'Retired signal tree styling must not return');
-assert.match(app,/function setExplorerMode\(/,'Signal Explorer must support two trace directions');
+assert.match(app,/function explorerReach\(/,'Signal Explorer must support bidirectional graph traversal');
+assert.match(app,/function explorerInspect\(/,'Signal Explorer must support hover and pinned inspection');
 assert.match(app,/function renderPaths\(/,'Signal Explorer must render from live routing state');
-assert.match(app,/function explorerDiagram\(/,'Signal Explorer must draw connected SVG branches');
+assert.match(app,/function explorerDraw\(/,'Signal Explorer must draw a persistent signal overview');
 assert.match(styles,/\.explorerDiagramScroll\{min-height:0;flex:1;overflow:auto/,'Signal diagram must scroll independently');
-assert.match(styles,/#explorerList\{overflow-y:auto/,'Source list must scroll independently');
+assert.match(styles,/#explorerList\{overflow:auto/,'Source list must scroll independently');
 assert.match(app,/class="mc matrixSource"/,'Routing Matrix must mark every source row for sticky scrolling');
 assert.match(styles,/\.engSummary\{grid-template-columns:minmax\(0,1\.15fr\)/,'Inspect consolidated layout');
 assert.match(server,/function broadcastViewerCount\(\)[\s\S]*?viewerClients\.size/,'Host service must derive Viewer count from active Viewer sockets');
