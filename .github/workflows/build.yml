@@ -12,7 +12,21 @@ on:
     tags: ['v*']
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run check
+
   tauri-shell:
+    if: startsWith(github.event.head_commit.message, 'RELEASE Build') || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    needs: validate
     strategy:
       fail-fast: false
       matrix:
@@ -23,9 +37,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
       - uses: dtolnay/rust-toolchain@stable
-      - run: npm install
-      - run: npm run check
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: npm ci
       - name: Verify updater version ordering
         shell: bash
         run: |
