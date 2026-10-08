@@ -62,7 +62,7 @@ assert.match(styles,/\.overviewEdge\.preview\{stroke:#42b5ff/,'Preview must stan
 assert.match(app,/type:"source",title:"EXTERNAL & OTHER SOURCES",limit:12/,'Source columns must have a 12-row cap');
 assert.match(app,/type:"bus",title:"M\/E BUSES & ASSIGNMENTS",limit:15/,'M/E bus columns must have a 15-row cap');
 assert.match(app,/type:"destination",title:"DESTINATIONS",limit:15/,'Destination columns must have a 15-row cap');
-assert.match(app,/requestAnimationFrame\(\(\)=>explorerZoom\(0\)\)/,'Initial fit must retry after layout');
+assert.match(app,/requestAnimationFrame\(explorerInitializeViewport\)/,'Initial focus must wait until the viewport has measurable dimensions');
 assert.match(app,/class="mc matrixSource"/,'Routing Matrix must mark every source row for sticky scrolling');
 assert.match(styles,/\.engSummary\{grid-template-columns:minmax\(0,1\.15fr\)/,'Inspect consolidated layout');
 assert.match(server,/function broadcastViewerCount\(\)[\s\S]*?viewerClients\.size/,'Host service must derive Viewer count from active Viewer sockets');
