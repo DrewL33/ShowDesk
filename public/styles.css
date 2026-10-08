@@ -436,3 +436,9 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .signalOverview .overviewDirection.assigned{stroke:#d5ad65;opacity:.78}
 .signalOverview.is-filtered .overviewDirection:not(.is-active){opacity:.08}
 .signalOverview.is-filtered .overviewDirection.is-active{opacity:1;stroke-width:1.6}
+
+/* Build083: slightly clearer direction hints and exact completed transition fill. */
+.signalOverview .overviewDirection{stroke-width:1.7;opacity:.9}
+.signalOverview .overviewDirection.program,.signalOverview .overviewDirection.preview,.signalOverview .overviewDirection.assigned{opacity:.95}
+.signalOverview.is-filtered .overviewDirection.is-active{stroke-width:2;opacity:1}
+.transitionStatus i em.is-complete{transition:none!important;width:100%!important}
