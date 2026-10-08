@@ -428,3 +428,11 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .transitionStatusItem{display:contents}
 .transitionStatus i em{transition:width 110ms linear!important;will-change:width}
 .explorerDiagramScroll{overscroll-behavior:contain}
+
+/* Build082: unobtrusive, single-chevron signal-direction hints. */
+.signalOverview .overviewDirection{fill:none;stroke:#718a98;stroke-width:1.25;stroke-linecap:round;stroke-linejoin:round;opacity:.62;pointer-events:none}
+.signalOverview .overviewDirection.program{stroke:#d97878;opacity:.78}
+.signalOverview .overviewDirection.preview{stroke:#42b5ff;opacity:.82}
+.signalOverview .overviewDirection.assigned{stroke:#d5ad65;opacity:.78}
+.signalOverview.is-filtered .overviewDirection:not(.is-active){opacity:.08}
+.signalOverview.is-filtered .overviewDirection.is-active{opacity:1;stroke-width:1.6}
