@@ -375,3 +375,22 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .signalOverview .overviewEdge.is-active{paint-order:stroke;filter:drop-shadow(0 0 1.5px #06141b)}
 .signalOverview.is-filtered .overviewEdge.is-active{stroke:#65ddc5;stroke-width:2.4;opacity:1}
 .signalOverview.is-filtered .overviewNode.is-active{opacity:1}
+
+/* Build076: preserve status colors during inspection, keep controls near the search. */
+.explorerTraceControls{display:flex;align-items:center;gap:8px;position:relative;margin-right:auto}
+.explorerLegend{position:relative;font-size:11px;z-index:15}
+.explorerLegend summary{list-style:none;cursor:pointer;padding:9px 12px;border:1px solid #425e6c;border-radius:5px;color:#d9e8ee;font-weight:700}
+.explorerLegend summary::-webkit-details-marker{display:none}
+.explorerLegendPopup{position:absolute;top:calc(100% + 6px);left:0;width:280px;background:#172832;border:1px solid #537483;border-radius:6px;padding:12px;box-shadow:0 10px 26px #0008;display:grid;gap:12px}
+.explorerLegendPopup>div{display:flex;align-items:center;gap:10px;color:#d8e7ed;font-size:11px}
+.legendStroke{display:inline-block;width:38px;min-width:38px;border-top:2px solid #66879a}
+.legendStroke.program{border-color:#c87171}.legendStroke.preview{border-color:#5e9fc5}
+.legendStroke.assigned{border-color:#d5ad65;border-top-style:dashed}
+.explorerClearButton{position:static!important;right:auto!important;top:auto!important;padding:9px 12px!important}
+.signalOverview .overviewEdge.assigned{stroke:#d5ad65;stroke-dasharray:5 4}
+.signalOverview.is-filtered .overviewEdge.is-active{stroke-width:2.5;opacity:1;filter:drop-shadow(0 0 2px #08151d)}
+.signalOverview.is-filtered .overviewEdge.is-active.program{stroke:#d97878}
+.signalOverview.is-filtered .overviewEdge.is-active.preview{stroke:#70b3e1}
+.signalOverview.is-filtered .overviewEdge.is-active.assigned{stroke:#e4bc72;stroke-dasharray:5 4}
+.signalOverview.is-filtered .overviewEdge.is-active.routing{stroke:#8fb7ca}
+.signalOverview.is-filtered .overviewEdge.is-active.selected{stroke:#8fb7ca}
