@@ -471,7 +471,7 @@ function explorerBuildGraph(){
  return {nodes,edges};
 }
 function explorerLayout(graph){
- const W=184,H=36,ROW=54,top=62,pos=new Map(),labels=[];
+ const W=184,H=36,ROW=78,top=72,pos=new Map(),labels=[];
  const groups=[
   {type:"source",title:"EXTERNAL & OTHER SOURCES",limit:12},
   {type:"bus",title:"M/E BUSES & ASSIGNMENTS",limit:15},
@@ -484,13 +484,13 @@ function explorerLayout(graph){
  groups.forEach(group=>{
   const nodes=graph.nodes.filter(n=>n.type===group.type),banks=Math.max(1,Math.ceil(nodes.length/group.limit));
   for(let bank=0;bank<banks;bank++){
-   const x=cursor+bank*238;
+   const x=cursor+bank*306;
    labels.push('<text class="overviewGroup" x="'+x+'" y="32">'+explorerEscape(group.title)+(bank?' · '+(bank+1):'')+'</text>');
   }
-  nodes.forEach((n,i)=>pos.set(n.id,{x:cursor+Math.floor(i/group.limit)*238,y:top+(i%group.limit)*ROW}));
-  cursor+=banks*238+64;
+  nodes.forEach((n,i)=>pos.set(n.id,{x:cursor+Math.floor(i/group.limit)*306,y:top+(i%group.limit)*ROW}));
+  cursor+=banks*306+90;
  });
- const height=Math.max(760,...[...pos.values()].map(p=>p.y+H+55));
+ const height=Math.max(1120,...[...pos.values()].map(p=>p.y+H+260));
  const width=cursor+W+40;
  return {pos,labels,height,width,W,H};
 }
