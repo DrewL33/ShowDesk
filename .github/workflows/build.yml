@@ -135,7 +135,24 @@ jobs:
           fi
           rm -rf "$STAGE"
           MOUNT="$(mktemp -d)"
-          hdiutil attach "$DMG" -readonly -nobrowse -mountpoint "$MOUNT"
+          # Hosted macOS runners sometimes fail to attach a newly created DMG.
+          # Retry only the mount operation, cleaning up after each attempt.
+          attached=0
+          for attempt in 1 2 3 4 5; do
+            if hdiutil attach "$DMG" -readonly -nobrowse -mountpoint "$MOUNT"; then
+              attached=1
+              break
+            fi
+            echo "DMG mount attempt $attempt failed; clearing stale ShowDesk mounts..."
+            hdiutil info | awk '/^\\/dev\\// { dev=$1 } /ShowDesk/ && dev { print dev }' | sort -u | while read -r dev; do
+              hdiutil detach "$dev" -force || true
+            done
+            sleep 5
+          done
+          if [ "$attached" -ne 1 ]; then
+            echo "Unable to mount ShowDesk DMG after five attempts"
+            exit 1
+          fi
           codesign --verify --deep --strict --verbose=2 "$MOUNT/ShowDesk.app"
           hdiutil detach "$MOUNT"
           rmdir "$MOUNT"
