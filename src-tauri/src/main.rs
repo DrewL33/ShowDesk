@@ -132,6 +132,25 @@ async fn check_for_update(app: AppHandle) -> Result<serde_json::Value, String> {
     })
 }
 
+// Relaunch the installed .app through Launch Services so macOS associates the
+// new process with the existing Dock application instead of the raw executable.
+#[cfg(target_os = "macos")]
+fn relaunch_installed_macos_app(app: &AppHandle) -> Result<(), String> {
+    let exe = std::env::current_exe().map_err(|e| format!("Unable to locate ShowDesk executable: {e}"))?;
+    let bundle = exe.ancestors().find(|p| p.extension().is_some_and(|ext| ext == "app"))
+        .ok_or_else(|| format!("ShowDesk executable is not inside an app bundle: {}", exe.display()))?;
+    let bundle_path = bundle.to_str().ok_or("ShowDesk app bundle path is not valid UTF-8")?;
+    // Wait until the updater process exits before asking Launch Services to open
+    // the exact updated bundle. Passing the path as $1 avoids shell interpolation.
+    Command::new("/bin/sh")
+        .args(["-c", "sleep 2; /usr/bin/open -a \"$1\"", "showdesk-relaunch", bundle_path])
+        .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null())
+        .spawn().map_err(|e| format!("Unable to schedule ShowDesk relaunch: {e}"))?;
+    eprintln!("[ShowDesk updater] Relaunching installed app via Launch Services: {bundle_path}");
+    app.exit(0);
+    Ok(())
+}
+
 #[tauri::command]
 async fn install_update(app: AppHandle) -> Result<(), String> {
     {
@@ -157,6 +176,9 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
         move || { let _ = finish_app.emit("showdesk-update-progress", serde_json::json!({ "phase": "installing" })); }
     ).await.map_err(|e| e.to_string())?;
     let _ = app.emit("showdesk-update-progress", serde_json::json!({ "phase": "restarting" }));
+    #[cfg(target_os = "macos")]
+    relaunch_installed_macos_app(&app)?;
+    #[cfg(not(target_os = "macos"))]
     app.restart();
     #[allow(unreachable_code)]
     Ok(())
