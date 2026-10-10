@@ -458,3 +458,57 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .savedConnectionRow{display:flex;align-items:center;flex-wrap:wrap;gap:7px;padding:10px 0;border-bottom:1px solid var(--line)}
 .savedConnectionRow>div{flex:1;min-width:140px}
 .savedConnectionRow button{background:#1b3340;color:var(--sd-text);border:1px solid var(--line);border-radius:4px;padding:7px;font-size:9px;cursor:pointer}
+
+/* Build086 — Settings: consistent desktop window, 8/16/24 spacing, quiet navigation. */
+.settingsModal .settingsWindow{display:grid!important;grid-template-columns:166px minmax(0,1fr)!important;width:min(720px,calc(100vw - 40px))!important;min-height:420px!important;max-height:min(82vh,650px)!important;overflow:hidden!important;background:#15212a!important;border:1px solid #344752!important;border-radius:8px!important;box-shadow:0 26px 75px #000b!important}
+.settingsWindow .settingsSidebar{padding:24px 12px 16px;background:#111d25;border-right:1px solid #30414b;min-width:0}
+.settingsWindow .settingsBrand{padding:0 10px 25px}
+.settingsWindow .settingsBrand span{font-size:10px;letter-spacing:2px;font-weight:800;color:#92a5b0}
+.settingsWindow .settingsBrand h2{font-size:21px;line-height:1.2;margin:6px 0 0;color:#eef5f8}
+.settingsWindow .settingsTabs{display:flex!important;flex-direction:column;gap:4px;margin:0}
+.settingsWindow .settingsTabs button{display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;border:1px solid transparent;border-radius:5px;background:transparent;text-align:left;color:#b8c9d2;font-size:12px;font-weight:600;letter-spacing:0;text-transform:none;cursor:pointer}
+.settingsWindow .settingsTabs button.on{background:#294250;border-color:#405c6d;color:#fff}
+.settingsWindow .settingsTabs button:hover:not(.on){background:#1b303c}
+.settingsWindow .settingsNavGlyph{display:inline-flex;align-items:center;justify-content:center;width:16px;font-size:16px;font-weight:400}
+.settingsWindow .settingsMain{min-width:0;display:flex;flex-direction:column}
+.settingsWindow .settingsPageHead{height:72px;min-height:72px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid #30414b}
+.settingsWindow .settingsPageHead h2{margin:0;font-size:19px;font-weight:700;color:#f0f5f7}
+.settingsWindow .settingsPageHead .settingsClose{position:static;width:32px;height:32px;min-width:32px;display:grid;place-items:center;border:1px solid #3b505c;background:#1a2a34;color:#e8f1f4;font-size:22px;cursor:pointer}
+.settingsWindow .settingsSectionBody{padding:24px;flex:1;min-height:0;overflow-y:auto}
+.settingsWindow .settingsSectionBody .settingsSection{margin:0;padding:0;border:0}
+.settingsWindow .settingsSection h3{margin:0 0 12px!important;padding:0!important;font-size:10px;letter-spacing:1.3px;color:#9eafba;font-weight:800}
+.settingsWindow #settingsSectionGeneral h3:not(:first-child){margin-top:25px!important;padding-top:20px!important;border-top:1px solid #30414b}
+.settingsWindow .settingsControlRow{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:43px;margin:0;color:#e3edf2;font-size:12px;font-weight:500;cursor:default}
+.settingsWindow .settingsControlRow select{width:190px!important;max-width:55%;height:36px!important;margin:0!important;padding:0 32px 0 12px!important;border:1px solid #3b5361!important;border-radius:5px!important;background:#1a303c!important;color:#eaf2f6!important;font:inherit!important}
+.settingsWindow .settingsControlRow input[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;flex-shrink:0;width:36px;height:20px;border:1px solid #577080;border-radius:20px;background:#243541;cursor:pointer;transition:background .15s}
+.settingsWindow .settingsControlRow input[type=checkbox]:checked{background:#4c8cab;border-color:#77b0ca}
+.settingsWindow .settingsControlRow input[type=checkbox]::after{content:"";position:absolute;left:3px;top:3px;width:12px;height:12px;border-radius:50%;background:#dbe5eb;transition:transform .15s}
+.settingsWindow .settingsControlRow input[type=checkbox]:checked::after{transform:translateX(16px);background:white}
+.settingsWindow .settingsSectionHeader{display:flex;align-items:center;justify-content:space-between;margin:0 0 12px;gap:12px}
+.settingsWindow .settingsSectionHeader h3{margin:0!important}
+.settingsWindow .settingsSectionHeader>span,.settingsWindow .settingsSectionHeader>b{font-size:10px;color:#9eb1bd;letter-spacing:.6px}
+.settingsWindow .settingsSession{display:flex;flex-direction:column;gap:5px;padding:14px 16px;margin-bottom:28px;border:1px solid #314753;border-radius:5px;background:#1b2c36}
+.settingsWindow .settingsSession>b{font-size:13px;color:#eaf2f6}
+.settingsWindow .settingsSession>span{font-size:11px;color:#9eb3bf}
+.settingsWindow .savedConnectionRow{min-height:58px;padding:10px 2px;border-bottom:1px solid #30414b;gap:12px}
+.settingsWindow .savedConnectionRow>b{font-size:12px}
+.settingsWindow .savedConnectionMenu{position:relative}
+.settingsWindow .savedConnectionMenu summary{list-style:none;display:grid;place-items:center;width:32px;height:28px;border:1px solid #405563;border-radius:4px;background:#213542;cursor:pointer;font-size:18px}
+.settingsWindow .savedConnectionMenu summary::-webkit-details-marker{display:none}
+.settingsWindow .savedConnectionMenu>div{position:absolute;z-index:3;right:0;top:32px;width:148px;padding:5px;background:#223643;border:1px solid #476170;border-radius:5px;box-shadow:0 10px 24px #0009}
+.settingsWindow .savedConnectionMenu button{display:block;width:100%;text-align:left;background:transparent;border:0;color:#e9f1f4;padding:9px;font-size:11px}
+.settingsWindow .savedConnectionMenu button:hover{background:#345162}
+.settingsWindow .settingsFooter{display:flex;justify-content:flex-end;margin-top:24px;padding-top:18px;border-top:1px solid #30414b}
+.settingsWindow .settingsFooter button{min-height:34px;padding:0 14px;font-size:10px;letter-spacing:.5px}
+.settingsWindow .settingsVersionLine{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:25px}
+.settingsWindow .settingsVersionLine strong{font-size:17px}
+.settingsWindow .settingsVersionLine>span{font-size:10px;color:#a3b7c2}
+.settingsWindow .settingsAboutBrand{display:flex;flex-direction:column;gap:5px;padding-bottom:22px;border-bottom:1px solid #30414b}
+.settingsWindow .settingsAboutBrand strong{font-size:20px}
+.settingsWindow .settingsAboutBrand span{font-size:11px;color:#a5b7c1}
+.settingsWindow .settingsAboutDetails{display:grid;gap:15px;padding:22px 0}
+.settingsWindow .settingsAboutDetails>div{display:flex;justify-content:space-between;gap:12px;font-size:12px}
+.settingsWindow .settingsAboutDetails span{color:#a1b3bf;font-size:10px;letter-spacing:.7px}
+.settingsWindow .settingsAboutDetails b{font-weight:600}
+.settingsWindow .settingsRepository{display:inline-block;margin-top:10px;color:#9ed0e8;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:.5px}
+@media(max-width:570px){.settingsModal .settingsWindow{grid-template-columns:120px minmax(0,1fr)!important}.settingsWindow .settingsSidebar{padding:18px 6px}.settingsWindow .settingsBrand{padding:0 8px 20px}.settingsWindow .settingsTabs button{padding:10px 6px;font-size:10px;gap:5px}.settingsWindow .settingsSectionBody{padding:18px}.settingsWindow .settingsPageHead{padding:0 18px}.settingsWindow .settingsControlRow select{width:140px!important}}
