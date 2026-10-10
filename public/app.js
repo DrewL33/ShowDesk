@@ -91,13 +91,14 @@ function renderSavedConnectionChoices(){
   const input=$(mode==="host"?"atemIp":"viewerHostIp");
   const active=list.find(c=>c.ip===input?.value.trim())||list.find(c=>c.preferred)||list[0];
   const label=escapeShowDeskText(active.name);
-  el.innerHTML='<div class="savedConnectionLabel">SAVED CONNECTION</div><details class="savedConnectionPicker"><summary><span><b>'+label+'</b><small>'+escapeShowDeskText(active.ip)+(active.preferred?' · Preferred':'')+'</small></span><span aria-hidden="true">⌄</span></summary><div class="savedConnectionPickerMenu">'+list.map(c=>'<button type="button" onclick="selectSavedConnection(\\''+mode+'\\',\\''+c.ip+'\\');this.closest(\\'details\\').open=false"><b>'+escapeShowDeskText(c.name)+'</b><small>'+escapeShowDeskText(c.ip)+(c.preferred?' · Preferred':'')+'</small></button>').join("")+'</div></details>';
+  el.innerHTML='<div class="savedConnectionLabel">SAVED CONNECTION</div><details class="savedConnectionPicker"><summary><span><b>'+label+'</b><small>'+escapeShowDeskText(active.ip)+(active.preferred?' · Preferred':'')+'</small></span><span aria-hidden="true">⌄</span></summary><div class="savedConnectionPickerMenu">'+list.map(c=>'<button type="button" data-saved-mode="'+mode+'" data-saved-ip="'+escapeShowDeskText(c.ip)+'"><b>'+escapeShowDeskText(c.name)+'</b><small>'+escapeShowDeskText(c.ip)+(c.preferred?' · Preferred':'')+'</small></button>').join("")+'</div></details>';
  }
  const list=$("settingsSavedConnections");if($("settingsSavedCount"))$("settingsSavedCount").textContent=showDeskSavedConnections.length+" SAVED";if(list)list.innerHTML=showDeskSavedConnections.length?showDeskSavedConnections.map(c=>{
   const key=showDeskSavedConnections.indexOf(c);
   return '<div class="savedConnectionRow"><div><b>'+escapeShowDeskText(c.name)+'</b><small>'+escapeShowDeskText(c.mode==="host"?"ATEM":"VIEWER")+' · '+escapeShowDeskText(c.ip)+(c.preferred?' · ★ Preferred':'')+'</small></div><details class="savedConnectionMenu"><summary aria-label="Connection actions">···</summary><div><button type="button" onclick="renameSavedConnection('+key+')">Rename</button><button type="button" onclick="preferSavedConnection('+key+')">Set preferred</button><button type="button" onclick="removeSavedConnection('+key+')">Remove</button></div></details></div>';
  }).join(""):'<p class="settingsHint">No saved connections yet. Successful connections are saved automatically.</p>';
 }
+document.addEventListener("click",event=>{const button=event.target.closest?.("[data-saved-mode][data-saved-ip]");if(!button)return;selectSavedConnection(button.dataset.savedMode,button.dataset.savedIp)});
 function selectSavedConnection(mode,ip){
  if(!validIpLike(ip))return;
  const input=$(mode==="host"?"atemIp":"viewerHostIp");if(input)input.value=ip;
