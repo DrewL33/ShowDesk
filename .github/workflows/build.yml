@@ -1,6 +1,6 @@
 name: ShowDesk CI
 # Development pushes validate the current source. Only explicit RELEASE Build### commits publish.
-# Build086: package v0.1.86 redesigned Settings and opt-in connection preferences for native updater release.
+# Build087: package v0.1.87 themed Settings dropdown and Updates icon for native updater release.
 permissions:
   contents: write
 concurrency:
