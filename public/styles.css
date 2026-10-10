@@ -512,3 +512,18 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .settingsWindow .settingsAboutDetails b{font-weight:600}
 .settingsWindow .settingsRepository{display:inline-block;margin-top:10px;color:#9ed0e8;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:.5px}
 @media(max-width:570px){.settingsModal .settingsWindow{grid-template-columns:120px minmax(0,1fr)!important}.settingsWindow .settingsSidebar{padding:18px 6px}.settingsWindow .settingsBrand{padding:0 8px 20px}.settingsWindow .settingsTabs button{padding:10px 6px;font-size:10px;gap:5px}.settingsWindow .settingsSectionBody{padding:18px}.settingsWindow .settingsPageHead{padding:0 18px}.settingsWindow .settingsControlRow select{width:140px!important}}
+
+/* Build087 — native-looking ShowDesk menu, not the operating system's select popup. */
+.settingsWindow .settingsSelect{position:relative;width:190px;max-width:55%;flex-shrink:0}
+.settingsWindow .settingsSelectTrigger{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;height:36px;padding:0 12px;background:#1a303c;color:#eaf2f6;border:1px solid #3b5361;border-radius:5px;font-family:inherit;font-size:12px;font-weight:500;text-align:left;cursor:pointer;box-shadow:none;appearance:none}
+.settingsWindow .settingsSelectTrigger:hover{border-color:#6c91a5;background:#203b49}
+.settingsWindow .settingsSelectTrigger:focus-visible{outline:2px solid #70b3d5;outline-offset:2px}
+.settingsWindow .settingsSelectChevron{width:7px;height:7px;flex-shrink:0;border-right:1.5px solid #b9cbd4;border-bottom:1.5px solid #b9cbd4;transform:translateY(-2px) rotate(45deg)}
+.settingsWindow .settingsSelectTrigger[aria-expanded="true"] .settingsSelectChevron{transform:translateY(2px) rotate(225deg)}
+.settingsWindow .settingsSelectOptions{position:absolute;top:calc(100% + 5px);right:0;z-index:20;min-width:max(100%,210px);padding:5px;background:#1b2e3a;border:1px solid #476474;border-radius:6px;box-shadow:0 14px 30px #000a}
+.settingsWindow .settingsSelectOptions[hidden]{display:none!important}
+.settingsWindow .settingsSelectOptions button{display:block;width:100%;padding:10px 12px;background:transparent;border:0;border-radius:4px;color:#dce9ef;text-align:left;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.settingsWindow .settingsSelectOptions button:hover,.settingsWindow .settingsSelectOptions button:focus-visible{background:#2d4b5c;color:white;outline:none}
+.settingsWindow .settingsSelectOptions button[aria-selected="true"]{background:#28475a;color:#fff;font-weight:700}
+.settingsWindow .settingsNavGlyph svg{display:block}
+@media(max-width:570px){.settingsWindow .settingsSelect{width:140px}.settingsWindow .settingsSelectOptions{min-width:180px}}
