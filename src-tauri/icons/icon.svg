@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+ <radialGradient id="bg" cx="38%" cy="28%" r="82%"><stop offset="0" stop-color="#20242a"/><stop offset=".58" stop-color="#111419"/><stop offset="1" stop-color="#080a0d"/></radialGradient>
+ <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#777d86"/><stop offset=".08" stop-color="#30353c"/><stop offset=".9" stop-color="#171a1f"/><stop offset="1" stop-color="#353941"/></linearGradient>
+ <linearGradient id="red" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff333d"/><stop offset=".58" stop-color="#ff202b"/><stop offset="1" stop-color="#ef101c"/></linearGradient>
+ <linearGradient id="darkred" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#7e000b"/><stop offset=".55" stop-color="#b40010"/><stop offset="1" stop-color="#8c000c"/></linearGradient>
+ <filter id="shadow"><feGaussianBlur stdDeviation="13"/></filter>
+</defs>
+<rect x="87" y="89" width="850" height="836" rx="220" fill="#050608"/>
+<rect x="91" y="91" width="842" height="828" rx="215" fill="url(#edge)"/>
+<rect x="98" y="101" width="828" height="808" rx="207" fill="url(#bg)"/>
+<path d="M360 286h251c31 0 54 10 76 32l150 171c34 39 34 99 0 138L728 733c-16 15-34 22-56 22H527c56-4 93-28 93-77V459c0-38-23-68-62-68H359c-40 0-40 64 0 64h93c69 0 124 54 124 123v28c0 69-55 124-124 124H300c-43 0-78-35-78-78v-31h217c40 0 40-59 0-59h-94c-30 0-52-9-73-29l-23-22c-18-18-27-40-27-66v-43c0-64 62-116 138-116z" fill="#000" opacity=".5" filter="url(#shadow)"/>
+<path d="M360 286h251c31 0 54 10 76 32l150 171c34 39 34 99 0 138L728 733c-16 15-34 22-56 22H527c56-4 93-28 93-77V459c0-38-23-68-62-68H359c-40 0-40 64 0 64h93c69 0 124 54 124 123v28c0 69-55 124-124 124H300c-43 0-78-35-78-78v-31h217c40 0 40-59 0-59h-94c-30 0-52-9-73-29l-23-22c-18-18-27-40-27-66v-43c0-64 62-116 138-116z" fill="url(#red)"/>
+<path d="M574 390h111c31 0 55 10 77 32l75 67c34 39 34 99 0 138L728 733c-16 15-34 22-56 22H527c56-4 93-28 93-77V459c0-38-16-60-46-69z" fill="url(#darkred)"/>
+<path d="M658 438c-21-18-39-8-39 21v194c0 29 19 40 40 21l113-100c18-16 18-31 0-48z" fill="url(#red)"/>
+</svg>

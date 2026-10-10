@@ -1,23 +1,20 @@
-name: Build ShowDesk
+name: ShowDesk CI
+# Development pushes validate the current source. Only explicit RELEASE Build### commits publish.
+# Build089: package v0.1.89 Step 9 diagnostics and navigation fixes for native updater release.
+permissions:
+  contents: write
+concurrency:
+  group: showdesk-build-${{ github.ref }}
+  cancel-in-progress: true
 on:
   workflow_dispatch:
   push:
-    branches: ['main']
+    branches: ['main', 'beta', 'tauri-migration']
     tags: ['v*']
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-14
-            artifact: ShowDesk-macOS-arm64
-          - os: macos-13
-            artifact: ShowDesk-macOS-x64
-          - os: windows-latest
-            artifact: ShowDesk-Windows-x64
-    runs-on: ${{ matrix.os }}
+  validate:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,56 +22,275 @@ jobs:
           node-version: '22'
       - run: npm install
       - run: npm run check
-      - run: npm run bundle
-      - name: Stage native freetype binding
+
+  tauri-shell:
+    if: startsWith(github.event.head_commit.message, 'RELEASE Build') || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: npm install
+      - name: Verify updater version ordering
         shell: bash
         run: |
-          mkdir -p dist/prebuilds
-          cp -R node_modules/@julusian/freetype2/prebuilds/* dist/prebuilds/
-      - run: node scripts/make-sea-config.js
-      - run: node --experimental-sea-config dist/sea-config.json
-      - name: Create SEA executable
+          node <<'NODE'
+          const next=require('./src-tauri/tauri.conf.json').version;
+          const previous=['0.1.58','0.1.57','0.1.56','0.1.55','0.1.54','0.1.53','0.1.52','0.1.51','0.1.50','0.1.49','0.1.48','0.1.47','0.1.46','0.1.45','0.1.44','0.1.43','0.1.42','0.1.41','0.1.40','0.1.39','0.1.38','0.1.0-37','0.1.0-36','0.1.0'];
+          const parse=v=>{const [core,pre]=v.split('-');return {n:core.split('.').map(Number),pre};};
+          const gt=(a,b)=>{a=parse(a);b=parse(b);for(let i=0;i<3;i++){if(a.n[i]!==b.n[i])return a.n[i]>b.n[i];}if(a.pre===undefined&&b.pre!==undefined)return true;if(a.pre!==undefined&&b.pre===undefined)return false;return String(a.pre||'')>String(b.pre||'');};
+          for(const old of previous)if(!gt(next,old))throw new Error(`${next} is not newer than ${old}`);
+          console.log(`Updater ordering verified: ${next} is newer than ${previous.join(', ')}`);
+          NODE
+      - name: Prepare native ATEM service
+        run: |
+          npm run bundle
+          node scripts/prepare-tauri-backend.js
+      - name: Verify trimmed packaged backend
         shell: bash
         run: |
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            node -e "require('fs').copyFileSync(process.execPath, 'dist/ShowDesk.exe')"
-            npx postject dist/ShowDesk.exe NODE_SEA_BLOB dist/sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
-          else
-            cp "$(command -v node)" dist/ShowDesk
-            if [ "$RUNNER_OS" = "macOS" ]; then
-              codesign --remove-signature dist/ShowDesk || true
-              npx postject dist/ShowDesk NODE_SEA_BLOB dist/sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 --macho-segment-name NODE_SEA
-            else
-              npx postject dist/ShowDesk NODE_SEA_BLOB dist/sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
-            fi
-          fi
-      - name: Ad-hoc sign macOS build
-        if: runner.os == 'macOS'
-        run: codesign --force --sign - dist/ShowDesk
-      - name: Smoke test packaged executable
+          node -e "const fs=require('fs');const p='src-tauri/resources/backend';for(const n of ['atem-connection','ws'])if(!fs.existsSync(p+'/node_modules/'+n))throw new Error('Missing runtime dependency '+n);for(const n of ['@tauri-apps/cli','esbuild','postject'])if(fs.existsSync(p+'/node_modules/'+n))throw new Error('Development dependency leaked into packaged backend: '+n);"
+          node -e "const fs=require('fs'),path=require('path');let total=0;const walk=p=>{for(const e of fs.readdirSync(p,{withFileTypes:true})){const f=path.join(p,e.name);if(e.isDirectory())walk(f);else total+=fs.statSync(f).size}};walk('src-tauri/resources/backend');console.log('Packaged backend bytes:',total);if(total>150*1024*1024)throw new Error('Packaged backend unexpectedly exceeds 150 MiB');"
+
+      - name: Smoke test native ATEM service
         shell: bash
         env:
           SHOWDESK_NO_OPEN: '1'
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
-            ./dist/ShowDesk.exe > dist/smoke.log 2>&1 &
-            APP_PID=$!
+            src-tauri/resources/backend/runtime/node.exe src-tauri/resources/backend/src/server.js > native-backend.log 2>&1 &
           else
-            ./dist/ShowDesk > dist/smoke.log 2>&1 &
-            APP_PID=$!
+            src-tauri/resources/backend/runtime/node src-tauri/resources/backend/src/server.js > native-backend.log 2>&1 &
           fi
+          SERVICE_PID=$!
           sleep 3
-          if ! curl --fail --silent --show-error http://127.0.0.1:47821/ > dist/smoke-index.html; then
-            echo "----- ShowDesk smoke log -----"
-            cat dist/smoke.log || true
+          node -e "const WebSocket=require('ws');const ws=new WebSocket('ws://127.0.0.1:47821/ws');const t=setTimeout(()=>process.exit(1),5000);ws.on('open',()=>{clearTimeout(t);ws.close();process.exit(0)});ws.on('error',()=>process.exit(1))"
+          node -e "const http=require('http');const req=http.get('http://127.0.0.1:47822/health',res=>{let b='';res.on('data',c=>b+=c);res.on('end',()=>{const j=JSON.parse(b);process.exit(res.statusCode===200&&j.service==='ShowDesk Viewer'?0:1)})});req.setTimeout(5000,()=>{req.destroy();process.exit(1)});req.on('error',()=>process.exit(1))"
+          node -e "const WebSocket=require('ws');const ws=new WebSocket('ws://127.0.0.1:47822/viewer');const t=setTimeout(()=>process.exit(1),5000);ws.on('message',raw=>{const m=JSON.parse(raw.toString());if(m.type==='connection'&&m.status==='waiting'){clearTimeout(t);ws.close();process.exit(0)}});ws.on('error',()=>process.exit(1))"
+          kill $SERVICE_PID || true
+      - name: Generate native icons from approved ShowDesk artwork
+        run: |
+          npx tauri icon src-tauri/icons/icon.svg
+          test -s src-tauri/icons/icon.icns
+          test -s src-tauri/icons/icon.ico
+      - name: Build Tauri desktop shell
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npm run tauri:build
+      - name: Verify native desktop bundle
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            test -n "$(find src-tauri/target/release/bundle/nsis -type f -name '*-setup.exe' -print -quit)"
+            test -s src-tauri/icons/icon.ico
+          else
+            APP="src-tauri/target/release/bundle/macos/ShowDesk.app"
+            test -d "$APP"
+            test -x "$APP/Contents/MacOS/showdesk"
+            ! grep -R -q 'The browser is the UI for this beta shell' "$APP/Contents" || exit 1
+          fi
+      - name: Verify and package native macOS Build059
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          APP="src-tauri/target/release/bundle/macos/ShowDesk.app"
+          test -d "$APP"
+          PLIST_ICON="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$APP/Contents/Info.plist")"
+          test -n "$PLIST_ICON"
+          case "$PLIST_ICON" in *.icns) ;; *) PLIST_ICON="$PLIST_ICON.icns" ;; esac
+          test -s "$APP/Contents/Resources/$PLIST_ICON"
+          cmp "$APP/Contents/Resources/$PLIST_ICON" src-tauri/icons/icon.icns
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          spctl --assess --type execute --verbose=4 "$APP" || true
+          DMG="src-tauri/target/release/bundle/dmg/ShowDesk-Beta2-Build059-Native-macOS.dmg"
+          rm -f "$DMG"
+          STAGE="$(mktemp -d)"
+          cp -R "$APP" "$STAGE/ShowDesk.app"
+          ln -s /Applications "$STAGE/Applications"
+          # hdiutil can transiently report "Resource busy" on hosted macOS runners.
+          # Retry creation after clearing any stale ShowDesk disk-image attachment.
+          create_dmg() {
+            hdiutil create -volname "ShowDesk" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+          }
+          if ! create_dmg; then
+            echo "Initial DMG creation failed; clearing stale disk-image state and retrying..."
+            hdiutil info | awk '/^\/dev\// { dev=$1 } /ShowDesk/ && dev { print dev }' | sort -u | while read -r dev; do
+              hdiutil detach "$dev" -force || true
+            done
+            rm -f "$DMG"
+            sleep 5
+            create_dmg
+          fi
+          rm -rf "$STAGE"
+          MOUNT="$(mktemp -d)"
+          # Hosted macOS runners sometimes fail to attach a newly created DMG.
+          # Retry only the mount operation, cleaning up after each attempt.
+          attached=0
+          for attempt in 1 2 3 4 5; do
+            if hdiutil attach "$DMG" -readonly -nobrowse -mountpoint "$MOUNT"; then
+              attached=1
+              break
+            fi
+            echo "DMG mount attempt $attempt failed; clearing stale ShowDesk mounts..."
+            hdiutil info | awk '/^\\/dev\\// { dev=$1 } /ShowDesk/ && dev { print dev }' | sort -u | while read -r dev; do
+              hdiutil detach "$dev" -force || true
+            done
+            sleep 5
+          done
+          if [ "$attached" -ne 1 ]; then
+            echo "Unable to mount ShowDesk DMG after five attempts"
             exit 1
           fi
-          grep -q "SHOWDESK" dist/smoke-index.html
-          kill $APP_PID || true
-      - uses: actions/upload-artifact@v4
+          codesign --verify --deep --strict --verbose=2 "$MOUNT/ShowDesk.app"
+          hdiutil detach "$MOUNT"
+          rmdir "$MOUNT"
+          rm -f src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build059-Native-macOS.zip
+          ditto -c -k --sequesterRsrc --keepParent "$APP" src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build059-Native-macOS.zip
+          rm -rf /tmp/showdesk-verify
+          mkdir -p /tmp/showdesk-verify
+          ditto -x -k src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build059-Native-macOS.zip /tmp/showdesk-verify
+          codesign --verify --deep --strict --verbose=2 /tmp/showdesk-verify/ShowDesk.app
+      - name: Upload native Build059
+        uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
+          name: ShowDesk-Beta2-Build059-Native-${{ runner.os }}
           path: |
-            dist/ShowDesk
-            dist/ShowDesk.exe
+            src-tauri/target/release/bundle/dmg/ShowDesk-Beta2-Build059-Native-macOS.dmg
+            src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build059-Native-macOS.zip
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/nsis/*.sig
+            src-tauri/target/release/bundle/macos/*.app.tar.gz
+            src-tauri/target/release/bundle/macos/*.app.tar.gz.sig
           if-no-files-found: error
+
+  publish-updater:
+    if: startsWith(github.event.head_commit.message, 'RELEASE Build')
+    needs: tauri-shell
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out packaged build source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ShowDesk-Beta2-Build059-Native-*
+          path: updater-input
+          merge-multiple: true
+      - name: Prepare signed updater feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p updater-release
+          APP_VERSION="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          test -n "$APP_VERSION"
+          echo "Packaging updater feed for ShowDesk $APP_VERSION"
+          MAC_SRC="$(find updater-input -type f -name '*.app.tar.gz' | head -n1)"
+          MAC_SIG_SRC="$(find updater-input -type f -name '*.app.tar.gz.sig' | head -n1)"
+          WIN_SRC="$(find updater-input -type f -name '*-setup.exe' | head -n1)"
+          WIN_SIG_SRC="$(find updater-input -type f -name '*-setup.exe.sig' | head -n1)"
+          test -n "$MAC_SRC" && test -n "$MAC_SIG_SRC" && test -n "$WIN_SRC" && test -n "$WIN_SIG_SRC"
+          cp "$MAC_SRC" updater-release/ShowDesk-Beta2-Build059-macOS-arm64.app.tar.gz
+          cp "$MAC_SIG_SRC" updater-release/ShowDesk-Beta2-Build059-macOS-arm64.app.tar.gz.sig
+          cp "$WIN_SRC" updater-release/ShowDesk-Beta2-Build059-Windows-x64-setup.exe
+          cp "$WIN_SIG_SRC" updater-release/ShowDesk-Beta2-Build059-Windows-x64-setup.exe.sig
+          export APP_VERSION
+          node <<'NODE'
+          const fs=require('fs');
+          const base='https://github.com/DrewL33/ShowDesk/releases/download/showdesk-beta-latest/';
+          const feed={
+            version:process.env.APP_VERSION,
+            notes:'Build059: consolidate ShowDesk workspaces into one restrained native visual system.',
+            pub_date:new Date().toISOString(),
+            platforms:{
+              'darwin-aarch64':{
+                signature:fs.readFileSync('updater-release/ShowDesk-Beta2-Build059-macOS-arm64.app.tar.gz.sig','utf8').trim(),
+                url:base+'ShowDesk-Beta2-Build059-macOS-arm64.app.tar.gz'
+              },
+              'windows-x86_64':{
+                signature:fs.readFileSync('updater-release/ShowDesk-Beta2-Build059-Windows-x64-setup.exe.sig','utf8').trim(),
+                url:base+'ShowDesk-Beta2-Build059-Windows-x64-setup.exe'
+              }
+            }
+          };
+          fs.writeFileSync('updater-release/latest.json',JSON.stringify(feed,null,2)+'\n');
+          NODE
+          node -e "const fs=require('fs');const expected=require('./src-tauri/tauri.conf.json').version;const feed=JSON.parse(fs.readFileSync('updater-release/latest.json','utf8'));if(feed.version!==expected||!feed.platforms?.['darwin-aarch64']||!feed.platforms?.['windows-x86_64'])process.exit(1)"
+      - name: Publish updater release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if ! gh release view showdesk-beta-latest --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release create showdesk-beta-latest --repo "${{ github.repository }}" --title "ShowDesk Beta Latest" --notes "Signed ShowDesk beta updater feed." --prerelease
+          fi
+          gh release upload showdesk-beta-latest updater-release/* --repo "${{ github.repository }}" --clobber
+      - name: Verify published updater feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://github.com/${{ github.repository }}/releases/download/showdesk-beta-latest/latest.json"
+          for attempt in 1 2 3 4 5; do
+            if curl -fL --retry 3 --retry-delay 2 -H 'Cache-Control: no-cache' "$URL?run=${{ github.run_id }}&attempt=$attempt" -o published-latest.json; then
+              node -e "const fs=require('fs');const expected=require('./src-tauri/tauri.conf.json').version;const feed=JSON.parse(fs.readFileSync('published-latest.json','utf8'));if(feed.version!==expected||!feed.platforms?.['darwin-aarch64']||!feed.platforms?.['windows-x86_64'])process.exit(1)"
+              exit 0
+            fi
+            sleep 3
+          done
+          exit 1
+
+  publish-field-test:
+    if: startsWith(github.event.head_commit.message, 'RELEASE Build')
+    needs: tauri-shell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ShowDesk-Beta2-Build059-Native-*
+          path: field-test-input
+          merge-multiple: true
+      - name: Prepare two-file field-test release
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p field-test-release
+          MAC_DMG="$(find field-test-input -type f -name '*.dmg' | head -n1)"
+          WIN_EXE="$(find field-test-input -type f -name '*-setup.exe' | head -n1)"
+          test -n "$MAC_DMG" && test -n "$WIN_EXE"
+          cp "$MAC_DMG" field-test-release/ShowDesk-macOS-Installer.dmg
+          cp "$WIN_EXE" field-test-release/ShowDesk-Windows-Installer.exe
+          test "$(find field-test-release -maxdepth 1 -type f | wc -l | tr -d ' ')" = "2"
+      - name: Publish clean field-test release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="showdesk-field-test"
+          if ! gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "ShowDesk — Field Test" --notes "Current ShowDesk field-test installers. Choose the installer for your operating system." --prerelease
+          fi
+          gh release upload "$TAG" field-test-release/ShowDesk-macOS-Installer.dmg field-test-release/ShowDesk-Windows-Installer.exe --repo "${{ github.repository }}" --clobber
+      - name: Verify exactly two tester downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="showdesk-field-test"
+          COUNT="$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq '.assets | length')"
+          test "$COUNT" = "2"
+          test "$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq '.assets | map(.name) | sort | join(",")')" = "ShowDesk-Windows-Installer.exe,ShowDesk-macOS-Installer.dmg"
