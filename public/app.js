@@ -91,7 +91,7 @@ function renderSavedConnectionChoices(){
   const input=$(mode==="host"?"atemIp":"viewerHostIp");
   const active=list.find(c=>c.ip===input?.value.trim())||list.find(c=>c.preferred)||list[0];
   const label=escapeShowDeskText(active.name);
-  el.innerHTML='<label class="savedConnectionLabel" for="'+target+'Select">SAVED CONNECTION</label><div class="savedConnectionSelectWrap"><select class="savedConnectionSelect" id="'+target+'Select" aria-label="Saved '+(mode==="host"?"ATEM":"ShowDesk Host")+' connections" onchange="selectSavedConnection(\''+mode+'\',this.value)">'+list.map(c=>'<option value="'+escapeShowDeskText(c.ip)+'"'+(c.ip===active.ip?' selected':'')+'>'+escapeShowDeskText(c.name)+(c.preferred?' ★':'')+'</option>').join("")+'</select><span class="savedConnectionMeta">'+escapeShowDeskText(active.ip)+(active.preferred?' · Preferred':'')+'</span></div>';
+  el.innerHTML='<div class="savedConnectionLabel">SAVED CONNECTION</div><details class="savedConnectionPicker"><summary><span><b>'+label+'</b><small>'+escapeShowDeskText(active.ip)+(active.preferred?' · Preferred':'')+'</small></span><span aria-hidden="true">⌄</span></summary><div class="savedConnectionPickerMenu">'+list.map(c=>'<button type="button" onclick="selectSavedConnection(\\''+mode+'\\',\\''+c.ip+'\\');this.closest(\\'details\\').open=false"><b>'+escapeShowDeskText(c.name)+'</b><small>'+escapeShowDeskText(c.ip)+(c.preferred?' · Preferred':'')+'</small></button>').join("")+'</div></details>';
  }
  const list=$("settingsSavedConnections");if($("settingsSavedCount"))$("settingsSavedCount").textContent=showDeskSavedConnections.length+" SAVED";if(list)list.innerHTML=showDeskSavedConnections.length?showDeskSavedConnections.map(c=>{
   const key=showDeskSavedConnections.indexOf(c);
