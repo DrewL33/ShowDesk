@@ -121,7 +121,7 @@ assert.match(styles,/\.eng \.matrixViewport\{height:300px!important/,'Routing Ma
 assert.match(styles,/\.settingsModal\{position:fixed!important;inset:0!important/,'Settings must remain a fixed modal overlay');
 assert.match(styles,/\.settingsCard\{width:min\(520px/,'Settings must remain compact rather than full-screen');
 assert.ok(!html.includes('Build057 • 0.1.57'),'Settings About must not expose stale Build057');
-assert.match(html,/id="settingsBuild">Build087 · 0\.1\.87/,'Settings About must ship with the Build085 fallback');
+assert.match(html,/id="settingsBuild">Build088 · 0\.1\.88/,'Settings About must ship with the Build085 fallback');
 
 assert.match(app,/let committedMeState=new Map\(\)/,'Transition display must keep a committed M/E state');
 assert.match(app,/transitioning&&committed\?\{\.\.\.me,pgm:committed\.pgm,pvw:committed\.pvw\}/,'Intermediate transitions must retain committed PGM/PVW');
@@ -191,3 +191,7 @@ assert.match(html,/id="settingsWorkspaceOptions"/,'Workspace choices must use a 
 assert.match(html,/role="listbox"/,'Workspace menu must expose listbox semantics');
 assert.match(html,/data-settings-tab="updates"[^\n]*<svg/,'Updates should use a download glyph rather than refresh');
 assert.match(app,/function chooseSettingsWorkspace\(value\)/,'Custom workspace selection must persist');
+
+assert.match(html,/class="savedConnectionPicker"/,'Saved connections must use compact ShowDesk picker');
+assert.match(html,/settingsAboutSummary/,'About must present a concise description');
+assert.doesNotMatch(html,/class="settingsAboutDetails"/,'About must not show redundant technical details');
