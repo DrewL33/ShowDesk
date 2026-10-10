@@ -24,15 +24,15 @@
  <div id="hostSetup" hidden>
   <button class="setupBack" onclick="chooseConnectionMode(null)">← CONNECTION MODE</button>
   <p>Host Mode connects directly to the ATEM and makes its read-only ShowDesk state available to Viewer computers.</p>
-  <div class="field"><label>ATEM SWITCHER IP</label><input id="atemIp" inputmode="decimal" autocomplete="off" placeholder="192.168.1.240" oninput="connectionInputChanged()" onkeydown="if(event.key==='Enter'&&!$('connectAtemBtn').disabled)connectAtem()"></div>
-  <div id="savedAtemConnections" class="savedConnectionChoices"></div><button id="connectAtemBtn" class="connectBtn" disabled onclick="connectAtem()">CONNECT &amp; HOST</button>
+  <div id="savedAtemConnections" class="savedConnectionChoices" hidden></div><div class="field"><label>ATEM SWITCHER IP</label><input id="atemIp" inputmode="decimal" autocomplete="off" placeholder="192.168.1.240" oninput="connectionInputChanged()" onkeydown="if(event.key==='Enter'&&!$('connectAtemBtn').disabled)connectAtem()"></div>
+  <button id="connectAtemBtn" class="connectBtn" disabled onclick="connectAtem()">CONNECT &amp; HOST</button>
   <p class="safeNote" id="setupStatus">Enter the ATEM switcher IP address.</p>
  </div>
  <div id="viewerSetup" hidden>
   <button class="setupBack" onclick="chooseConnectionMode(null)">← CONNECTION MODE</button>
   <p>Enter the IP address of the computer running ShowDesk in Host Mode.</p>
-  <div class="field"><label>SHOWDESK HOST IP</label><input id="viewerHostIp" inputmode="decimal" autocomplete="off" placeholder="192.168.1.100" oninput="viewerInputChanged()" onkeydown="if(event.key==='Enter'&&!$('connectViewerBtn').disabled)connectViewer()"></div>
-  <div id="savedViewerConnections" class="savedConnectionChoices"></div><button id="connectViewerBtn" class="connectBtn" disabled onclick="connectViewer()">CONNECT TO HOST</button>
+  <div id="savedViewerConnections" class="savedConnectionChoices" hidden></div><div class="field"><label>SHOWDESK HOST IP</label><input id="viewerHostIp" inputmode="decimal" autocomplete="off" placeholder="192.168.1.100" oninput="viewerInputChanged()" onkeydown="if(event.key==='Enter'&&!$('connectViewerBtn').disabled)connectViewer()"></div>
+  <button id="connectViewerBtn" class="connectBtn" disabled onclick="connectViewer()">CONNECT TO HOST</button>
   <p class="safeNote" id="viewerStatus">Viewer Mode is read-only and does not connect directly to the ATEM.</p>
  </div>
 </div></div>
@@ -136,13 +136,13 @@
     <div class="settingsFooter"><button id="settingsDisconnect" class="settingsAction dangerAction" type="button" onclick="disconnectFromSettings()">DISCONNECT</button></div>
    </section>
    <section id="settingsSectionUpdates" class="settingsSection" hidden>
-    <h3>INSTALLED VERSION</h3><div class="settingsVersionLine"><strong>ShowDesk <span id="settingsVersion">0.1.87</span></strong><span id="settingsUpdateStatus">—</span></div>
+    <h3>INSTALLED VERSION</h3><div class="settingsVersionLine"><strong>ShowDesk <span id="settingsVersion">0.1.88</span></strong><span id="settingsUpdateStatus">—</span></div>
     <label class="settingsControlRow" for="settingsAutoUpdatesSecondary"><span>Check automatically on launch</span><input id="settingsAutoUpdatesSecondary" type="checkbox" onchange="changeAutomaticUpdateChecks(this.checked)"></label>
     <div class="settingsFooter"><button class="settingsAction" type="button" onclick="checkUpdatesFromSettings()">CHECK FOR UPDATES</button></div>
    </section>
    <section id="settingsSectionAbout" class="settingsSection settingsAbout" hidden>
-    <div class="settingsAboutBrand"><strong>ShowDesk</strong><span id="settingsBuild">Build087 · 0.1.87</span></div>
-    <div class="settingsAboutDetails"><div><span>APPLICATION</span><b>ATEM Monitoring</b></div><div><span>CONNECTION</span><b>Read-only</b></div><div><span>PREFERENCES</span><b>Local</b></div></div>
+    <div class="settingsAboutBrand"><strong>ShowDesk</strong><span id="settingsBuild">Build088 · 0.1.88</span></div>
+    <p class="settingsAboutSummary">ATEM monitoring and signal diagnostics.</p>
     <a class="settingsRepository" href="https://github.com/DrewL33/ShowDesk" target="_blank" rel="noopener noreferrer">GITHUB REPOSITORY ↗</a>
    </section>
   </div>
