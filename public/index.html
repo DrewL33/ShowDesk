@@ -113,7 +113,7 @@
   <nav class="settingsTabs" aria-label="Settings sections">
    <button type="button" data-settings-tab="general" onclick="showSettingsSection('general')"><span class="settingsNavGlyph">⚙</span>General</button>
    <button type="button" data-settings-tab="connections" onclick="showSettingsSection('connections')"><span class="settingsNavGlyph">⌁</span>Connections</button>
-   <button type="button" data-settings-tab="updates" onclick="showSettingsSection('updates')"><span class="settingsNavGlyph">↻</span>Updates</button>
+   <button type="button" data-settings-tab="updates" onclick="showSettingsSection('updates')"><span class="settingsNavGlyph" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M4 17v3h16v-3"/></svg></span>Updates</button>
    <button type="button" data-settings-tab="about" onclick="showSettingsSection('about')"><span class="settingsNavGlyph">ⓘ</span>About</button>
   </nav>
  </aside>
@@ -122,7 +122,7 @@
   <div class="settingsSectionBody">
    <section id="settingsSectionGeneral" class="settingsSection">
     <h3>STARTUP</h3>
-    <div class="settingsControlRow"><label for="settingsDefaultWorkspace">Default workspace</label><select id="settingsDefaultWorkspace" onchange="changeDefaultWorkspace(this.value)"><option value="show">Show View</option><option value="engineering">Inspect</option><option value="signal">Signal Explorer</option><option value="last">Last used workspace</option></select></div>
+    <div class="settingsControlRow"><label for="settingsDefaultWorkspace">Default workspace</label><div class="settingsSelect" id="settingsWorkspaceSelector"><button id="settingsDefaultWorkspace" class="settingsSelectTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="settingsWorkspaceOptions" onclick="toggleSettingsWorkspaceMenu()"><span id="settingsWorkspaceLabel">Show View</span><span class="settingsSelectChevron" aria-hidden="true"></span></button><div id="settingsWorkspaceOptions" class="settingsSelectOptions" role="listbox" aria-label="Default workspace" hidden><button type="button" role="option" data-workspace="show" aria-selected="true" onclick="chooseSettingsWorkspace('show')">Show View</button><button type="button" role="option" data-workspace="engineering" aria-selected="false" onclick="chooseSettingsWorkspace('engineering')">Inspect</button><button type="button" role="option" data-workspace="signal" aria-selected="false" onclick="chooseSettingsWorkspace('signal')">Signal Explorer</button><button type="button" role="option" data-workspace="last" aria-selected="false" onclick="chooseSettingsWorkspace('last')">Last used workspace</button></div></div></div>
     <h3>CONNECTION</h3>
     <label class="settingsControlRow" for="settingsAutoConnect"><span>Auto-connect on launch</span><input id="settingsAutoConnect" type="checkbox" onchange="changeAutoConnectPreference(this.checked)"></label>
     <h3>UPDATES</h3>
