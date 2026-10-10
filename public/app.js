@@ -29,6 +29,7 @@ let activeConnectionMode=null;
 let intentionalDisconnect=false;
 let viewerReconnecting=false;
 const standard=[];
+let inspectInputsExpanded=false;
 function $(id){return document.getElementById(id)}
 
 let liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],routing:[],productIdentifier:null,videoMode:null,topology:{},debug:null};
@@ -343,7 +344,7 @@ function refreshShowDeskSettings(){
  if($("settingsDevice"))$("settingsDevice").textContent=connectedDevice?.name||connectedDevice?.productIdentifier||liveEngineering.productIdentifier||"—";
  if($("settingsAddress"))$("settingsAddress").textContent=connectedDevice?.ip||viewerConnectionContext?.ip||"—";
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
- if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.88"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.87").split(".").pop()).padStart(3,"0")} · ${showDeskUpdater.currentVersion||"0.1.87"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
+ if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.89"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.87").split(".").pop()).padStart(3,"0")} · ${showDeskUpdater.currentVersion||"0.1.87"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
 }
 function openShowDeskSettings(){refreshShowDeskSettings();renderSavedConnectionChoices();syncSettingsWorkspaceMenu();closeSettingsWorkspaceMenu();if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");$("settingsModal").hidden=false}
 function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true}
@@ -354,9 +355,9 @@ function setTab(tab){if(!["show","signal","engineering"].includes(tab))return;sh
  $("showBtn").classList.toggle("on",tab==="show");$("signalBtn").classList.toggle("on",tab==="signal");$("engBtn").classList.toggle("on",tab==="engineering");
  if(tab==="signal"){renderPaths();requestAnimationFrame(explorerInitializeViewport)}
 }
-function recordEvent(kind,msg,data={}){const e={iso:new Date().toISOString(),t:new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}),kind,msg,data};sessionEvents.unshift(e);logs=sessionEvents;lastChangeText=msg;return e}
+function recordEvent(kind,msg,data={}){const e={iso:new Date().toISOString(),t:new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}),kind,msg,data};sessionEvents.unshift(e);if(sessionEvents.length>500)sessionEvents.length=500;logs=sessionEvents;lastChangeText=msg;return e}
 function addLog(kind,msg){recordEvent(kind,msg);renderLog()}
-function renderLog(){let e=$("log");if(e)e.innerHTML=logs.slice(0,18).map(x=>`<div class="li"><span class="logTime">${x.t}</span><b class="logKind">${x.kind}</b><em class="logMessage">${x.msg}</em></div>`).join("")||`<div class="li emptyLog"><em>No changes yet</em></div>`}
+function renderLog(){let e=$("log");if(e)e.innerHTML=logs.slice(0,18).map(x=>`<div class="li"><span class="logTime">${escapeShowDeskText(x.t)}</span><b class="logKind">${escapeShowDeskText(x.kind)}</b><em class="logMessage">${escapeShowDeskText(x.msg)}</em></div>`).join("")||`<div class="li emptyLog"><em>No changes yet</em></div>`}
 window.routeHistory=window.routeHistory||{};
 function rememberRouteChange(n,next){
  const prev=actual[n];
@@ -450,7 +451,7 @@ function clearReference(){
 async function exportLogReport(){
  const mismatches=getMismatches(),mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
  const line=(label,value)=>label.padEnd(24," ")+(value??"—");
- const rows=["SHOWDESK SESSION REPORT","=======================","",line("ShowDesk version","0.1.38"),line("Exported",new Date().toLocaleString()),line("ATEM",connectedDevice?.name||liveEngineering.productIdentifier||"Not connected"),line("ATEM IP",connectedDevice?.ip||"—"),line("Video mode",liveEngineering.videoMode||"—"),line("Reported sources",(liveEngineering.inputs||[]).length),line("M/E buses",mes.length),"","CURRENT M/E STATE","-----------------"];
+ const rows=["SHOWDESK SESSION REPORT","=======================","",line("ShowDesk version",showDeskUpdater.currentVersion||"0.1.89"),line("Exported",new Date().toLocaleString()),line("ATEM",connectedDevice?.name||liveEngineering.productIdentifier||"Not connected"),line("Connection mode",activeConnectionMode||"Disconnected"),line("ATEM IP",connectedDevice?.ip||"—"),line("Connection uptime",connectionStartedAt?Math.round((Date.now()-connectionStartedAt)/1000)+" seconds":"—"),line("Last health signal",lastHealthAt?new Date(lastHealthAt).toLocaleString():"—"),line("Video mode",liveEngineering.videoMode||"—"),line("Reported sources",(liveEngineering.inputs||[]).length),line("M/E buses",mes.length),"","CURRENT M/E STATE","-----------------"];
  mes.forEach(me=>{rows.push(`M/E ${me.index}`,`  PROGRAM: ${me.pgm||"—"}`,`  PREVIEW: ${me.pvw||"—"}`,`  FTB: ${me.ftb?.isFullyBlack?"BLACK":me.ftb?.inTransition?"TRANSITION":"OFF"}`);(me.upstreamKeyers||[]).forEach((k,i)=>rows.push(`  USK ${i+1}: ${k.onAir?"ON AIR":"OFF"} | Fill: ${k.fill||"—"} | Key: ${k.key||"—"}`));});
  if(dsks.length){rows.push("","DOWNSTREAM KEYERS","-----------------");dsks.forEach((k,i)=>rows.push(`DSK ${i+1}: ${k.onAir?"ON AIR":"OFF"} | Fill: ${k.fill||"—"} | Key: ${k.key||"—"}`));}
  rows.push("","ROUTING / AUX ASSIGNMENTS","-------------------------");
@@ -840,17 +841,17 @@ function render(){
  if(ig){
    const cards=[...ig.children];
    const visibleLimit=24;
-   if(cards.length>visibleLimit){
+   if(cards.length>visibleLimit&&!inspectInputsExpanded){
      cards.forEach((c,i)=>{if(i>=visibleLimit)c.style.display="none";});
      const more=document.createElement("button");
      more.className="input moreInputs";
      more.type="button";
      more.setAttribute("aria-label","View all inputs in Inspect");
-     more.innerHTML=`<small>MORE INPUTS</small><b>+${cards.length-visibleLimit}</b><span>Continue in Inspect</span>`;
-     more.onclick=()=>setTab("engineering");
+     more.innerHTML=`<small>MORE INPUTS</small><b>+${cards.length-visibleLimit}</b><span>VIEW ALL INPUTS</span>`;
+     more.onclick=()=>{inspectInputsExpanded=true;render();setTab("engineering");requestAnimationFrame(()=>{const panel=document.querySelector(".inspectInputsPanel");panel?.scrollIntoView({behavior:"smooth",block:"start"});panel?.classList.add("inspectInputsFocused");setTimeout(()=>panel?.classList.remove("inspectInputsFocused"),1600)})};
      ig.appendChild(more);
      if($("inputCountLabel"))$("inputCountLabel").textContent=`${visibleLimit} / ${cards.length} inputs shown`;
-   }
+   }else if($("inputCountLabel"))$("inputCountLabel").textContent=`${cards.length} inputs shown`;
  }
  renderPaths();renderEngineering();renderLog();updateReferenceUI()
 }
