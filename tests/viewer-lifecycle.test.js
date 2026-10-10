@@ -192,6 +192,6 @@ assert.match(html,/role="listbox"/,'Workspace menu must expose listbox semantics
 assert.match(html,/data-settings-tab="updates"[^\n]*<svg/,'Updates should use a download glyph rather than refresh');
 assert.match(app,/function chooseSettingsWorkspace\(value\)/,'Custom workspace selection must persist');
 
-assert.match(html,/class="savedConnectionPicker"/,'Saved connections must use compact ShowDesk picker');
+assert.match(app,/class="savedConnectionPicker"/,'Saved connections must render compact ShowDesk picker');
 assert.match(html,/settingsAboutSummary/,'About must present a concise description');
 assert.doesNotMatch(html,/class="settingsAboutDetails"/,'About must not show redundant technical details');
