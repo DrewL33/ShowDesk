@@ -53,6 +53,61 @@ const SHOWDESK_CONNECTION_STORAGE_KEY="showdesk.connections.v1";
 function loadRememberedConnections(){try{const saved=JSON.parse(localStorage.getItem(SHOWDESK_CONNECTION_STORAGE_KEY)||"{}");return {atemIp:validIpLike(saved.atemIp||"")?saved.atemIp:"",viewerHostIp:validIpLike(saved.viewerHostIp||"")?saved.viewerHostIp:""};}catch{return {atemIp:"",viewerHostIp:""};}}
 function rememberSuccessfulConnection(kind,ip){if(!validIpLike(ip))return;try{const saved=loadRememberedConnections();saved[kind]=ip;localStorage.setItem(SHOWDESK_CONNECTION_STORAGE_KEY,JSON.stringify(saved));}catch(err){console.warn("ShowDesk could not remember the connection address locally.",err);}}
 function restoreRememberedConnections(){const saved=loadRememberedConnections();if(saved.atemIp&&$("atemIp"))$("atemIp").value=saved.atemIp;if(saved.viewerHostIp&&$("viewerHostIp"))$("viewerHostIp").value=saved.viewerHostIp;connectionInputChanged();viewerInputChanged();}
+const SHOWDESK_PREFERENCES_KEY="showdesk.preferences.v1";
+const SHOWDESK_SAVED_CONNECTIONS_KEY="showdesk.savedConnections.v1";
+const showDeskPreferenceDefaults={workspace:"show",lastWorkspace:"show",autoConnect:false};
+function loadShowDeskPreferences(){
+ try{const v=JSON.parse(localStorage.getItem(SHOWDESK_PREFERENCES_KEY)||"{}");return {...showDeskPreferenceDefaults,...v,autoConnect:false};}
+ catch{return {...showDeskPreferenceDefaults}}
+}
+let showDeskPreferences=loadShowDeskPreferences();
+function saveShowDeskPreferences(){try{localStorage.setItem(SHOWDESK_PREFERENCES_KEY,JSON.stringify(showDeskPreferences))}catch(error){console.warn("Unable to save ShowDesk preferences",error)}}
+function loadSavedConnections(){
+ try{
+  const list=JSON.parse(localStorage.getItem(SHOWDESK_SAVED_CONNECTIONS_KEY)||"null");
+  if(Array.isArray(list))return list.filter(c=>["host","viewer"].includes(c.mode)&&validIpLike(c.ip)).slice(0,40);
+ }catch{}
+ const old=loadRememberedConnections();
+ return [["host",old.atemIp],["viewer",old.viewerHostIp]].filter(([,ip])=>validIpLike(ip)).map(([mode,ip])=>({mode,ip,name:mode==="host"?"ATEM · "+ip:"ShowDesk Host · "+ip,preferred:true}));
+}
+let showDeskSavedConnections=loadSavedConnections();
+function persistSavedConnections(){try{localStorage.setItem(SHOWDESK_SAVED_CONNECTIONS_KEY,JSON.stringify(showDeskSavedConnections))}catch(error){console.warn("Unable to save connections",error)}}
+function saveNamedConnection(mode,ip){
+ if(!validIpLike(ip))return;
+ const current=showDeskSavedConnections.find(c=>c.mode===mode&&c.ip===ip);
+ if(!current){
+  const preferred=!showDeskSavedConnections.some(c=>c.mode===mode&&c.preferred);
+  showDeskSavedConnections.push({mode,ip,name:(mode==="host"?"ATEM":"ShowDesk Host")+" · "+ip,preferred});
+ }
+ persistSavedConnections();renderSavedConnectionChoices();
+}
+function escapeShowDeskText(v){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function renderSavedConnectionChoices(){
+ for(const [mode,target] of [["host","savedAtemConnections"],["viewer","savedViewerConnections"]]){
+  const el=$(target);if(!el)continue;
+  const list=showDeskSavedConnections.filter(c=>c.mode===mode);
+  el.innerHTML=list.length?list.map(c=>'<button type="button" class="savedConnectionChoice" onclick="selectSavedConnection(\''+mode+'\',\''+c.ip+'\')"><b>'+escapeShowDeskText(c.name)+'</b><small>'+escapeShowDeskText(c.ip)+(c.preferred?' · Preferred':'')+'</small></button>').join(""):'<span class="settingsHint">Successful connections will appear here.</span>';
+ }
+ const list=$("settingsSavedConnections");if(list)list.innerHTML=showDeskSavedConnections.length?showDeskSavedConnections.map(c=>{
+  const key=showDeskSavedConnections.indexOf(c);
+  return '<div class="savedConnectionRow"><div><b>'+escapeShowDeskText(c.name)+'</b><small>'+escapeShowDeskText(c.mode==="host"?"ATEM / Host":"ShowDesk Viewer")+' · '+escapeShowDeskText(c.ip)+(c.preferred?' · Preferred':'')+'</small></div><button type="button" onclick="renameSavedConnection('+key+')">RENAME</button><button type="button" onclick="preferSavedConnection('+key+')">PREFER</button><button type="button" onclick="removeSavedConnection('+key+')">REMOVE</button></div>';
+ }).join(""):'<p class="settingsHint">No saved connections yet. Successful connections are saved automatically.</p>';
+}
+function selectSavedConnection(mode,ip){
+ if(!validIpLike(ip))return;
+ const input=$(mode==="host"?"atemIp":"viewerHostIp");if(input)input.value=ip;
+ if(mode==="host")connectionInputChanged();else viewerInputChanged();
+}
+function renameSavedConnection(i){const c=showDeskSavedConnections[i];if(!c)return;const name=prompt("Connection name",c.name);if(name===null)return;const trimmed=name.trim().slice(0,60);if(!trimmed)return;c.name=trimmed;persistSavedConnections();renderSavedConnectionChoices()}
+function preferSavedConnection(i){const c=showDeskSavedConnections[i];if(!c)return;showDeskSavedConnections.forEach(x=>{if(x.mode===c.mode)x.preferred=x===c});persistSavedConnections();renderSavedConnectionChoices()}
+function removeSavedConnection(i){if(!showDeskSavedConnections[i])return;showDeskSavedConnections.splice(i,1);persistSavedConnections();renderSavedConnectionChoices()}
+function changeDefaultWorkspace(value){if(!["show","engineering","signal","last"].includes(value))return;showDeskPreferences.workspace=value;saveShowDeskPreferences()}
+function showDeskStartupWorkspace(){return showDeskPreferences.workspace==="last"?showDeskPreferences.lastWorkspace:showDeskPreferences.workspace}
+function applyShowDeskStartupWorkspace(){const tab=showDeskStartupWorkspace();if(["show","engineering","signal"].includes(tab))setTab(tab)}
+function showSettingsSection(section){
+ for(const name of ["general","connections","updates","about"]){const el=$("settingsSection"+name[0].toUpperCase()+name.slice(1));if(el)el.hidden=section!==name;}
+ document.querySelectorAll("[data-settings-tab]").forEach(b=>b.classList.toggle("on",b.dataset.settingsTab===section));
+}
 function viewerInputChanged(){
  const ip=$("viewerHostIp").value.trim();
  $("connectViewerBtn").disabled=!validIpLike(ip);
@@ -115,7 +170,7 @@ async function attemptHostReconnect(transport){
 }
 function enterViewerConnection(d,ctx=viewerConnectionContext){
  if(!d||!ctx||ctx.attempt!==viewerConnectionAttempt)return;
- const {ip}=ctx;connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="viewer";intentionalDisconnect=false;viewerReconnecting=false;rememberSuccessfulConnection("viewerHostIp",ip);
+ const {ip}=ctx;connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="viewer";intentionalDisconnect=false;viewerReconnecting=false;rememberSuccessfulConnection("viewerHostIp",ip);saveNamedConnection("viewer",ip);applyShowDeskStartupWorkspace();
  ensureLiveStateSubscription(window.ATEM_TRANSPORT);
  startConnectionHealth(window.ATEM_TRANSPORT);
  applyAtemStateUpdate(d);$("modelLabel").textContent=(d.name||d.productIdentifier||"ATEM Switcher")+" • "+ip;updateConnectionControls();$("setup").classList.add("hidden");addLog("SYSTEM","Viewer connected to ShowDesk Host at "+ip);render();
@@ -176,7 +231,7 @@ async function connectAtem(){
  status.style.color="";
  connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="host";intentionalDisconnect=false;
  try{ applyAtemStateUpdate(d); }catch(error){ console.error("[ShowDesk initial render]",error); status.textContent="ATEM connected, but ShowDesk could not render switcher state. "+(error?.message||String(error)); status.style.color="var(--amber)"; btn.disabled=false; btn.textContent="TRY AGAIN"; return; }
- rememberSuccessfulConnection("atemIp",ip);
+ rememberSuccessfulConnection("atemIp",ip);saveNamedConnection("host",ip);applyShowDeskStartupWorkspace();
  ensureLiveStateSubscription(transport);
  ensureViewerCountSubscription(transport);
  ensureHostConnectionSubscription(transport);
@@ -251,11 +306,11 @@ function refreshShowDeskSettings(){
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
  if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.65"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.65").split(".").pop()).padStart(3,"0")} • ${showDeskUpdater.currentVersion||"0.1.65"}`;
 }
-function openShowDeskSettings(){refreshShowDeskSettings();$("settingsModal").hidden=false}
+function openShowDeskSettings(){refreshShowDeskSettings();renderSavedConnectionChoices();if($("settingsDefaultWorkspace"))$("settingsDefaultWorkspace").value=showDeskPreferences.workspace;showSettingsSection("general");$("settingsModal").hidden=false}
 function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true}
 async function disconnectFromSettings(){closeShowDeskSettings();await disconnectShowDesk()}
 function checkUpdatesFromSettings(){closeShowDeskSettings();checkForShowDeskUpdate(true)}
-function setTab(tab){toast((tab==="engineering"?"INSPECT":tab.toUpperCase())+" view");
+function setTab(tab){if(!["show","signal","engineering"].includes(tab))return;showDeskPreferences.lastWorkspace=tab;saveShowDeskPreferences();toast((tab==="engineering"?"INSPECT":tab.toUpperCase())+" view");
  $("app").className="wrap tab-"+tab;
  $("showBtn").classList.toggle("on",tab==="show");$("signalBtn").classList.toggle("on",tab==="signal");$("engBtn").classList.toggle("on",tab==="engineering");
  if(tab==="signal"){renderPaths();requestAnimationFrame(explorerInitializeViewport)}
@@ -826,7 +881,7 @@ window.ATEM_OPS=Object.assign(window.ATEM_OPS||{},{applyStateUpdate:applyAtemSta
 })();
 
 
-restorePersistedReference();restoreRememberedConnections();updateReferenceUI();
+restorePersistedReference();restoreRememberedConnections();renderSavedConnectionChoices();updateReferenceUI();
 window.addEventListener("error",e=>{const s=$("setupStatus"),b=$("connectAtemBtn");if(s&&!$("setup").classList.contains("hidden")){s.textContent="ShowDesk browser error: "+(e.message||"Unknown error");s.style.color="var(--amber)";if(b){b.disabled=false;b.textContent="TRY AGAIN";}}});
 
 
@@ -864,8 +919,8 @@ function showUpdateProgress(detail={}){
 }
 async function ensureUpdateProgressListener(){
  const internals=window.__TAURI_INTERNALS__;if(!internals)return;const listen=internals.event?.listen;
- if(typeof listen==="function"){await listen("showdesk-update-progress",event=>showUpdateProgress(event.payload||{}));await listen("showdesk-native-menu",event=>{if(event.payload==="check-for-updates")checkForShowDeskUpdate(true);else if(event.payload==="disconnect")disconnectShowDesk();});return;}
- if(typeof internals.invoke==="function"){const transform=internals.transformCallback;if(typeof transform!=="function")throw new Error("Tauri event bridge is unavailable.");for(const [event,handler] of [["showdesk-update-progress",e=>showUpdateProgress(e.payload||{})],["showdesk-native-menu",e=>{if(e.payload==="check-for-updates")checkForShowDeskUpdate(true);else if(e.payload==="disconnect")disconnectShowDesk();}]]){const id=transform(handler);await internals.invoke("plugin:event|listen",{event,target:{kind:"Any"},handler:id});}}
+ if(typeof listen==="function"){await listen("showdesk-update-progress",event=>showUpdateProgress(event.payload||{}));await listen("showdesk-native-menu",event=>{if(event.payload==="check-for-updates")checkForShowDeskUpdate(true);else if(event.payload==="disconnect")disconnectShowDesk();else if(event.payload==="settings")openShowDeskSettings();else if(["show","signal","engineering"].includes(event.payload))setTab(event.payload);});return;}
+ if(typeof internals.invoke==="function"){const transform=internals.transformCallback;if(typeof transform!=="function")throw new Error("Tauri event bridge is unavailable.");for(const [event,handler] of [["showdesk-update-progress",e=>showUpdateProgress(e.payload||{})],["showdesk-native-menu",e=>{if(e.payload==="check-for-updates")checkForShowDeskUpdate(true);else if(e.payload==="disconnect")disconnectShowDesk();else if(e.payload==="settings")openShowDeskSettings();else if(["show","signal","engineering"].includes(e.payload))setTab(e.payload);}]]){const id=transform(handler);await internals.invoke("plugin:event|listen",{event,target:{kind:"Any"},handler:id});}}
 }
 async function installShowDeskUpdate(){
  const invoke=tauriInvoke();if(!invoke||showDeskUpdater.operation)return;
