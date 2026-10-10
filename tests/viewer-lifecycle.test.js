@@ -121,7 +121,7 @@ assert.match(styles,/\.eng \.matrixViewport\{height:300px!important/,'Routing Ma
 assert.match(styles,/\.settingsModal\{position:fixed!important;inset:0!important/,'Settings must remain a fixed modal overlay');
 assert.match(styles,/\.settingsCard\{width:min\(520px/,'Settings must remain compact rather than full-screen');
 assert.ok(!html.includes('Build057 • 0.1.57'),'Settings About must not expose stale Build057');
-assert.match(html,/id="settingsBuild">Build090 · 0\.1\.90/,'Settings About must ship with the Build085 fallback');
+assert.match(html,/id="settingsBuild">Build091 · 0\.1\.91/,'Settings About must ship with the Build085 fallback');
 
 assert.match(app,/let committedMeState=new Map\(\)/,'Transition display must keep a committed M/E state');
 assert.match(app,/transitioning&&committed\?\{\.\.\.me,pgm:committed\.pgm,pvw:committed\.pvw\}/,'Intermediate transitions must retain committed PGM/PVW');
@@ -201,3 +201,8 @@ assert.match(html,/onclick="openShowDeskRepository\(\)"/,'About repository actio
 assert.match(app,/inspectInputsExpanded=true/,'Inspect must expand the entire input inventory');
 assert.match(app,/line\("Connection mode",activeConnectionMode/,'Session report must include connection mode');
 assert.doesNotMatch(app,/line\("ShowDesk version","0\.1\.38"\)/,'Session report must not contain stale version');
+
+assert.match(app,/connectionIncidents=\{interruptions:0,recoveries:0,failures:0\}/,'Connection incident counters must initialize');
+assert.match(app,/recordConnectionIncident\("interruptions","ATEM connection lost/,'Host disconnections must be counted');
+assert.match(app,/recordConnectionIncident\("recoveries","ATEM reconnected/,'Host recoveries must be counted');
+assert.match(app,/SESSION EVENT HISTORY \(oldest first\)/,'Report must identify chronological event order');
