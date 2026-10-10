@@ -86,7 +86,12 @@ function renderSavedConnectionChoices(){
  for(const [mode,target] of [["host","savedAtemConnections"],["viewer","savedViewerConnections"]]){
   const el=$(target);if(!el)continue;
   const list=showDeskSavedConnections.filter(c=>c.mode===mode);
-  el.innerHTML=list.length?list.map(c=>'<button type="button" class="savedConnectionChoice" onclick="selectSavedConnection(\''+mode+'\',\''+c.ip+'\')"><b>'+escapeShowDeskText(c.name)+'</b><small>'+escapeShowDeskText(c.ip)+(c.preferred?' · Preferred':'')+'</small></button>').join(""):'<span class="settingsHint">Successful connections will appear here.</span>';
+  el.hidden=!list.length;
+  if(!list.length){el.innerHTML="";continue}
+  const input=$(mode==="host"?"atemIp":"viewerHostIp");
+  const active=list.find(c=>c.ip===input?.value.trim())||list.find(c=>c.preferred)||list[0];
+  const label=escapeShowDeskText(active.name);
+  el.innerHTML='<label class="savedConnectionLabel" for="'+target+'Select">SAVED CONNECTION</label><div class="savedConnectionSelectWrap"><select class="savedConnectionSelect" id="'+target+'Select" aria-label="Saved '+(mode==="host"?"ATEM":"ShowDesk Host")+' connections" onchange="selectSavedConnection(\''+mode+'\',this.value)">'+list.map(c=>'<option value="'+escapeShowDeskText(c.ip)+'"'+(c.ip===active.ip?' selected':'')+'>'+escapeShowDeskText(c.name)+(c.preferred?' ★':'')+'</option>').join("")+'</select><span class="savedConnectionMeta">'+escapeShowDeskText(active.ip)+(active.preferred?' · Preferred':'')+'</span></div>';
  }
  const list=$("settingsSavedConnections");if($("settingsSavedCount"))$("settingsSavedCount").textContent=showDeskSavedConnections.length+" SAVED";if(list)list.innerHTML=showDeskSavedConnections.length?showDeskSavedConnections.map(c=>{
   const key=showDeskSavedConnections.indexOf(c);
@@ -96,7 +101,7 @@ function renderSavedConnectionChoices(){
 function selectSavedConnection(mode,ip){
  if(!validIpLike(ip))return;
  const input=$(mode==="host"?"atemIp":"viewerHostIp");if(input)input.value=ip;
- if(mode==="host")connectionInputChanged();else viewerInputChanged();
+ if(mode==="host")connectionInputChanged();else viewerInputChanged();renderSavedConnectionChoices();
 }
 function renameSavedConnection(i){const c=showDeskSavedConnections[i];if(!c)return;const name=prompt("Connection name",c.name);if(name===null)return;const trimmed=name.trim().slice(0,60);if(!trimmed)return;c.name=trimmed;persistSavedConnections();renderSavedConnectionChoices()}
 function preferSavedConnection(i){const c=showDeskSavedConnections[i];if(!c)return;showDeskSavedConnections.forEach(x=>{if(x.mode===c.mode)x.preferred=x===c});persistSavedConnections();renderSavedConnectionChoices()}
@@ -144,7 +149,7 @@ function showSettingsSection(section){
 function viewerInputChanged(){
  const ip=$("viewerHostIp").value.trim();
  $("connectViewerBtn").disabled=!validIpLike(ip);
- $("viewerStatus").textContent=validIpLike(ip)?"Ready to connect to ShowDesk Host at "+ip+".":"Enter a valid ShowDesk Host IPv4 address.";
+ $("viewerStatus").textContent=validIpLike(ip)?"":"Enter a valid ShowDesk Host IPv4 address.";
 }
 function ensureLiveStateSubscription(transport){
   if(liveStateSubscription||!transport?.subscribe)return;
@@ -227,7 +232,7 @@ async function connectViewer(){
 async function connectionInputChanged(){
  const ip=$("atemIp").value.trim();
  $("connectAtemBtn").disabled=!validIpLike(ip);
- $("setupStatus").textContent=validIpLike(ip)?"Ready to connect to ATEM at "+ip+".":"Enter a valid IPv4 address. ShowDesk will read the connected ATEM automatically.";
+ $("setupStatus").textContent=validIpLike(ip)?"":"Enter a valid IPv4 address.";
 }
 async function connectAtem(){
  const ip=$("atemIp").value.trim();
@@ -337,7 +342,7 @@ function refreshShowDeskSettings(){
  if($("settingsDevice"))$("settingsDevice").textContent=connectedDevice?.name||connectedDevice?.productIdentifier||liveEngineering.productIdentifier||"—";
  if($("settingsAddress"))$("settingsAddress").textContent=connectedDevice?.ip||viewerConnectionContext?.ip||"—";
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
- if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.87"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.87").split(".").pop()).padStart(3,"0")} · ${showDeskUpdater.currentVersion||"0.1.87"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
+ if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.88"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.87").split(".").pop()).padStart(3,"0")} · ${showDeskUpdater.currentVersion||"0.1.87"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
 }
 function openShowDeskSettings(){refreshShowDeskSettings();renderSavedConnectionChoices();syncSettingsWorkspaceMenu();closeSettingsWorkspaceMenu();if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");$("settingsModal").hidden=false}
 function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true}
