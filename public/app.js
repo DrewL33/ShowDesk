@@ -349,6 +349,15 @@ function refreshShowDeskSettings(){
 function openShowDeskSettings(){refreshShowDeskSettings();renderSavedConnectionChoices();syncSettingsWorkspaceMenu();closeSettingsWorkspaceMenu();if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");$("settingsModal").hidden=false}
 function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true}
 async function disconnectFromSettings(){closeShowDeskSettings();await disconnectShowDesk()}
+async function openShowDeskRepository(){
+ const url="https://github.com/DrewL33/ShowDesk";
+ try{
+  const invoke=window.__TAURI_INTERNALS__?.invoke;
+  if(typeof invoke==="function"){await invoke("open_showdesk_repository");return}
+  const opened=window.open(url,"_blank","noopener,noreferrer");
+  if(!opened)throw new Error("Browser blocked the link");
+ }catch(error){console.error("Could not open ShowDesk repository",error);toast("Could not open GitHub in your browser")}
+}
 function checkUpdatesFromSettings(){closeShowDeskSettings();checkForShowDeskUpdate(true)}
 function setTab(tab){if(!["show","signal","engineering"].includes(tab))return;showDeskPreferences.lastWorkspace=tab;saveShowDeskPreferences();toast((tab==="engineering"?"INSPECT":tab.toUpperCase())+" view");
  $("app").className="wrap tab-"+tab;
