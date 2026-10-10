@@ -193,6 +193,22 @@ fn stop_atem_service(app: &AppHandle) {
     }
 }
 
+#[tauri::command]
+fn open_showdesk_repository() -> Result<(), String> {
+    const URL: &str = "https://github.com/DrewL33/ShowDesk";
+    #[cfg(target_os = "macos")]
+    let status = Command::new("open").arg(URL).status();
+    #[cfg(target_os = "windows")]
+    let status = Command::new("cmd").args(["/C", "start", "", URL]).status();
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let status = Command::new("xdg-open").arg(URL).status();
+    match status {
+        Ok(result) if result.success() => Ok(()),
+        Ok(result) => Err(format!("Unable to open the repository (status: {result})")),
+        Err(error) => Err(format!("Unable to launch the default browser: {error}")),
+    }
+}
+
 fn main() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -200,7 +216,7 @@ fn main() {
         .plugin(tauri_plugin_process::init())
         .manage(AtemService(Mutex::new(None)))
         .manage(UpdaterBusy(Mutex::new(false)))
-        .invoke_handler(tauri::generate_handler![ensure_atem_service, save_log_report, check_for_update, install_update])
+        .invoke_handler(tauri::generate_handler![ensure_atem_service, save_log_report, check_for_update, install_update, open_showdesk_repository])
         .setup(|app| {
             // Start eagerly, but do not prevent the UI from opening if the
             // service fails. The frontend retries through ensure_atem_service
