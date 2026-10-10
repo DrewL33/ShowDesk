@@ -55,9 +55,9 @@ function rememberSuccessfulConnection(kind,ip){if(!validIpLike(ip))return;try{co
 function restoreRememberedConnections(){const saved=loadRememberedConnections();if(saved.atemIp&&$("atemIp"))$("atemIp").value=saved.atemIp;if(saved.viewerHostIp&&$("viewerHostIp"))$("viewerHostIp").value=saved.viewerHostIp;connectionInputChanged();viewerInputChanged();}
 const SHOWDESK_PREFERENCES_KEY="showdesk.preferences.v1";
 const SHOWDESK_SAVED_CONNECTIONS_KEY="showdesk.savedConnections.v1";
-const showDeskPreferenceDefaults={workspace:"show",lastWorkspace:"show",autoConnect:false};
+const showDeskPreferenceDefaults={workspace:"show",lastWorkspace:"show",autoConnect:false,automaticUpdateChecks:true};
 function loadShowDeskPreferences(){
- try{const v=JSON.parse(localStorage.getItem(SHOWDESK_PREFERENCES_KEY)||"{}");return {...showDeskPreferenceDefaults,...v,autoConnect:false};}
+ try{const v=JSON.parse(localStorage.getItem(SHOWDESK_PREFERENCES_KEY)||"{}");return {...showDeskPreferenceDefaults,...v,autoConnect:v.autoConnect===true,automaticUpdateChecks:v.automaticUpdateChecks!==false};}
  catch{return {...showDeskPreferenceDefaults}}
 }
 let showDeskPreferences=loadShowDeskPreferences();
@@ -88,9 +88,9 @@ function renderSavedConnectionChoices(){
   const list=showDeskSavedConnections.filter(c=>c.mode===mode);
   el.innerHTML=list.length?list.map(c=>'<button type="button" class="savedConnectionChoice" onclick="selectSavedConnection(\''+mode+'\',\''+c.ip+'\')"><b>'+escapeShowDeskText(c.name)+'</b><small>'+escapeShowDeskText(c.ip)+(c.preferred?' · Preferred':'')+'</small></button>').join(""):'<span class="settingsHint">Successful connections will appear here.</span>';
  }
- const list=$("settingsSavedConnections");if(list)list.innerHTML=showDeskSavedConnections.length?showDeskSavedConnections.map(c=>{
+ const list=$("settingsSavedConnections");if($("settingsSavedCount"))$("settingsSavedCount").textContent=showDeskSavedConnections.length+" SAVED";if(list)list.innerHTML=showDeskSavedConnections.length?showDeskSavedConnections.map(c=>{
   const key=showDeskSavedConnections.indexOf(c);
-  return '<div class="savedConnectionRow"><div><b>'+escapeShowDeskText(c.name)+'</b><small>'+escapeShowDeskText(c.mode==="host"?"ATEM / Host":"ShowDesk Viewer")+' · '+escapeShowDeskText(c.ip)+(c.preferred?' · Preferred':'')+'</small></div><button type="button" onclick="renameSavedConnection('+key+')">RENAME</button><button type="button" onclick="preferSavedConnection('+key+')">PREFER</button><button type="button" onclick="removeSavedConnection('+key+')">REMOVE</button></div>';
+  return '<div class="savedConnectionRow"><div><b>'+escapeShowDeskText(c.name)+'</b><small>'+escapeShowDeskText(c.mode==="host"?"ATEM":"VIEWER")+' · '+escapeShowDeskText(c.ip)+(c.preferred?' · ★ Preferred':'')+'</small></div><details class="savedConnectionMenu"><summary aria-label="Connection actions">···</summary><div><button type="button" onclick="renameSavedConnection('+key+')">Rename</button><button type="button" onclick="preferSavedConnection('+key+')">Set preferred</button><button type="button" onclick="removeSavedConnection('+key+')">Remove</button></div></details></div>';
  }).join(""):'<p class="settingsHint">No saved connections yet. Successful connections are saved automatically.</p>';
 }
 function selectSavedConnection(mode,ip){
@@ -102,11 +102,23 @@ function renameSavedConnection(i){const c=showDeskSavedConnections[i];if(!c)retu
 function preferSavedConnection(i){const c=showDeskSavedConnections[i];if(!c)return;showDeskSavedConnections.forEach(x=>{if(x.mode===c.mode)x.preferred=x===c});persistSavedConnections();renderSavedConnectionChoices()}
 function removeSavedConnection(i){if(!showDeskSavedConnections[i])return;showDeskSavedConnections.splice(i,1);persistSavedConnections();renderSavedConnectionChoices()}
 function changeDefaultWorkspace(value){if(!["show","engineering","signal","last"].includes(value))return;showDeskPreferences.workspace=value;saveShowDeskPreferences()}
+function changeAutoConnectPreference(enabled){showDeskPreferences.autoConnect=!!enabled;saveShowDeskPreferences()}
+function changeAutomaticUpdateChecks(enabled){showDeskPreferences.automaticUpdateChecks=!!enabled;saveShowDeskPreferences();for(const id of ["settingsAutoUpdates","settingsAutoUpdatesSecondary"])if($(id))$(id).checked=!!enabled}
+function attemptPreferredAutoConnection(){
+ if(!showDeskPreferences.autoConnect||activeConnectionMode||intentionalDisconnect)return;
+ const transport=window.ATEM_TRANSPORT;if(!transport)return;
+ const list=showDeskSavedConnections;
+ const preferred=list.find(c=>c.preferred&&c.mode==="viewer")||list.find(c=>c.preferred&&c.mode==="host");
+ if(!preferred)return;
+ chooseConnectionMode(preferred.mode);selectSavedConnection(preferred.mode,preferred.ip);
+ if(preferred.mode==="viewer"&&transport.connectViewer)connectViewer();
+ else if(preferred.mode==="host"&&transport.connect)connectAtem();
+}
 function showDeskStartupWorkspace(){return showDeskPreferences.workspace==="last"?showDeskPreferences.lastWorkspace:showDeskPreferences.workspace}
 function applyShowDeskStartupWorkspace(){const tab=showDeskStartupWorkspace();if(["show","engineering","signal"].includes(tab))setTab(tab)}
 function showSettingsSection(section){
  for(const name of ["general","connections","updates","about"]){const el=$("settingsSection"+name[0].toUpperCase()+name.slice(1));if(el)el.hidden=section!==name;}
- document.querySelectorAll("[data-settings-tab]").forEach(b=>b.classList.toggle("on",b.dataset.settingsTab===section));
+ document.querySelectorAll("[data-settings-tab]").forEach(b=>{b.classList.toggle("on",b.dataset.settingsTab===section);b.setAttribute("aria-current",b.dataset.settingsTab===section?"page":"false")});if($("settingsPageTitle"))$("settingsPageTitle").textContent=section[0].toUpperCase()+section.slice(1);
 }
 function viewerInputChanged(){
  const ip=$("viewerHostIp").value.trim();
@@ -304,9 +316,9 @@ function refreshShowDeskSettings(){
  if($("settingsDevice"))$("settingsDevice").textContent=connectedDevice?.name||connectedDevice?.productIdentifier||liveEngineering.productIdentifier||"—";
  if($("settingsAddress"))$("settingsAddress").textContent=connectedDevice?.ip||viewerConnectionContext?.ip||"—";
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
- if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.65"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.65").split(".").pop()).padStart(3,"0")} • ${showDeskUpdater.currentVersion||"0.1.65"}`;
+ if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.86"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.86").split(".").pop()).padStart(3,"0")} · ${showDeskUpdater.currentVersion||"0.1.86"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
 }
-function openShowDeskSettings(){refreshShowDeskSettings();renderSavedConnectionChoices();if($("settingsDefaultWorkspace"))$("settingsDefaultWorkspace").value=showDeskPreferences.workspace;showSettingsSection("general");$("settingsModal").hidden=false}
+function openShowDeskSettings(){refreshShowDeskSettings();renderSavedConnectionChoices();if($("settingsDefaultWorkspace"))$("settingsDefaultWorkspace").value=showDeskPreferences.workspace;if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");$("settingsModal").hidden=false}
 function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true}
 async function disconnectFromSettings(){closeShowDeskSettings();await disconnectShowDesk()}
 function checkUpdatesFromSettings(){closeShowDeskSettings();checkForShowDeskUpdate(true)}
@@ -938,4 +950,4 @@ async function checkForShowDeskUpdate(manual=false){
  finally{showDeskUpdater.operation=null}
 }
 window.checkForShowDeskUpdate=checkForShowDeskUpdate;
-document.addEventListener("DOMContentLoaded",()=>{const close=$("updateCloseBtn");if(close)close.onclick=closeUpdateModal;if(tauriInvoke()){ensureUpdateProgressListener().then(()=>setTimeout(()=>checkForShowDeskUpdate(false),1200)).catch(console.error)}});
+document.addEventListener("DOMContentLoaded",()=>{const close=$("updateCloseBtn");if(close)close.onclick=closeUpdateModal;if(tauriInvoke()){ensureUpdateProgressListener().then(()=>{if(showDeskPreferences.automaticUpdateChecks)setTimeout(()=>checkForShowDeskUpdate(false),1200)}).catch(console.error)}setTimeout(attemptPreferredAutoConnection,1800)});
