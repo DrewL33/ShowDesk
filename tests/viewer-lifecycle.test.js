@@ -121,7 +121,7 @@ assert.match(styles,/\.eng \.matrixViewport\{height:300px!important/,'Routing Ma
 assert.match(styles,/\.settingsModal\{position:fixed!important;inset:0!important/,'Settings must remain a fixed modal overlay');
 assert.match(styles,/\.settingsCard\{width:min\(520px/,'Settings must remain compact rather than full-screen');
 assert.ok(!html.includes('Build057 • 0.1.57'),'Settings About must not expose stale Build057');
-assert.match(html,/id="settingsBuild">Build086 · 0\.1\.86/,'Settings About must ship with the Build085 fallback');
+assert.match(html,/id="settingsBuild">Build087 · 0\.1\.87/,'Settings About must ship with the Build085 fallback');
 
 assert.match(app,/let committedMeState=new Map\(\)/,'Transition display must keep a committed M/E state');
 assert.match(app,/transitioning&&committed\?\{\.\.\.me,pgm:committed\.pgm,pvw:committed\.pvw\}/,'Intermediate transitions must retain committed PGM/PVW');
@@ -186,3 +186,8 @@ assert.match(html,/id="settingsAutoConnect"/,'Auto-connect must be a user contro
 assert.match(html,/id="settingsAutoUpdates"/,'Startup update checks must be configurable');
 assert.match(app,/function attemptPreferredAutoConnection\(\)/,'Preferred connection must be used only when opted in');
 assert.match(app,/automaticUpdateChecks!==false/,'Automatic update checks must retain an on-by-default preference');
+
+assert.match(html,/id="settingsWorkspaceOptions"/,'Workspace choices must use a themed application menu');
+assert.match(html,/role="listbox"/,'Workspace menu must expose listbox semantics');
+assert.match(html,/data-settings-tab="updates"[^\n]*<svg/,'Updates should use a download glyph rather than refresh');
+assert.match(app,/function chooseSettingsWorkspace\(value\)/,'Custom workspace selection must persist');
