@@ -107,25 +107,45 @@
  </div>
 </div>
 <div id="settingsModal" class="settingsModal" hidden aria-modal="true" role="dialog" aria-labelledby="settingsTitle">
-<div class="settingsCard settingsCardExpanded">
- <div class="settingsHead"><div><span>SHOWDESK · LOCAL PREFERENCES</span><h2 id="settingsTitle">Settings</h2></div><button class="settingsClose" type="button" onclick="closeShowDeskSettings()" aria-label="Close Settings">×</button></div>
- <nav class="settingsTabs" aria-label="Settings sections">
-  <button type="button" data-settings-tab="general" onclick="showSettingsSection('general')">GENERAL</button>
-  <button type="button" data-settings-tab="connections" onclick="showSettingsSection('connections')">CONNECTIONS</button>
-  <button type="button" data-settings-tab="updates" onclick="showSettingsSection('updates')">UPDATES</button>
-  <button type="button" data-settings-tab="about" onclick="showSettingsSection('about')">ABOUT</button>
- </nav>
- <div class="settingsSectionBody">
- <section id="settingsSectionGeneral" class="settingsSection"><h3>STARTUP WORKSPACE</h3><p class="settingsHint">Choose the screen shown after connecting. No automatic connection will be attempted.</p>
-  <label for="settingsDefaultWorkspace">Default workspace</label><select id="settingsDefaultWorkspace" onchange="changeDefaultWorkspace(this.value)"><option value="show">Show View</option><option value="engineering">Inspect</option><option value="signal">Signal Explorer</option><option value="last">Last used workspace</option></select>
-  <div class="settingsInfo"><div><span>AUTO-CONNECT</span><b>OFF · MANUAL CONNECTION ONLY</b></div><div><span>STORAGE</span><b>ON THIS COMPUTER</b></div></div>
- </section>
- <section id="settingsSectionConnections" class="settingsSection" hidden><h3>CURRENT CONNECTION</h3><div class="settingsInfo"><div><span>MODE</span><b id="settingsMode">—</b></div><div><span>STATUS</span><b id="settingsConnection">—</b></div><div><span>ATEM / HOST</span><b id="settingsDevice">—</b></div><div><span>ADDRESS</span><b id="settingsAddress">—</b></div></div>
-  <button id="settingsDisconnect" class="settingsAction dangerAction" type="button" onclick="disconnectFromSettings()">DISCONNECT</button>
-  <h3>SAVED CONNECTIONS</h3><p class="settingsHint">Saved after a successful connection. Rename, prefer or remove an entry. Nothing connects automatically.</p><div id="settingsSavedConnections"></div>
- </section>
- <section id="settingsSectionUpdates" class="settingsSection" hidden><h3>APPLICATION UPDATES</h3><div class="settingsRow"><div><span>INSTALLED VERSION</span><b id="settingsVersion">0.1.85</b></div><button class="settingsAction" type="button" onclick="checkUpdatesFromSettings()">CHECK FOR UPDATES</button></div><p class="settingsHint">Update downloads and installation require your confirmation.</p></section>
- <section id="settingsSectionAbout" class="settingsSection settingsAbout" hidden><h3>ABOUT SHOWDESK</h3><p>Read-only ATEM production monitoring, engineering diagnostics, and signal-path visualization.</p><span id="settingsBuild">Build085 · 0.1.85</span><p class="settingsHint">No account required. Preferences and saved connections are stored locally.</p></section>
+<div class="settingsCard settingsCardExpanded settingsWindow">
+ <aside class="settingsSidebar">
+  <div class="settingsBrand"><span>SHOWDESK</span><h2 id="settingsTitle">Settings</h2></div>
+  <nav class="settingsTabs" aria-label="Settings sections">
+   <button type="button" data-settings-tab="general" onclick="showSettingsSection('general')"><span class="settingsNavGlyph">⚙</span>General</button>
+   <button type="button" data-settings-tab="connections" onclick="showSettingsSection('connections')"><span class="settingsNavGlyph">⌁</span>Connections</button>
+   <button type="button" data-settings-tab="updates" onclick="showSettingsSection('updates')"><span class="settingsNavGlyph">↻</span>Updates</button>
+   <button type="button" data-settings-tab="about" onclick="showSettingsSection('about')"><span class="settingsNavGlyph">ⓘ</span>About</button>
+  </nav>
+ </aside>
+ <div class="settingsMain">
+  <div class="settingsPageHead"><h2 id="settingsPageTitle">General</h2><button class="settingsClose" type="button" onclick="closeShowDeskSettings()" aria-label="Close Settings">×</button></div>
+  <div class="settingsSectionBody">
+   <section id="settingsSectionGeneral" class="settingsSection">
+    <h3>STARTUP</h3>
+    <div class="settingsControlRow"><label for="settingsDefaultWorkspace">Default workspace</label><select id="settingsDefaultWorkspace" onchange="changeDefaultWorkspace(this.value)"><option value="show">Show View</option><option value="engineering">Inspect</option><option value="signal">Signal Explorer</option><option value="last">Last used workspace</option></select></div>
+    <h3>CONNECTION</h3>
+    <label class="settingsControlRow" for="settingsAutoConnect"><span>Auto-connect on launch</span><input id="settingsAutoConnect" type="checkbox" onchange="changeAutoConnectPreference(this.checked)"></label>
+    <h3>UPDATES</h3>
+    <label class="settingsControlRow" for="settingsAutoUpdates"><span>Check for updates on launch</span><input id="settingsAutoUpdates" type="checkbox" onchange="changeAutomaticUpdateChecks(this.checked)"></label>
+   </section>
+   <section id="settingsSectionConnections" class="settingsSection" hidden>
+    <div class="settingsSectionHeader"><h3>CURRENT SESSION</h3><b id="settingsConnection">DISCONNECTED</b></div>
+    <div class="settingsSession"><b id="settingsDevice">—</b><span><span id="settingsMode">—</span> · <span id="settingsAddress">—</span></span></div>
+    <div class="settingsSectionHeader"><h3>SAVED CONNECTIONS</h3><span id="settingsSavedCount"></span></div>
+    <div id="settingsSavedConnections"></div>
+    <div class="settingsFooter"><button id="settingsDisconnect" class="settingsAction dangerAction" type="button" onclick="disconnectFromSettings()">DISCONNECT</button></div>
+   </section>
+   <section id="settingsSectionUpdates" class="settingsSection" hidden>
+    <h3>INSTALLED VERSION</h3><div class="settingsVersionLine"><strong>ShowDesk <span id="settingsVersion">0.1.86</span></strong><span id="settingsUpdateStatus">—</span></div>
+    <label class="settingsControlRow" for="settingsAutoUpdatesSecondary"><span>Check automatically on launch</span><input id="settingsAutoUpdatesSecondary" type="checkbox" onchange="changeAutomaticUpdateChecks(this.checked)"></label>
+    <div class="settingsFooter"><button class="settingsAction" type="button" onclick="checkUpdatesFromSettings()">CHECK FOR UPDATES</button></div>
+   </section>
+   <section id="settingsSectionAbout" class="settingsSection settingsAbout" hidden>
+    <div class="settingsAboutBrand"><strong>ShowDesk</strong><span id="settingsBuild">Build086 · 0.1.86</span></div>
+    <div class="settingsAboutDetails"><div><span>APPLICATION</span><b>ATEM Monitoring</b></div><div><span>CONNECTION</span><b>Read-only</b></div><div><span>PREFERENCES</span><b>Local</b></div></div>
+    <a class="settingsRepository" href="https://github.com/DrewL33/ShowDesk" target="_blank" rel="noopener noreferrer">GITHUB REPOSITORY ↗</a>
+   </section>
+  </div>
  </div>
 </div></div>
 <script src="/app.js"></script><div id="toast" class="toast"></div><script src="/transport.js"></script>
