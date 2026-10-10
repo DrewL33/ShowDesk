@@ -1,6 +1,6 @@
 name: ShowDesk CI
 # Development pushes validate the current source. Only explicit RELEASE Build### commits publish.
-# Build089: package v0.1.89 Step 9 diagnostics and navigation fixes for native updater release.
+# Build090: package v0.1.90 macOS Launch Services relaunch and Dock association fix.
 permissions:
   contents: write
 concurrency:
