@@ -121,7 +121,7 @@ assert.match(styles,/\.eng \.matrixViewport\{height:300px!important/,'Routing Ma
 assert.match(styles,/\.settingsModal\{position:fixed!important;inset:0!important/,'Settings must remain a fixed modal overlay');
 assert.match(styles,/\.settingsCard\{width:min\(520px/,'Settings must remain compact rather than full-screen');
 assert.ok(!html.includes('Build057 • 0.1.57'),'Settings About must not expose stale Build057');
-assert.match(html,/id="settingsBuild">Build067 • 0\.1\.67/,'Settings About must ship with the current Build067 fallback');
+assert.match(html,/id="settingsBuild">Build085 · 0\.1\.85/,'Settings About must ship with the Build085 fallback');
 
 assert.match(app,/let committedMeState=new Map\(\)/,'Transition display must keep a committed M/E state');
 assert.match(app,/transitioning&&committed\?\{\.\.\.me,pgm:committed\.pgm,pvw:committed\.pvw\}/,'Intermediate transitions must retain committed PGM/PVW');
@@ -169,3 +169,14 @@ assert.match(app,/x-5\*sign/,'Direction chevrons must be visible at normal zoom'
 assert.match(app,/const returnLane=lanes\.get\("returnLane"\)\|\|0/,'Reverse routing must reserve its own lane counter');
 assert.match(app,/const returnBase=bounds\.nodeBottom\+42/,'Return paths must run below the last node');
 assert.match(app,/lanes\.set\("returnLane",\(lanes\.get\("returnLane"\)\|\|0\)\+1\)/,'Each return path must receive a separate base lane');
+
+
+// Build085: Settings, saved connections and no automatic connections.
+assert.match(app,/const SHOWDESK_PREFERENCES_KEY="showdesk.preferences.v1"/,'Preferences must persist locally');
+assert.match(app,/const SHOWDESK_SAVED_CONNECTIONS_KEY="showdesk.savedConnections.v1"/,'Saved connections must persist locally');
+assert.match(app,/autoConnect:false/,'Auto-connect must remain disabled by default');
+assert.match(app,/function applyShowDeskStartupWorkspace\(\)/,'Preferred workspace must be applied after successful connection');
+assert.match(app,/function saveNamedConnection\(mode,ip\)/,'Successful connections must be available by name');
+assert.match(html,/id="settingsDefaultWorkspace"/,'General settings must expose startup workspace');
+assert.match(html,/id="settingsSavedConnections"/,'Settings must manage saved connections');
+assert.match(html,/id="savedViewerConnections"/,'Viewer setup must offer saved hosts');
