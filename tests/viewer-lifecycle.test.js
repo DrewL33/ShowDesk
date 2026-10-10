@@ -113,7 +113,7 @@ console.log('Viewer lifecycle, health, toolbar, and Viewer-count regression chec
  assert.match(app,/function enterViewerConnection[\s\S]*?rememberSuccessfulConnection\("viewerHostIp",ip\)/,'Viewer Host IP must be saved only after Viewer connection succeeds');
  assert.match(app,/activeConnectionMode="host"[\s\S]*?rememberSuccessfulConnection\("atemIp",ip\)/,'ATEM IP must be saved only after Host discovery succeeds');
  assert.match(app,/function restoreRememberedConnections[\s\S]*?connectionInputChanged\(\);viewerInputChanged\(\)/,'Restored addresses must immediately revalidate Connect controls');
- assert(app.includes('restorePersistedReference();restoreRememberedConnections();updateReferenceUI();'),'Remembered addresses must restore during startup');
+ assert(app.includes('restorePersistedReference();restoreRememberedConnections();renderSavedConnectionChoices();updateReferenceUI();'),'Remembered addresses and saved connection choices must restore during startup');
 }
 
 assert.match(styles,/\.activeSourcesPanel \.activeSourceGrid\{display:grid!important/,'Active Sources must retain card grid');
