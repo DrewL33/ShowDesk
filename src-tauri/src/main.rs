@@ -211,7 +211,12 @@ fn main() {
 
             let app_menu = SubmenuBuilder::new(app, "ShowDesk")
                 .text("about_showdesk", "About ShowDesk")
+                .text("settings_showdesk", "Settings…")
                 .text("check_for_updates", "Check for Updates…")
+                .separator()
+                .text("workspace_show", "Show View")
+                .text("workspace_signal", "Signal Explorer")
+                .text("workspace_engineering", "Inspect")
                 .separator()
                 .text("disconnect_showdesk", "Disconnect…")
                 .separator()
@@ -226,6 +231,14 @@ fn main() {
                 if event.id() == "check_for_updates" || event.id() == "check_for_updates_help" {
                     let app = app.clone();
                     tauri::async_runtime::spawn(async move { run_manual_update_check(app).await; });
+                } else if event.id() == "settings_showdesk" {
+                    let _ = app.emit("showdesk-native-menu", "settings");
+                } else if event.id() == "workspace_show" {
+                    let _ = app.emit("showdesk-native-menu", "show");
+                } else if event.id() == "workspace_signal" {
+                    let _ = app.emit("showdesk-native-menu", "signal");
+                } else if event.id() == "workspace_engineering" {
+                    let _ = app.emit("showdesk-native-menu", "engineering");
                 } else if event.id() == "about_showdesk" {
                     show_about(app);
                 } else if event.id() == "disconnect_showdesk" {
