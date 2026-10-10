@@ -6,6 +6,8 @@ let pgm="—",pvw="—",pgmSince=Date.now(),pvwSince=Date.now(),lastChangeText="
 const baselineState={attached:false,name:"",loadedAt:null,routes:{},pgm:null,pvw:null,metadata:{}};
 const liveState={routes:{},pgm:"—",pvw:"—",updatedAt:null};
 let expected=baselineState.routes,actual=liveState.routes,saved={},logs=[],sessionEvents=[];
+let sessionStartedAt=Date.now();
+let connectionIncidents={interruptions:0,recoveries:0,failures:0};
 let selectedDestination=null;
 let selectedMeIndex=1;
 let previousMeState=new Map();
@@ -171,11 +173,11 @@ function ensureViewerConnectionSubscription(transport){
      status.textContent="ShowDesk Host reached at "+ip+". "+(message.reason||"Waiting for the Host to connect to an ATEM…");
      status.style.color="var(--amber)";btn.disabled=true;btn.textContent="WAITING FOR ATEM…";
    }else if(message.status==="reconnecting"&&!intentionalDisconnect){
-     if(!viewerReconnecting)addLog("SYSTEM","Viewer reconnecting to ShowDesk Host at "+ip);
+     if(!viewerReconnecting)recordConnectionIncident("interruptions","Viewer reconnecting to ShowDesk Host at "+ip);
      viewerReconnecting=true;updateConnectionHealth();
    }else if(message.status==="viewer-connected"&&message.data){
      const wasReconnecting=viewerReconnecting;viewerReconnecting=false;enterViewerConnection(message.data,ctx);
-     if(wasReconnecting)addLog("SYSTEM","Viewer reconnected to ShowDesk Host at "+ip);
+     if(wasReconnecting)recordConnectionIncident("recoveries","Viewer reconnected to ShowDesk Host at "+ip);
    }
  });
 }
@@ -187,7 +189,7 @@ function ensureHostConnectionSubscription(transport){
   if(activeConnectionMode!=="host"||intentionalDisconnect||message?.status!=="disconnected")return;
   const ip=connectedDevice?.ip||hostReconnectIp;if(!ip)return;
   hostReconnectIp=ip;hostReconnecting=true;stopConnectionHealth();updateConnectionControls();refreshShowDeskSettings();
-  addLog("SYSTEM","ATEM connection lost at "+ip+". Reconnecting…");
+  recordConnectionIncident("interruptions","ATEM connection lost at "+ip+". Reconnecting…");
   scheduleHostReconnect(transport);
  });
 }
@@ -203,7 +205,7 @@ async function attemptHostReconnect(transport){
   if(intentionalDisconnect||activeConnectionMode!=="host"||hostReconnectIp!==ip)return;
   connectedDevice=d;connectedDevice.ip=ip;applyAtemStateUpdate(d);hostReconnecting=false;hostReconnectIp=null;
   startConnectionHealth(transport);$("modelLabel").textContent=(d.name||d.productIdentifier||"ATEM Switcher")+" • "+ip;updateConnectionControls();refreshShowDeskSettings();
-  addLog("SYSTEM","ATEM reconnected at "+ip);render();
+  recordConnectionIncident("recoveries","ATEM reconnected at "+ip);render();
  }catch(error){
   if(!intentionalDisconnect&&activeConnectionMode==="host"&&hostReconnectIp===ip)scheduleHostReconnect(transport);
  }finally{hostReconnectInFlight=false;if(hostReconnecting&&!hostReconnectTimer)scheduleHostReconnect(transport);}
@@ -344,7 +346,7 @@ function refreshShowDeskSettings(){
  if($("settingsDevice"))$("settingsDevice").textContent=connectedDevice?.name||connectedDevice?.productIdentifier||liveEngineering.productIdentifier||"—";
  if($("settingsAddress"))$("settingsAddress").textContent=connectedDevice?.ip||viewerConnectionContext?.ip||"—";
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
- if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.90"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.87").split(".").pop()).padStart(3,"0")} · ${showDeskUpdater.currentVersion||"0.1.87"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
+ if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.91"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.87").split(".").pop()).padStart(3,"0")} · ${showDeskUpdater.currentVersion||"0.1.87"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
 }
 function openShowDeskSettings(){refreshShowDeskSettings();renderSavedConnectionChoices();syncSettingsWorkspaceMenu();closeSettingsWorkspaceMenu();if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");$("settingsModal").hidden=false}
 function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true}
@@ -366,6 +368,7 @@ function setTab(tab){if(!["show","signal","engineering"].includes(tab))return;sh
 }
 function recordEvent(kind,msg,data={}){const e={iso:new Date().toISOString(),t:new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}),kind,msg,data};sessionEvents.unshift(e);if(sessionEvents.length>500)sessionEvents.length=500;logs=sessionEvents;lastChangeText=msg;return e}
 function addLog(kind,msg){recordEvent(kind,msg);renderLog()}
+function recordConnectionIncident(type,message){if(Object.hasOwn(connectionIncidents,type))connectionIncidents[type]++;addLog(type==="failures"?"ERROR":"CONNECTION",message)}
 function renderLog(){let e=$("log");if(e)e.innerHTML=logs.slice(0,18).map(x=>`<div class="li"><span class="logTime">${escapeShowDeskText(x.t)}</span><b class="logKind">${escapeShowDeskText(x.kind)}</b><em class="logMessage">${escapeShowDeskText(x.msg)}</em></div>`).join("")||`<div class="li emptyLog"><em>No changes yet</em></div>`}
 window.routeHistory=window.routeHistory||{};
 function rememberRouteChange(n,next){
@@ -460,15 +463,15 @@ function clearReference(){
 async function exportLogReport(){
  const mismatches=getMismatches(),mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
  const line=(label,value)=>label.padEnd(24," ")+(value??"—");
- const rows=["SHOWDESK SESSION REPORT","=======================","",line("ShowDesk version",showDeskUpdater.currentVersion||"0.1.90"),line("Exported",new Date().toLocaleString()),line("ATEM",connectedDevice?.name||liveEngineering.productIdentifier||"Not connected"),line("Connection mode",activeConnectionMode||"Disconnected"),line("ATEM IP",connectedDevice?.ip||"—"),line("Connection uptime",connectionStartedAt?Math.round((Date.now()-connectionStartedAt)/1000)+" seconds":"—"),line("Last health signal",lastHealthAt?new Date(lastHealthAt).toLocaleString():"—"),line("Video mode",liveEngineering.videoMode||"—"),line("Reported sources",(liveEngineering.inputs||[]).length),line("M/E buses",mes.length),"","CURRENT M/E STATE","-----------------"];
+ const rows=["SHOWDESK SESSION REPORT","=======================","",line("ShowDesk version",showDeskUpdater.currentVersion||"0.1.91"),line("Exported",new Date().toLocaleString()),line("ATEM",connectedDevice?.name||liveEngineering.productIdentifier||"Not connected"),line("Connection mode",activeConnectionMode||"Disconnected"),line("Connection state",!activeConnectionMode?"Disconnected":hostReconnecting||viewerReconnecting?"Reconnecting":"Connected"),line("Session started",new Date(sessionStartedAt).toLocaleString()),line("Session duration",Math.round((Date.now()-sessionStartedAt)/1000)+" seconds"),line("Link interruptions",connectionIncidents.interruptions),line("Link recoveries",connectionIncidents.recoveries),line("Connection failures",connectionIncidents.failures),line("ATEM IP",connectedDevice?.ip||"—"),line("Connection uptime",connectionStartedAt?Math.round((Date.now()-connectionStartedAt)/1000)+" seconds":"—"),line("Last health signal",lastHealthAt?new Date(lastHealthAt).toLocaleString():"—"),line("Video mode",liveEngineering.videoMode||"—"),line("Reported sources",(liveEngineering.inputs||[]).length),line("M/E buses",mes.length),"","CURRENT M/E STATE","-----------------"];
  mes.forEach(me=>{rows.push(`M/E ${me.index}`,`  PROGRAM: ${me.pgm||"—"}`,`  PREVIEW: ${me.pvw||"—"}`,`  FTB: ${me.ftb?.isFullyBlack?"BLACK":me.ftb?.inTransition?"TRANSITION":"OFF"}`);(me.upstreamKeyers||[]).forEach((k,i)=>rows.push(`  USK ${i+1}: ${k.onAir?"ON AIR":"OFF"} | Fill: ${k.fill||"—"} | Key: ${k.key||"—"}`));});
  if(dsks.length){rows.push("","DOWNSTREAM KEYERS","-----------------");dsks.forEach((k,i)=>rows.push(`DSK ${i+1}: ${k.onAir?"ON AIR":"OFF"} | Fill: ${k.fill||"—"} | Key: ${k.key||"—"}`));}
  rows.push("","ROUTING / AUX ASSIGNMENTS","-------------------------");
  if(routing.length)routing.forEach((r,i)=>rows.push(`${r.name||r.label||"ROUTE "+(i+1)}: ${r.route||r.source||r.value||"UNUSED"}`));else Object.entries(actual).forEach(([name,route])=>rows.push(`${name}: ${route}`));
  rows.push("","SHOW REFERENCE","--------------");
  if(baselineState.attached){rows.push(line("Reference",baselineState.name),line("Loaded",baselineState.loadedAt?new Date(baselineState.loadedAt).toLocaleString():"—"),line("Comparable routes",Object.keys(baselineState.routes).length),line("Mismatches",mismatches.length));mismatches.forEach(m=>rows.push(`  ${m.type} | ${m.name} | Expected: ${m.expected} | Actual: ${m.actual}`));}else rows.push("No reference attached.");
- rows.push("","SESSION EVENT HISTORY","---------------------");
- if(sessionEvents.length)[...sessionEvents].reverse().forEach(e=>rows.push(`${new Date(e.iso).toLocaleString()} | ${String(e.kind).padEnd(10," ")} | ${e.msg}`));else rows.push("No changes recorded this session.");
+ rows.push("","SESSION EVENT HISTORY (oldest first)","------------------------------------",line("Retained events",sessionEvents.length),line("History limit",500));
+ if(sessionEvents.length)[...sessionEvents].reverse().forEach(e=>rows.push(`${e.iso} | ${String(e.kind).padEnd(10," ")} | ${e.msg}`));else rows.push("No changes recorded this session.");
  rows.push("","END OF REPORT");
  const text=rows.join("\n"),blob=new Blob([text],{type:"text/plain;charset=utf-8"}),filename=`ShowDesk Report ${new Date().toISOString().replace(/[:.]/g,"-")}.txt`;
  try{
