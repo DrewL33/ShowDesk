@@ -102,6 +102,27 @@ function renameSavedConnection(i){const c=showDeskSavedConnections[i];if(!c)retu
 function preferSavedConnection(i){const c=showDeskSavedConnections[i];if(!c)return;showDeskSavedConnections.forEach(x=>{if(x.mode===c.mode)x.preferred=x===c});persistSavedConnections();renderSavedConnectionChoices()}
 function removeSavedConnection(i){if(!showDeskSavedConnections[i])return;showDeskSavedConnections.splice(i,1);persistSavedConnections();renderSavedConnectionChoices()}
 function changeDefaultWorkspace(value){if(!["show","engineering","signal","last"].includes(value))return;showDeskPreferences.workspace=value;saveShowDeskPreferences()}
+const settingsWorkspaceNames={show:"Show View",engineering:"Inspect",signal:"Signal Explorer",last:"Last used workspace"};
+function syncSettingsWorkspaceMenu(){
+ const current=showDeskPreferences.workspace;
+ if($("settingsWorkspaceLabel"))$("settingsWorkspaceLabel").textContent=settingsWorkspaceNames[current]||settingsWorkspaceNames.show;
+ document.querySelectorAll("#settingsWorkspaceOptions [data-workspace]").forEach(option=>option.setAttribute("aria-selected",String(option.dataset.workspace===current)));
+}
+function closeSettingsWorkspaceMenu(){
+ const menu=$("settingsWorkspaceOptions"),trigger=$("settingsDefaultWorkspace");if(menu)menu.hidden=true;if(trigger)trigger.setAttribute("aria-expanded","false");
+}
+function toggleSettingsWorkspaceMenu(){
+ const menu=$("settingsWorkspaceOptions"),trigger=$("settingsDefaultWorkspace");if(!menu||!trigger)return;
+ const opening=menu.hidden;menu.hidden=!opening;trigger.setAttribute("aria-expanded",String(opening));
+ if(opening){const active=menu.querySelector('[aria-selected="true"]');(active||menu.querySelector("button"))?.focus()}
+}
+function chooseSettingsWorkspace(value){changeDefaultWorkspace(value);syncSettingsWorkspaceMenu();closeSettingsWorkspaceMenu();$("settingsDefaultWorkspace")?.focus()}
+document.addEventListener("click",event=>{if(!$("settingsWorkspaceSelector")?.contains(event.target))closeSettingsWorkspaceMenu()});
+document.addEventListener("keydown",event=>{
+ const menu=$("settingsWorkspaceOptions");if(!menu||menu.hidden)return;
+ if(event.key==="Escape"){event.preventDefault();closeSettingsWorkspaceMenu();$("settingsDefaultWorkspace")?.focus();return}
+ if(event.key==="ArrowDown"||event.key==="ArrowUp"){event.preventDefault();const options=[...menu.querySelectorAll('[role="option"]')];const i=options.indexOf(document.activeElement);options[(i+(event.key==="ArrowDown"?1:-1)+options.length)%options.length]?.focus()}
+});
 function changeAutoConnectPreference(enabled){showDeskPreferences.autoConnect=!!enabled;saveShowDeskPreferences()}
 function changeAutomaticUpdateChecks(enabled){showDeskPreferences.automaticUpdateChecks=!!enabled;saveShowDeskPreferences();for(const id of ["settingsAutoUpdates","settingsAutoUpdatesSecondary"])if($(id))$(id).checked=!!enabled}
 function attemptPreferredAutoConnection(){
@@ -318,7 +339,7 @@ function refreshShowDeskSettings(){
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
  if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.86"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.86").split(".").pop()).padStart(3,"0")} · ${showDeskUpdater.currentVersion||"0.1.86"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
 }
-function openShowDeskSettings(){refreshShowDeskSettings();renderSavedConnectionChoices();if($("settingsDefaultWorkspace"))$("settingsDefaultWorkspace").value=showDeskPreferences.workspace;if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");$("settingsModal").hidden=false}
+function openShowDeskSettings(){refreshShowDeskSettings();renderSavedConnectionChoices();syncSettingsWorkspaceMenu();closeSettingsWorkspaceMenu();if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");$("settingsModal").hidden=false}
 function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true}
 async function disconnectFromSettings(){closeShowDeskSettings();await disconnectShowDesk()}
 function checkUpdatesFromSettings(){closeShowDeskSettings();checkForShowDeskUpdate(true)}
