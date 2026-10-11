@@ -435,19 +435,42 @@ function referenceCategoryItems(category){
 }
 function renderReferenceItems(){
  const sections=[["configuration","Configuration"],["routing","AUX / output routing"],["programPreview","Program / Preview"]];
- const html=sections.map(([category,title])=>{
-  const names=referenceCategoryItems(category);
-  if(!names.length)return `<details class="referenceItemGroup"><summary>${title} · no comparable items</summary><small>Nothing available to enforce from this imported file.</small></details>`;
-  const rows=names.map(name=>`<label><input type="checkbox" data-reference-category="${category}" data-reference-item="${escapeShowDeskText(name)}" ${referenceItemEnabled(category,name)?"checked":""}> ${escapeShowDeskText(name)}</label>`).join("");
-  return `<details class="referenceItemGroup"><summary>${title} · ${names.length} items</summary><div class="referenceItemActions"><button type="button" data-reference-all="${category}" data-reference-value="true">SELECT ALL</button><button type="button" data-reference-all="${category}" data-reference-value="false">DESELECT ALL</button></div><div class="referenceItemList">${rows}</div></details>`;
- }).join("");
  for(const id of ["referenceIndividualItems","settingsReferenceItems"]){
   const host=$(id);if(!host)continue;
   if(!baselineState.attached){host.innerHTML="<small>Import a reference to select individual expected values.</small>";continue;}
-  host.innerHTML=html;
+  const openCategories=new Set([...host.querySelectorAll("details[open]")].map(el=>el.dataset.category));
+  host.innerHTML=sections.map(([category,title])=>{
+   const names=referenceCategoryItems(category),selected=names.filter(name=>referenceItemEnabled(category,name)).length;
+   const rows=names.map(name=>`<label><input type="checkbox" data-reference-category="${category}" data-reference-item="${escapeShowDeskText(name)}" ${referenceItemEnabled(category,name)?"checked":""}> ${escapeShowDeskText(name)}</label>`).join("");
+   return `<details class="referenceItemGroup" data-category="${category}" ${openCategories.has(category)?"open":""}><summary>${title} <span class="referenceItemSummary">${names.length?selected+" of "+names.length+" selected":"No comparable items"}</span></summary>${names.length?`<div class="referenceItemActions"><button type="button" data-reference-all="${category}" data-reference-value="true">SELECT ALL</button><button type="button" data-reference-all="${category}" data-reference-value="false">DESELECT ALL</button></div><div class="referenceItemList">${rows}</div>`:"<small>No supported expectations in this category.</small>"}</details>`;
+  }).join("");
   host.querySelectorAll("[data-reference-item]").forEach(el=>el.addEventListener("change",()=>setReferenceItem(el.dataset.referenceCategory,el.dataset.referenceItem,el.checked)));
   host.querySelectorAll("[data-reference-all]").forEach(el=>el.addEventListener("click",()=>setReferenceItemsAll(el.dataset.referenceAll,el.dataset.referenceValue==="true")));
  }
+}
+function referenceCategoryStatus(category){
+ const names=referenceCategoryItems(category).filter(name=>referenceItemEnabled(category,name));
+ if(!referenceComparisonSettings()[category])return {status:"disabled",label:"Not monitored",details:[],selected:names.length};
+ if(!baselineState.attached||!names.length)return {status:"unverified",label:"No comparable values",details:[],selected:names.length};
+ const details=names.map(name=>{
+  const expectedValue=category==="routing"?baselineState.routes[name]:name==="PROGRAM"?baselineState.pgm:baselineState.pvw;
+  const actualValue=category==="routing"?actual[name]:name==="PROGRAM"?pgm:pvw;
+  const unknown=actualValue===undefined||actualValue===null||actualValue===""||actualValue==="—"||actualValue==="UNUSED";
+  return {name,expected:expectedValue,actual:actualValue,kind:unknown?"unverified":String(expectedValue)===String(actualValue)?"matching":"mismatch"};
+ });
+ const mismatches=details.filter(item=>item.kind==="mismatch").length;
+ const unknown=details.filter(item=>item.kind==="unverified").length;
+ return {status:mismatches?"mismatch":unknown?"unverified":"matching",label:mismatches?`${mismatches} mismatch${mismatches===1?"":"es"}`:unknown?`${unknown} unverified`:`${details.length} matching`,details,selected:names.length};
+}
+function renderReferenceAttention(){
+ if(!baselineState.attached)return `<div class="attentionItem"><b>NO REFERENCE ATTACHED</b><span>Import a reference to monitor expected values.</span></div>`;
+ return [["configuration","Configuration"],["routing","AUX / Output Routing"],["programPreview","Program / Preview"]].map(([category,title])=>{
+  const result=referenceCategoryStatus(category);
+  const css=result.status==="matching"?"good":result.status==="mismatch"?"mismatch":"";
+  const description=result.status==="disabled"?"Comparison disabled in Reference Preferences":result.label;
+  const items=result.details.filter(item=>item.kind!=="matching").map(item=>`<div class="referenceAttentionDetail"><b>${escapeShowDeskText(item.name)}</b> · ${escapeShowDeskText(item.kind==="unverified"?"Cannot verify live value":`Expected ${item.expected} · Actual ${item.actual}`)}</div>`).join("");
+  return `<details class="attentionItem referenceAttentionCategory ${css}"><summary><b>${title}</b><span>${description}</span></summary>${items||`<div class="referenceAttentionDetail">${result.status==="matching"?"All selected values match.":result.status==="unverified"?"No supported values can be verified.":"No individual discrepancies."}</div>`}</details>`;
+ }).join("");
 }
 function getMismatches(){
  if(!baselineState.attached)return [];
@@ -923,7 +946,7 @@ function render(){
  $("healthDetail").textContent=mismatches.length?`${mismatches.length} live state item${mismatches.length===1?" differs":"s differ"} from the attached reference`:changed.length?`${changed.length} destination route${changed.length>1?"s have":" has"} changed during this session`:`${total} destinations currently routed`;
  if($("routeMetric")) $("routeMetric").textContent=mismatches.length?`${mismatches.length} MISMATCH${mismatches.length===1?"":"ES"}`:`${total} ACTIVE`; if($("routeMetric")) $("routeMetric").className=mismatches.length?"bad":"ok";
  if($("engIssues")) $("engIssues").textContent=`${mismatches.length} mismatch${mismatches.length===1?"":"es"}`;
- if($("attention")) $("attention").innerHTML=(mismatches.length?mismatches.slice(0,5).map(x=>`<div class="attentionItem mismatch"><b>${x.name} MISMATCH</b><span>Expected ${x.expected} • Actual ${x.actual}</span></div>`).join(""):`<div class="attentionItem good"><b>${baselineState.attached?"REFERENCE MATCHES":"LIVE STATE STABLE"}</b><span>${baselineState.attached?"No defined reference expectations currently differ.":"Attach a show reference to enable expected-vs-actual verification."}</span></div>`)+(lastChangeText!=="—"?`<div class="attentionItem"><b>LAST CHANGE</b><span>${lastChangeText}</span></div>`:"");
+ if($("attention")) $("attention").innerHTML=renderReferenceAttention()+(lastChangeText!=="—"?`<div class="attentionItem"><b>LAST CHANGE</b><span>${escapeShowDeskText(lastChangeText)}</span></div>`:"");
  if($("lastChange"))$("lastChange").textContent=lastChangeText;
  renderInputs();renderActiveSources();
  const ig=$("inputGrid");
