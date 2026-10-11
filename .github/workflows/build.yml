@@ -1,6 +1,6 @@
 name: ShowDesk CI
 # Development pushes validate the current source. Only explicit RELEASE Build### commits publish.
-# Build096: package v0.1.96 retry after About version validation correction.
+# Build097: package v0.1.97 smooth Signal Explorer zoom and sticky workspace tabs.
 permissions:
   contents: write
 concurrency:
