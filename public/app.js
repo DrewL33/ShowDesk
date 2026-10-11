@@ -378,7 +378,7 @@ function rememberRouteChange(n,next){
 }
 function referenceComparisonDefaults(metadata={}){
  const snapshot=metadata.format==="ATEM Software Control";
- return {configuration:true,routing:!snapshot&&metadata.format!=="XML",programPreview:false};
+ return {configuration:true,routing:false,programPreview:false};
 }
 function referenceComparisonSettings(){
  return baselineState.comparison||referenceComparisonDefaults(baselineState.metadata);
