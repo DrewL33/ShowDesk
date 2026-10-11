@@ -1,6 +1,6 @@
 name: ShowDesk CI
 # Development pushes validate the current source. Only explicit RELEASE Build### commits publish.
-# Build095: package v0.1.95 signal graph field-test retry after corrected validation.
+# Build096: package v0.1.96 bidirectional output signal inspection field test.
 permissions:
   contents: write
 concurrency:
