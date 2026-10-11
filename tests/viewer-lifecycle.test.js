@@ -229,3 +229,7 @@ assert.match(app,/const isOutput=node\.type==="destination"\|\|node\.type==="int
 assert.match(app,/new Set\(\[\.\.\.upstream,\.\.\.downstream\]\)/,'Output inspections must include upstream feeds and downstream consumers');
 assert.match(app,/upstream\.has\(e\.from\)&&upstream\.has\(e\.to\)/,'Upstream edges must remain highlighted');
 assert.match(app,/downstream\.has\(e\.from\)&&downstream\.has\(e\.to\)/,'Downstream edges must remain highlighted');
+
+assert.match(app,/const startTime=performance\.now\(\),duration=180/,'Signal Explorer zoom must animate smoothly');
+assert.match(app,/logicalX\*scale\+left-focalX/,'Zoom must preserve its cursor-centered focal point');
+assert.match(css,/\.workspaceTopBar\{position:sticky;top:0;z-index:45/,'Workspace tabs must remain visible during page scrolling');
