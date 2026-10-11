@@ -221,7 +221,7 @@ assert.match(app,/function referenceCategoryStatus\(category\)/,'Reference categ
 assert.match(app,/function renderReferenceAttention\(\)/,'Attention must summarize reference categories');
 assert.match(app,/unknown\?"unverified"/,'Unavailable routes must not be reported as matching');
 
-assert.match(app,/active=node\.type==="destination"\?explorerReach\(graph,id,true\):explorerReach\(graph,id,false\)/,'Signal traces must not merge unrelated upstream and downstream branches');
+assert.match(app,/active=isOutput\?new Set\(\[\.\.\.upstream,\.\.\.downstream\]\):explorerReach\(graph,id,false\)/,'Output inspections trace both directions without expanding unrelated source inspections');
 assert.match(app,/explorerReach\(\{edges\},to,false\)\.has\(from\)/,'Explorer must reject inferred circular graph edges');
 assert.match(app,/routing!==explorerRouteState\|\|!canvas\.querySelector/,'Signal explorer must redraw when live routing changes');
 
