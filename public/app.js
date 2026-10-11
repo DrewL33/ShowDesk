@@ -604,6 +604,7 @@ function explorerInspect(id,pin=false){if(pin)explorerPinned=explorerPinned===id
 function explorerClear(){explorerPinned=null;explorerHover=null;explorerHighlight()}
 let explorerViewportInitialized=false;
 let explorerFitRequested=false;
+let explorerZoomFrame=0;
 function explorerZoom(direction,clientX=null,clientY=null){
  const scroller=document.querySelector("#explorerCanvas .explorerDiagramScroll"),svg=scroller?.querySelector("svg");
  if(!svg||scroller.clientWidth<100||scroller.clientHeight<100)return;
@@ -616,20 +617,24 @@ function explorerZoom(direction,clientX=null,clientY=null){
  const oldLeft=Math.max(0,(scroller.clientWidth-width*oldScale)/2),oldTop=Math.max(0,(scroller.clientHeight-height*oldScale)/2);
  const logicalX=(scroller.scrollLeft+focalX-oldLeft)/oldScale,logicalY=(scroller.scrollTop+focalY-oldTop)/oldScale;
  const fit=Math.min((scroller.clientWidth-32)/width,(scroller.clientHeight-32)/height);
- if(direction===0){explorerFitRequested=true;explorerScale=Math.max(.05,Math.min(2.5,fit))}
- else if(direction===2){explorerFitRequested=false;explorerScale=Math.max(.1,Math.min(1.5,fit*2.1))}
- else {explorerFitRequested=false;explorerScale=Math.max(.05,Math.min(4,oldScale*(direction>0?1.2:1/1.2)))}
- svg.style.width=width*explorerScale+"px";svg.style.height=height*explorerScale+"px";
- const left=Math.max(0,(scroller.clientWidth-width*explorerScale)/2),top=Math.max(0,(scroller.clientHeight-height*explorerScale)/2);
- svg.style.marginLeft=left+"px";svg.style.marginTop=top+"px";
- if(direction===0){scroller.scrollLeft=0;scroller.scrollTop=0}
- else if(direction===2){
-  scroller.scrollLeft=Math.max(0,(width*explorerScale-scroller.clientWidth)/2);
-  scroller.scrollTop=Math.max(0,(height*explorerScale-scroller.clientHeight)/2);
- }else{
-  scroller.scrollLeft=logicalX*explorerScale+left-focalX;
-  scroller.scrollTop=logicalY*explorerScale+top-focalY;
- }
+ let target=direction===0?Math.max(.05,Math.min(2.5,fit)):direction===2?Math.max(.1,Math.min(1.5,fit*2.1)):Math.max(.05,Math.min(4,oldScale*(direction>0?1.12:1/1.12)));
+ explorerFitRequested=direction===0;
+ cancelAnimationFrame(explorerZoomFrame);
+ const startTime=performance.now(),duration=180;
+ const animate=now=>{
+  if(!svg.isConnected)return;
+  const t=Math.min(1,(now-startTime)/duration),ease=1-Math.pow(1-t,3);
+  const scale=oldScale+(target-oldScale)*ease;
+  svg.style.width=width*scale+"px";svg.style.height=height*scale+"px";
+  const left=Math.max(0,(scroller.clientWidth-width*scale)/2),top=Math.max(0,(scroller.clientHeight-height*scale)/2);
+  svg.style.marginLeft=left+"px";svg.style.marginTop=top+"px";
+  if(direction===0){scroller.scrollLeft=0;scroller.scrollTop=0}
+  else if(direction===2){scroller.scrollLeft=Math.max(0,(width*scale-scroller.clientWidth)/2);scroller.scrollTop=Math.max(0,(height*scale-scroller.clientHeight)/2)}
+  else {scroller.scrollLeft=logicalX*scale+left-focalX;scroller.scrollTop=logicalY*scale+top-focalY}
+  explorerScale=scale;
+  if(t<1)explorerZoomFrame=requestAnimationFrame(animate);
+ };
+ explorerZoomFrame=requestAnimationFrame(animate);
 }
 function explorerInitializeViewport(){
  if(explorerViewportInitialized)return;
