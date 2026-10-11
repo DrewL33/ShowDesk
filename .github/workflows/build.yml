@@ -1,6 +1,6 @@
 name: ShowDesk CI
 # Development pushes validate the current source. Only explicit RELEASE Build### commits publish.
-# Build094: package v0.1.94 compact reference selections and category Attention monitoring.
+# Build094: package v0.1.94 reference monitoring release retry after validation fix.
 permissions:
   contents: write
 concurrency:
