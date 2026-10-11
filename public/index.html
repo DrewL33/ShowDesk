@@ -36,14 +36,12 @@
   <p class="safeNote" id="viewerStatus">Viewer Mode is read-only and does not connect directly to the ATEM.</p>
  </div>
 </div></div>
-<aside class="sideRail" aria-label="ShowDesk navigation"><div class="railBrand">SD</div>
-<button id="showBtn" class="railNav on" onclick="setTab('show')" aria-label="Show View"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx=".5"/><path d="M9 21h6M12 17v4"/></svg><span>Show View</span></button>
-<button id="signalBtn" class="railNav" onclick="setTab('signal')" aria-label="Signal Explorer"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M12 7v5M5 16v-4h14v4"/></svg><span>Signal Explorer</span></button>
-<button id="engBtn" class="railNav" onclick="setTab('engineering')" aria-label="Inspect"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="11" rx=".5"/><rect x="8" y="9" width="13" height="11" rx=".5"/></svg><span>Inspect</span></button>
-<div class="railSpacer"></div>
-<button id="settingsBtn" class="railNav" onclick="openShowDeskSettings()" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M9.4 2.8h5.2l.6 2.4c.5.2 1 .5 1.4.8l2.4-.7 2.6 4.5-1.8 1.7v1l1.8 1.7-2.6 4.5-2.4-.7c-.4.3-.9.6-1.4.8l-.6 2.4H9.4l-.6-2.4c-.5-.2-1-.5-1.4-.8l-2.4.7-2.6-4.5 1.8-1.7v-1L2.4 9.8 5 5.3l2.4.7c.4-.3.9-.6 1.4-.8l.6-2.4Z"/><circle cx="12" cy="12" r="3.1"/></svg><span>Settings</span></button>
-<div class="railStatus"><span class="connectionDot"></span></div></aside>
-<div class="desktopStatus"><div id="modelLabel"></div><span id="viewerCount" class="viewerCount" hidden></span><button id="referenceStatus" class="referenceStatus" hidden onclick="setTab('engineering')">● Referencing <span id="referenceName"></span></button><div id="connectionFlag" class="connectionFlag" hidden><span class="connectionDot"></span><span id="connectionFlagText">HOST • CONNECTED</span></div><button id="disconnectBtn" class="disconnectBtn" hidden onclick="disconnectShowDesk()">DISCONNECT</button></div><div class="wrap tab-show" id="app">
+<header class="workspaceTopBar"><nav class="floatingWorkspaceTabs" aria-label="Workspaces">
+<button id="showBtn" class="floatingWorkspaceTab on" type="button" onclick="setTab('show')">Show View</button>
+<button id="signalBtn" class="floatingWorkspaceTab" type="button" onclick="setTab('signal')">Signal Explorer</button>
+<button id="engBtn" class="floatingWorkspaceTab" type="button" onclick="setTab('engineering')">Inspect</button>
+</nav>
+<div class="desktopStatus"><div id="modelLabel"></div><span id="viewerCount" class="viewerCount" hidden></span><button id="referenceStatus" class="referenceStatus" hidden onclick="setTab('engineering')">● Referencing <span id="referenceName"></span></button><div id="connectionFlag" class="connectionFlag" hidden><span class="connectionDot"></span><span id="connectionFlagText">HOST • CONNECTED</span></div><button id="disconnectBtn" class="disconnectBtn" hidden onclick="disconnectShowDesk()">DISCONNECT</button></div></header><div class="wrap tab-show" id="app">
 
 <section class="showContent">
  <div class="health" id="health"><div class="dot"></div><div><b id="healthTitle">SYSTEM READY</b><div class="detail" id="healthDetail">Critical routes match the active profile</div></div><div class="spacer"></div><span id="clock"></span></div>
