@@ -224,3 +224,8 @@ assert.match(app,/unknown\?"unverified"/,'Unavailable routes must not be reporte
 assert.match(app,/active=node\.type==="destination"\?explorerReach\(graph,id,true\):explorerReach\(graph,id,false\)/,'Signal traces must not merge unrelated upstream and downstream branches');
 assert.match(app,/explorerReach\(\{edges\},to,false\)\.has\(from\)/,'Explorer must reject inferred circular graph edges');
 assert.match(app,/routing!==explorerRouteState\|\|!canvas\.querySelector/,'Signal explorer must redraw when live routing changes');
+
+assert.match(app,/const isOutput=node\.type==="destination"\|\|node\.type==="internal"/,'Destination and internal output inspections must trace both directions');
+assert.match(app,/new Set\(\[\.\.\.upstream,\.\.\.downstream\]\)/,'Output inspections must include upstream feeds and downstream consumers');
+assert.match(app,/upstream\.has\(e\.from\)&&upstream\.has\(e\.to\)/,'Upstream edges must remain highlighted');
+assert.match(app,/downstream\.has\(e\.from\)&&downstream\.has\(e\.to\)/,'Downstream edges must remain highlighted');
