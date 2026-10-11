@@ -216,3 +216,7 @@ assert.match(html,/id="referenceCompareprogramPreview"/,'Program and preview com
 assert.match(html,/data-settings-tab="reference"/,'Reference settings must be available without a file');
 assert.match(app,/function setReferenceItem\(category,name,enabled\)/,'Individual reference expectations must be selectable');
 assert.match(app,/function saveReferencePreferences\(\)/,'Explicit save preferences action must exist');
+
+assert.match(app,/function referenceCategoryStatus\(category\)/,'Reference categories must compute monitoring status');
+assert.match(app,/function renderReferenceAttention\(\)/,'Attention must summarize reference categories');
+assert.match(app,/unknown\?"unverified"/,'Unavailable routes must not be reported as matching');
