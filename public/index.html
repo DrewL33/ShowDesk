@@ -78,7 +78,7 @@
    <div class="referenceSectionLabel">REFERENCE STATUS</div>
    <div id="referenceEmpty" class="referenceEmpty"><b>NO REFERENCE ATTACHED</b><span>Import a show reference to enable expected-vs-actual comparison.</span></div>
    <div id="referenceAttached" class="referenceAttached" hidden><div><span>REFERENCE</span><b id="engReferenceName">—</b><small id="referenceMeta">—</small></div><button class="tinyAction" onclick="clearReference()">REMOVE</button></div>
-   <div id="referenceComparisonControls" class="referenceComparisonControls" hidden><div class="referenceSectionLabel" id="referenceKind">IMPORTED REFERENCE</div><label><input id="referenceCompareconfiguration" type="checkbox" onchange="setReferenceComparison('configuration',this.checked)"> Configuration</label><label><input id="referenceComparerouting" type="checkbox" onchange="setReferenceComparison('routing',this.checked)"> AUX / output routing</label><label><input id="referenceCompareprogramPreview" type="checkbox" onchange="setReferenceComparison('programPreview',this.checked)"> Program / Preview</label><small id="referenceCompareNote"></small></div><input id="referenceFile" type="file" accept=".json,.xml,.show,.atem" hidden onchange="importReferenceFile(event)">
+   <div id="referenceComparisonControls" class="referenceComparisonControls" hidden><div class="referenceSectionLabel" id="referenceKind">IMPORTED REFERENCE</div><label><input id="referenceCompareconfiguration" type="checkbox" onchange="setReferenceComparison('configuration',this.checked)"> Configuration</label><label><input id="referenceComparerouting" type="checkbox" onchange="setReferenceComparison('routing',this.checked)"> AUX / output routing</label><label><input id="referenceCompareprogramPreview" type="checkbox" onchange="setReferenceComparison('programPreview',this.checked)"> Program / Preview</label><small id="referenceCompareNote"></small><div id="referenceIndividualItems"></div></div><input id="referenceFile" type="file" accept=".json,.xml,.show,.atem" hidden onchange="importReferenceFile(event)">
    <div class="actionbar referenceActions"><button class="tinyAction primaryAction" onclick="$('referenceFile').click()">IMPORT REFERENCE</button><button class="tinyAction" onclick="exportLogReport()">EXPORT LOG REPORT</button><button class="tinyAction" onclick="setTab('signal')">VIEW SIGNAL EXPLORER</button></div>
    <div class="referenceSectionLabel referenceMetricsLabel">SESSION SUMMARY</div>
    <div class="compare referenceMetrics"><div><span>MISMATCHES</span><b id="mismatchCount">—</b></div><div><span>CHANGES THIS SESSION</span><b id="sessionChangeCount">0</b></div><div><span>LOG EVENTS</span><b id="logEventCount">0</b></div></div>
@@ -113,6 +113,7 @@
   <nav class="settingsTabs" aria-label="Settings sections">
    <button type="button" data-settings-tab="general" onclick="showSettingsSection('general')"><span class="settingsNavGlyph">⚙</span>General</button>
    <button type="button" data-settings-tab="connections" onclick="showSettingsSection('connections')"><span class="settingsNavGlyph">⌁</span>Connections</button>
+   <button type="button" data-settings-tab="reference" onclick="showSettingsSection('reference')"><span class="settingsNavGlyph">▤</span>References</button>
    <button type="button" data-settings-tab="updates" onclick="showSettingsSection('updates')"><span class="settingsNavGlyph" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M4 17v3h16v-3"/></svg></span>Updates</button>
    <button type="button" data-settings-tab="about" onclick="showSettingsSection('about')"><span class="settingsNavGlyph">ⓘ</span>About</button>
   </nav>
@@ -134,6 +135,18 @@
     <div class="settingsSectionHeader"><h3>SAVED CONNECTIONS</h3><span id="settingsSavedCount"></span></div>
     <div id="settingsSavedConnections"></div>
     <div class="settingsFooter"><button id="settingsDisconnect" class="settingsAction dangerAction" type="button" onclick="disconnectFromSettings()">DISCONNECT</button></div>
+   </section>
+   <section id="settingsSectionReference" class="settingsSection" hidden>
+    <h3>REFERENCE PREFERENCES</h3>
+    <p>Choose which imported values generate expected-versus-actual alerts. Preferences apply even when no reference is attached.</p>
+    <div class="referenceComparisonControls">
+     <label><input id="settingsReferenceconfiguration" type="checkbox" onchange="setReferenceComparison('configuration',this.checked)"> Configuration</label>
+     <label><input id="settingsReferencerouting" type="checkbox" onchange="setReferenceComparison('routing',this.checked)"> AUX / output routing</label>
+     <label><input id="settingsReferenceprogramPreview" type="checkbox" onchange="setReferenceComparison('programPreview',this.checked)"> Program / Preview</label>
+    </div>
+    <h3>INDIVIDUAL EXPECTATIONS</h3>
+    <div id="settingsReferenceItems"></div>
+    <div class="settingsFooter"><button class="settingsAction" type="button" onclick="saveReferencePreferences()">SAVE PREFERENCES</button><span id="settingsReferenceSaveStatus" role="status">Saved locally</span></div>
    </section>
    <section id="settingsSectionUpdates" class="settingsSection" hidden>
     <h3>INSTALLED VERSION</h3><div class="settingsVersionLine"><strong>ShowDesk <span id="settingsVersion">0.1.92</span></strong><span id="settingsUpdateStatus">—</span></div>
