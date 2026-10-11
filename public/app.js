@@ -650,18 +650,25 @@ function explorerReach(graph,id,reverse=false){
 function explorerHighlight(){
  const graph=explorerGraph,svg=document.querySelector("#explorerCanvas .signalOverview");if(!graph||!svg)return;
  const id=explorerHover||explorerPinned,node=graph.nodes.find(n=>n.id===id);
- let active=null;
+ let active=null,activeEdges=null;
  if(node){
-  // M/E nodes are inspection junctions: show upstream contributors and downstream consumers.
-  // Trace one coherent direction. Unioning upstream and downstream reachable nodes
-  // falsely paints unrelated M/E branches as one continuous live signal.
-  active=node.type==="destination"?explorerReach(graph,id,true):explorerReach(graph,id,false);
+  // An output inspection includes its exact upstream feed and any actual
+  // downstream consumers, without highlighting sibling output branches.
+  const upstream=explorerReach(graph,id,true);
+  const downstream=explorerReach(graph,id,false);
+  const isOutput=node.type==="destination"||node.type==="internal";
+  active=isOutput?new Set([...upstream,...downstream]):explorerReach(graph,id,false);
+  activeEdges=new Set(graph.edges.filter(e=>{
+   if(!isOutput)return active.has(e.from)&&active.has(e.to);
+   return (upstream.has(e.from)&&upstream.has(e.to))||
+          (downstream.has(e.from)&&downstream.has(e.to));
+  }).map(e=>e.id));
  }
  svg.classList.toggle("is-filtered",!!active);
  const linked=new Set(graph.edges.flatMap(e=>[e.from,e.to]));
  const dimUnlinked=$("explorerDimUnlinked")?.checked!==false;
  svg.querySelectorAll("[data-signal-node]").forEach(el=>{el.classList.toggle("is-active",!active||active.has(el.dataset.signalNode));el.classList.toggle("is-unlinked",dimUnlinked&&!linked.has(el.dataset.signalNode));});
- const activeEdges=new Set(graph.edges.filter(e=>!active||active.has(e.from)&&active.has(e.to)).map(e=>e.id));
+ if(!activeEdges)activeEdges=new Set(graph.edges.map(e=>e.id));
  svg.querySelectorAll("[data-signal-edge]").forEach(el=>el.classList.toggle("is-active",activeEdges.has(el.dataset.signalEdge)));
  svg.querySelectorAll("[data-signal-halo]").forEach(el=>el.classList.toggle("is-active",activeEdges.has(el.dataset.signalHalo)));
  svg.querySelectorAll("[data-signal-direction]").forEach(el=>el.classList.toggle("is-active",activeEdges.has(el.dataset.signalDirection)));
