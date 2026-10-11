@@ -232,4 +232,4 @@ assert.match(app,/downstream\.has\(e\.from\)&&downstream\.has\(e\.to\)/,'Downstr
 
 assert.match(app,/const startTime=performance\.now\(\),duration=180/,'Signal Explorer zoom must animate smoothly');
 assert.match(app,/logicalX\*scale\+left-focalX/,'Zoom must preserve its cursor-centered focal point');
-assert.match(css,/\.workspaceTopBar\{position:sticky;top:0;z-index:45/,'Workspace tabs must remain visible during page scrolling');
+assert.match(styles,/\.workspaceTopBar\{position:sticky;top:0;z-index:45/,'Workspace tabs must remain visible during page scrolling');
