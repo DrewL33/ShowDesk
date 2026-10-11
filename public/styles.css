@@ -574,3 +574,8 @@ html body{padding-left:0!important}
 body .wrap{margin:0 auto!important;max-width:1540px!important;padding:12px 20px 28px!important}
 @media(max-width:1050px){.workspaceTopBar{grid-template-columns:1fr;gap:10px}.floatingWorkspaceTabs{grid-column:1;justify-self:center}.workspaceTopBar .desktopStatus{grid-column:1;grid-row:2;justify-self:end}}
 @media(max-width:520px){.floatingWorkspaceTab{padding:9px;font-size:10px}}
+
+/* Override legacy rail positioning after the layout migration. */
+body:has(.workspaceTopBar){padding-left:0!important}
+body:has(.workspaceTopBar) .wrap{margin-left:auto!important;margin-right:auto!important}
+body:has(.workspaceTopBar) .desktopStatus{position:static!important;width:auto!important}
