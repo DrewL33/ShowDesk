@@ -553,3 +553,12 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .referenceComparisonControls[hidden]{display:none}
 .referenceComparisonControls label{display:flex;align-items:center;gap:9px;font-size:12px;cursor:pointer}
 .referenceComparisonControls small{opacity:.7;line-height:1.4}
+
+.referenceItemGroup{margin-top:8px;border-top:1px solid rgba(128,128,128,.18);padding:8px 0;font-size:12px}
+.referenceItemGroup summary{cursor:pointer;font-weight:600}
+.referenceItemGroup small{display:block;padding:8px 0;opacity:.7}
+.referenceItemActions{display:flex;gap:8px;margin:10px 0}
+.referenceItemActions button{background:transparent;color:inherit;border:1px solid rgba(128,128,128,.3);border-radius:5px;padding:5px 9px;font-size:10px;cursor:pointer}
+.referenceItemList{display:grid;gap:8px;max-height:190px;overflow:auto}
+.referenceItemList label{display:flex;align-items:center;gap:8px;overflow-wrap:anywhere}
+#settingsReferenceSaveStatus{font-size:11px;opacity:.75;margin-left:10px}
