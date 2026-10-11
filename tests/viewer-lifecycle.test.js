@@ -209,6 +209,10 @@ assert.match(app,/SESSION EVENT HISTORY \(oldest first\)/,'Report must identify 
 
 assert.match(app,/return \{configuration:true,routing:false,programPreview:false\}/,'Reference comparisons must default to configuration only');
 assert.match(app,/function setReferenceComparison\(category,enabled\)/,'Reference comparison settings must be editable');
-assert.match(app,/comparison:referenceComparisonSettings\(\)/,'Reference comparison settings must persist');
+assert.match(app,/SHOWDESK_REFERENCE_PREFERENCES_KEY/,'Reference preferences must persist independently of imported files');
 assert.match(html,/id="referenceComparerouting"/,'AUX comparison toggle must be present');
 assert.match(html,/id="referenceCompareprogramPreview"/,'Program and preview comparison toggle must be present');
+
+assert.match(html,/data-settings-tab="reference"/,'Reference settings must be available without a file');
+assert.match(app,/function setReferenceItem\(category,name,enabled\)/,'Individual reference expectations must be selectable');
+assert.match(app,/function saveReferencePreferences\(\)/,'Explicit save preferences action must exist');
