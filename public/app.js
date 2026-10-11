@@ -653,7 +653,9 @@ function explorerHighlight(){
  let active=null;
  if(node){
   // M/E nodes are inspection junctions: show upstream contributors and downstream consumers.
-  active=(node.type==="processor"||node.type==="internal")?new Set([...explorerReach(graph,id,true),...explorerReach(graph,id,false)]):explorerReach(graph,id,node.type==="destination");
+  // Trace one coherent direction. Unioning upstream and downstream reachable nodes
+  // falsely paints unrelated M/E branches as one continuous live signal.
+  active=node.type==="destination"?explorerReach(graph,id,true):explorerReach(graph,id,false);
  }
  svg.classList.toggle("is-filtered",!!active);
  const linked=new Set(graph.edges.flatMap(e=>[e.from,e.to]));
@@ -684,7 +686,14 @@ function explorerBuildGraph(){
   return add("src:"+id,input?.name||("Source "+id),"source","INPUTS");
  };
  inputs.forEach(i=>source(i.id));
- const connect=(from,to,kind="selected")=>{const id=from+"->"+to;if(from===to||edgeIds.has(id))return;edgeIds.add(id);edges.push({id,from,to,kind})};
+ const connect=(from,to,kind="selected")=>{
+  const id=from+"->"+to;
+  if(from===to||edgeIds.has(id))return;
+  // ATEM cross-M/E selections can be legitimate, but a graph cycle is not
+  // proof of a live feedback path. Suppress circular inferred connections.
+  if(explorerReach({edges},to,false).has(from))return;
+  edgeIds.add(id);edges.push({id,from,to,kind});
+ };
  const feed=(id,to,kind)=>{if(id===undefined||id===null||!Number.isFinite(Number(id)))return;connect(source(id),to,kind)};
  // Physical source -> bus -> processing output. Never create a reverse edge to an earlier column.
  mes.forEach(me=>{
@@ -848,7 +857,7 @@ function explorerDraw(graph){
 function renderPaths(){
  const graph=explorerBuildGraph(),canvas=$("explorerCanvas");if(!canvas)return;
  const topology=graph.nodes.map(n=>n.id+"|"+n.label+"|"+n.group).join(";"),routing=graph.edges.map(e=>e.id+"|"+e.kind).sort().join(";");
- const changed=topology!==explorerTopology||!canvas.querySelector(".signalOverview");
+ const changed=topology!==explorerTopology||routing!==explorerRouteState||!canvas.querySelector(".signalOverview");
  explorerGraph=graph;
  if(changed){
   const scroller=canvas.querySelector(".explorerDiagramScroll"),x=scroller?.scrollLeft||0,y=scroller?.scrollTop||0;
