@@ -571,7 +571,7 @@ html body{padding-left:0!important}
 .floatingWorkspaceTab.on{background:var(--blue);color:white}
 .workspaceTopBar .desktopStatus{grid-column:3;grid-row:1;padding:0!important;min-height:0!important;background:transparent!important;justify-content:flex-end!important;min-width:0}
 .workspaceTopBar .desktopStatus #modelLabel{display:none!important}
-body .wrap{margin:0 auto!important;max-width:1540px!important;padding:12px 20px 28px!important}
+body .wrap{margin:0 auto!important;width:100%!important;max-width:none!important;padding:12px 20px 28px!important}
 @media(max-width:1050px){.workspaceTopBar{grid-template-columns:1fr;gap:10px}.floatingWorkspaceTabs{grid-column:1;justify-self:center}.workspaceTopBar .desktopStatus{grid-column:1;grid-row:2;justify-self:end}}
 @media(max-width:520px){.floatingWorkspaceTab{padding:9px;font-size:10px}}
 
@@ -579,3 +579,6 @@ body .wrap{margin:0 auto!important;max-width:1540px!important;padding:12px 20px 
 body:has(.workspaceTopBar){padding-left:0!important}
 body:has(.workspaceTopBar) .wrap{margin-left:auto!important;margin-right:auto!important}
 body:has(.workspaceTopBar) .desktopStatus{position:static!important;width:auto!important}
+
+/* Build093: use the full desktop viewport across Show, Signal Explorer and Inspect. */
+body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!important;margin-left:0!important;margin-right:0!important;min-width:0!important}
