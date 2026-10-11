@@ -562,3 +562,15 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .referenceItemList{display:grid;gap:8px;max-height:190px;overflow:auto}
 .referenceItemList label{display:flex;align-items:center;gap:8px;overflow-wrap:anywhere}
 #settingsReferenceSaveStatus{font-size:11px;opacity:.75;margin-left:10px}
+
+/* Build092 floating workspace navigation */
+html body{padding-left:0!important}
+.workspaceTopBar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;padding:14px 20px 4px;min-height:70px}
+.floatingWorkspaceTabs{grid-column:2;display:flex;gap:4px;border:1px solid var(--line);border-radius:14px;background:var(--panel2);padding:4px}
+.floatingWorkspaceTab{border:0;border-radius:10px;background:transparent;color:var(--muted);padding:12px 18px;font-size:12px;font-weight:650;white-space:nowrap}
+.floatingWorkspaceTab.on{background:var(--blue);color:white}
+.workspaceTopBar .desktopStatus{grid-column:3;grid-row:1;padding:0!important;min-height:0!important;background:transparent!important;justify-content:flex-end!important;min-width:0}
+.workspaceTopBar .desktopStatus #modelLabel{display:none!important}
+body .wrap{margin:0 auto!important;max-width:1540px!important;padding:12px 20px 28px!important}
+@media(max-width:1050px){.workspaceTopBar{grid-template-columns:1fr;gap:10px}.floatingWorkspaceTabs{grid-column:1;justify-self:center}.workspaceTopBar .desktopStatus{grid-column:1;grid-row:2;justify-self:end}}
+@media(max-width:520px){.floatingWorkspaceTab{padding:9px;font-size:10px}}
