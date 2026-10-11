@@ -582,3 +582,13 @@ body:has(.workspaceTopBar) .desktopStatus{position:static!important;width:auto!i
 
 /* Build093: use the full desktop viewport across Show, Signal Explorer and Inspect. */
 body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!important;margin-left:0!important;margin-right:0!important;min-width:0!important}
+
+/* Build094 compact reference selectors and monitored-category attention. */
+.referenceItemGroup{margin-top:0;padding:10px 0}
+.referenceItemGroup summary{display:flex;align-items:center;justify-content:space-between;gap:12px;list-style:revert;cursor:pointer}
+.referenceItemSummary{font-size:10px;font-weight:500;opacity:.65;white-space:nowrap}
+.referenceItemList{max-height:150px;overflow-y:auto;overscroll-behavior:contain;padding:4px 2px}
+.referenceAttentionCategory{cursor:default}
+.referenceAttentionCategory summary{cursor:pointer;list-style:revert}
+.referenceAttentionCategory summary b,.referenceAttentionCategory summary span{display:block}
+.referenceAttentionDetail{padding:8px 4px 3px 12px;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
