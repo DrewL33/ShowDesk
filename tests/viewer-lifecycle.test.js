@@ -206,3 +206,9 @@ assert.match(app,/connectionIncidents=\{interruptions:0,recoveries:0,failures:0\
 assert.match(app,/recordConnectionIncident\("interruptions","ATEM connection lost/,'Host disconnections must be counted');
 assert.match(app,/recordConnectionIncident\("recoveries","ATEM reconnected/,'Host recoveries must be counted');
 assert.match(app,/SESSION EVENT HISTORY \(oldest first\)/,'Report must identify chronological event order');
+
+assert.match(app,/return \{configuration:true,routing:false,programPreview:false\}/,'Reference comparisons must default to configuration only');
+assert.match(app,/function setReferenceComparison\(category,enabled\)/,'Reference comparison settings must be editable');
+assert.match(app,/comparison:referenceComparisonSettings\(\)/,'Reference comparison settings must persist');
+assert.match(html,/id="referenceComparerouting"/,'AUX comparison toggle must be present');
+assert.match(html,/id="referenceCompareprogramPreview"/,'Program and preview comparison toggle must be present');
