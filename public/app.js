@@ -346,7 +346,7 @@ function refreshShowDeskSettings(){
  if($("settingsDevice"))$("settingsDevice").textContent=connectedDevice?.name||connectedDevice?.productIdentifier||liveEngineering.productIdentifier||"—";
  if($("settingsAddress"))$("settingsAddress").textContent=connectedDevice?.ip||viewerConnectionContext?.ip||"—";
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
- if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.91"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.87").split(".").pop()).padStart(3,"0")} · ${showDeskUpdater.currentVersion||"0.1.87"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
+ if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.92"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.87").split(".").pop()).padStart(3,"0")} · ${showDeskUpdater.currentVersion||"0.1.87"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
 }
 function openShowDeskSettings(){refreshShowDeskSettings();renderSavedConnectionChoices();syncSettingsWorkspaceMenu();closeSettingsWorkspaceMenu();if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");$("settingsModal").hidden=false}
 function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true}
@@ -376,14 +376,30 @@ function rememberRouteChange(n,next){
  if(prev!==next)window.routeHistory[n]={from:prev,at:Date.now()};
  actual[n]=next;
 }
+function referenceComparisonDefaults(metadata={}){
+ const snapshot=metadata.format==="ATEM Software Control";
+ return {configuration:true,routing:!snapshot&&metadata.format!=="XML",programPreview:false};
+}
+function referenceComparisonSettings(){
+ return baselineState.comparison||referenceComparisonDefaults(baselineState.metadata);
+}
+function setReferenceComparison(category,enabled){
+ if(!baselineState.attached)return;
+ if(!["configuration","routing","programPreview"].includes(category))return;
+ baselineState.comparison={...referenceComparisonSettings(),[category]:Boolean(enabled)};
+ recordEvent("REFERENCE",`Comparison ${category} ${enabled?"enabled":"disabled"}`);
+ persistReference();updateReferenceUI();render();
+}
 function getMismatches(){
  if(!baselineState.attached)return [];
- const out=[];
- Object.entries(baselineState.routes||{}).forEach(([name,expectedRoute])=>{
+ const out=[],settings=referenceComparisonSettings();
+ if(settings.routing)Object.entries(baselineState.routes||{}).forEach(([name,expectedRoute])=>{
    if(actual[name]!==undefined&&actual[name]!==expectedRoute)out.push({type:"ROUTE",name,expected:expectedRoute,actual:actual[name]});
  });
- if(baselineState.pgm&&pgm!==baselineState.pgm)out.push({type:"PROGRAM",name:"M/E 1 PROGRAM",expected:baselineState.pgm,actual:pgm});
- if(baselineState.pvw&&pvw!==baselineState.pvw)out.push({type:"PREVIEW",name:"M/E 1 PREVIEW",expected:baselineState.pvw,actual:pvw});
+ if(settings.programPreview){
+  if(baselineState.pgm&&pgm!==baselineState.pgm)out.push({type:"PROGRAM",name:"M/E 1 PROGRAM",expected:baselineState.pgm,actual:pgm});
+  if(baselineState.pvw&&pvw!==baselineState.pvw)out.push({type:"PREVIEW",name:"M/E 1 PREVIEW",expected:baselineState.pvw,actual:pvw});
+ }
  return out;
 }
 function updateReferenceUI(){
@@ -393,6 +409,7 @@ function updateReferenceUI(){
  if($("referenceAttached"))$("referenceAttached").hidden=!on;
  if(on){if($("engReferenceName"))$("engReferenceName").textContent=name;if($("referenceMeta"))$("referenceMeta").textContent=`${Object.keys(baselineState.routes).length} comparable routes • loaded ${new Date(baselineState.loadedAt).toLocaleTimeString()}`;}
  if($("diagReference"))$("diagReference").textContent=on?name:"NONE";
+ const controls=$("referenceComparisonControls");if(controls){controls.hidden=!on;if(on){const settings=referenceComparisonSettings();["configuration","routing","programPreview"].forEach(k=>{const el=$("referenceCompare"+k);if(el)el.checked=Boolean(settings[k]);});const kind=$("referenceKind");if(kind)kind.textContent=baselineState.metadata?.format==="ATEM Software Control"?"ATEM snapshot · informational by default":"Imported reference";const note=$("referenceCompareNote");if(note)note.textContent=settings.configuration?"Configuration comparison enabled; no stable configuration fields are currently enforced by the imported parser.":"Configuration comparison disabled.";}}
  const mm=getMismatches();if($("mismatchCount"))$("mismatchCount").textContent=on?mm.length:"—";
  if($("sessionChangeCount"))$("sessionChangeCount").textContent=sessionEvents.filter(e=>e.kind==="ROUTE"||e.kind==="STATE"||/^M\/E \d+$/.test(e.kind)).length;
  if($("logEventCount"))$("logEventCount").textContent=sessionEvents.length;
@@ -424,7 +441,7 @@ function persistReference(){
    localStorage.setItem(SHOWDESK_REFERENCE_STORAGE_KEY,JSON.stringify({
      version:1,name:baselineState.name,loadedAt:baselineState.loadedAt,
      pgm:baselineState.pgm,pvw:baselineState.pvw,
-     metadata:baselineState.metadata||{},routes:{...baselineState.routes}
+     metadata:baselineState.metadata||{},comparison:referenceComparisonSettings(),routes:{...baselineState.routes}
    }));
  }catch(err){console.warn("ShowDesk could not persist the reference locally.",err);}
 }
@@ -434,7 +451,7 @@ function restorePersistedReference(){
    const saved=JSON.parse(raw);
    if(!saved||saved.version!==1||!saved.name||!saved.routes||typeof saved.routes!=="object")throw new Error("Invalid saved reference");
    baselineState.attached=true;baselineState.name=saved.name;baselineState.loadedAt=saved.loadedAt||new Date().toISOString();
-   baselineState.pgm=saved.pgm||null;baselineState.pvw=saved.pvw||null;baselineState.metadata=saved.metadata||{};
+   baselineState.pgm=saved.pgm||null;baselineState.pvw=saved.pvw||null;baselineState.metadata=saved.metadata||{};baselineState.comparison=saved.comparison&&typeof saved.comparison==="object"?{...referenceComparisonDefaults(saved.metadata),...saved.comparison}:referenceComparisonDefaults(saved.metadata);
    Object.keys(baselineState.routes).forEach(k=>delete baselineState.routes[k]);Object.assign(baselineState.routes,saved.routes);
    recordEvent("REFERENCE",`Reference restored locally: ${saved.name}`,{routes:Object.keys(saved.routes).length});
    return true;
@@ -451,14 +468,14 @@ async function importReferenceFile(event){
    if(file.name.toLowerCase().endsWith(".json")){ref=normalizeReferenceObject(JSON.parse(text));}
    else {ref=parseXmlReference(text);}
    if(!Object.keys(ref.routes).length&&!ref.pgm&&!ref.pvw)throw new Error("No comparable routing or bus state was found in this file.");
-   baselineState.attached=true;baselineState.name=file.name;baselineState.loadedAt=new Date().toISOString();baselineState.pgm=ref.pgm;baselineState.pvw=ref.pvw;baselineState.metadata=ref.metadata||{};
+   baselineState.attached=true;baselineState.name=file.name;baselineState.loadedAt=new Date().toISOString();baselineState.pgm=ref.pgm;baselineState.pvw=ref.pvw;baselineState.metadata=ref.metadata||{};baselineState.comparison=referenceComparisonDefaults(ref.metadata);
    Object.keys(baselineState.routes).forEach(k=>delete baselineState.routes[k]);Object.assign(baselineState.routes,ref.routes);
    recordEvent("REFERENCE",`Reference attached: ${file.name}`,{routes:Object.keys(ref.routes).length});persistReference();updateReferenceUI();render();toast("Reference attached");
  }catch(err){toast("Reference not imported");alert("ShowDesk could not use this reference file. "+err.message+"\n\nImport an ATEM Software Control XML profile, ShowDesk JSON reference, or compatible XML reference.");}
  event.target.value="";
 }
 function clearReference(){
- if(!baselineState.attached)return;const old=baselineState.name;baselineState.attached=false;baselineState.name="";baselineState.loadedAt=null;baselineState.pgm=null;baselineState.pvw=null;baselineState.metadata={};Object.keys(baselineState.routes).forEach(k=>delete baselineState.routes[k]);recordEvent("REFERENCE",`Reference removed: ${old}`);persistReference();updateReferenceUI();render();toast("Reference removed");
+ if(!baselineState.attached)return;const old=baselineState.name;baselineState.attached=false;baselineState.name="";baselineState.loadedAt=null;baselineState.pgm=null;baselineState.pvw=null;baselineState.metadata={};baselineState.comparison=null;Object.keys(baselineState.routes).forEach(k=>delete baselineState.routes[k]);recordEvent("REFERENCE",`Reference removed: ${old}`);persistReference();updateReferenceUI();render();toast("Reference removed");
 }
 async function exportLogReport(){
  const mismatches=getMismatches(),mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
