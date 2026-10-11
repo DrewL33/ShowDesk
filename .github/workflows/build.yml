@@ -1,6 +1,6 @@
 name: ShowDesk CI
 # Development pushes validate the current source. Only explicit RELEASE Build### commits publish.
-# Build091: package v0.1.91 Step 9 session diagnostics and report cleanup for native updater release.
+# Build092: package v0.1.92 reference preferences, per-item expectations, and floating workspace tabs.
 permissions:
   contents: write
 concurrency:
