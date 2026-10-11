@@ -592,3 +592,8 @@ body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!importa
 .referenceAttentionCategory summary{cursor:pointer;list-style:revert}
 .referenceAttentionCategory summary b,.referenceAttentionCategory summary span{display:block}
 .referenceAttentionDetail{padding:8px 4px 3px 12px;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+
+/* Build097: keep workspace tabs accessible while scrolling long views. */
+.workspaceTopBar{position:sticky;top:0;z-index:45;background:rgba(8,13,17,.96);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
+.workspaceTopBar .floatingWorkspaceTabs{position:relative;z-index:1}
+@media(prefers-reduced-motion:reduce){.signalOverview{scroll-behavior:auto}}
