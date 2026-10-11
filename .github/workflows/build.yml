@@ -1,6 +1,6 @@
 name: ShowDesk CI
 # Development pushes validate the current source. Only explicit RELEASE Build### commits publish.
-# Build092: package v0.1.92 reference preferences, per-item expectations, and floating workspace tabs.
+# Build093: package v0.1.93 full-width workspace fix for macOS and Windows.
 permissions:
   contents: write
 concurrency:
