@@ -1,6 +1,6 @@
 name: ShowDesk CI
 # Development pushes validate the current source. Only explicit RELEASE Build### commits publish.
-# Build094: package v0.1.94 reference monitoring release retry after validation fix.
+# Build095: package v0.1.95 signal graph corrections for macOS and Windows field testing.
 permissions:
   contents: write
 concurrency:
