@@ -1,14 +1,93 @@
 # ShowDesk
 
-ShowDesk gives video techs and engineers a clear, real-time view of their ATEM switcher—making it easy to trace signal routing, verify outputs, monitor switcher state, and troubleshoot problems during a live production.
+**See what your ATEM is doing at a glance.** ShowDesk is a read-only companion for live-production teams: follow program and preview across M/Es, trace signal routes, and spot switcher details without digging through control menus.
 
-## Current architecture
-- Web UI served locally in the user's browser
-- Node.js backend for ATEM communication
-- WebSocket bridge for live state updates
-- Packaged GitHub Release builds so users do not need Node.js installed
+[![Latest stable release](https://img.shields.io/github/v/release/DrewL33/ShowDesk?label=stable%20release)](https://github.com/DrewL33/ShowDesk/releases/latest)
 
-## Mobile browser viewer
-When ShowDesk is running in Host Mode, open `http://<host-ip>:47822/` from a phone or tablet browser on the same LAN or a connected VPN. The page connects automatically to the Host's read-only WebSocket feed and shows compact **Show**, **Signal**, and **Inspect** tabs. Port `47822` must be allowed through the Host computer's firewall.
+<p align="center">
+  <a href="https://github.com/DrewL33/ShowDesk/releases/latest/download/ShowDesk-macOS-Installer.dmg"><strong>Download for macOS (Apple silicon)</strong></a>
+  &nbsp; · &nbsp;
+  <a href="https://github.com/DrewL33/ShowDesk/releases/latest/download/ShowDesk-Windows-Installer.exe"><strong>Download for Windows (x64)</strong></a>
+  &nbsp; · &nbsp;
+  <a href="https://github.com/DrewL33/ShowDesk/releases/latest">All releases</a>
+</p>
 
-The mobile page is served by the ShowDesk Host itself, so it does not require a separate web deployment. The viewer feed is read-only; it does not offer switcher controls.
+![ShowDesk Show View](docs/images/show-view.svg)
+
+## See the whole signal path
+
+ShowDesk turns live switcher state into a clear operational view. It reads the ATEM directly in Host Mode, or connects as a read-only desktop or phone Viewer to a ShowDesk Host.
+
+- **Show View** — choose an M/E and keep program, preview, active sources, keyers, and recent changes in view.
+- **Signal Explorer** — trace sources through M/E program and preview buses, keyers, AUX buses, and routed destinations. Search and pin a path to follow it.
+- **Inspect** — review input inventory, attention items, routing matrix, M/E bus details, keyer state, video mode, and connection diagnostics.
+- **Show references** — compare supported routing and configuration values with the live switcher and surface mismatches.
+- **Session reports** — export a readable record of connection health and the switcher state observed during the session.
+- **Phone and tablet Viewer** — open a compact, read-only Show, Signal, and Inspect interface served by the Host.
+- **Signed in-app updates** — check for the current release from Settings and install when ready.
+
+## Interface previews
+
+These previews use fictional sample show data; they do not show a connected production switcher.
+
+### Show View
+
+Program and preview, active sources, and keyer state for the selected M/E.
+
+![ShowDesk Show View workspace](docs/images/show-view.svg)
+
+### Signal Explorer
+
+Follow the live source-to-destination picture, including keyers and output routing.
+
+![ShowDesk Signal Explorer workspace](docs/images/signal-explorer.svg)
+
+### Inspect
+
+Switch from the big picture to input, route, bus, keyer, and diagnostic details.
+
+![ShowDesk Inspect workspace](docs/images/inspect.svg)
+
+### Mobile Viewer
+
+The Host serves a compact mobile page directly on the production network.
+
+![ShowDesk mobile Viewer](docs/images/mobile-viewer.svg)
+
+## Install
+
+1. Download the installer for your computer from the buttons above.
+2. Open the disk image on macOS and move ShowDesk to Applications, or run the Windows installer.
+3. Open ShowDesk and choose **Host** to connect directly to an ATEM, or **Viewer** to connect to a computer already running ShowDesk Host.
+
+ShowDesk 1.0 currently ships for Apple silicon Macs and 64-bit Windows. macOS and Windows may show their standard first-run warning for an independently distributed app. Download only from this repository’s Releases page.
+
+## Use the mobile Viewer
+
+Start ShowDesk in **Host** mode, then open this address on a phone or tablet connected to the same LAN or VPN:
+
+```text
+http://<host-computer-ip>:47822/
+```
+
+The page connects to the Host automatically. Allow inbound TCP port **47822** through the Host computer’s firewall. The mobile Viewer is read-only and does not connect directly to or control the ATEM.
+
+For a desktop Viewer, open ShowDesk, choose **Viewer**, and enter the Host computer’s IP address. Host and Viewer can communicate over a LAN or a properly routed VPN. The Host’s local ATEM connection remains on the Host computer.
+
+## Supported switchers and connection
+
+ShowDesk uses the ATEM network protocol through the `atem-connection` library. Connect the Host computer to the same network as the switcher and enter the switcher’s IP address. Feature availability depends on the model and the state reported by the ATEM; ShowDesk displays data it can verify and labels unsupported or unavailable values accordingly.
+
+The app does not issue switcher control commands. The desktop Host connects to the ATEM; mobile and desktop Viewers receive read-only state from that Host.
+
+## Updates and support
+
+ShowDesk can check its signed GitHub update feed at launch and from **Settings → Updates**. Automatic checks can be turned off. ShowDesk asks before downloading an update.
+
+Report a problem or request a feature in [GitHub Issues](https://github.com/DrewL33/ShowDesk/issues). Include your ShowDesk version, operating system, switcher model, and a description of what you expected to happen. Remove private show names, IP addresses, or other production details from any report or attachment.
+
+## Project
+
+- [Download the latest release](https://github.com/DrewL33/ShowDesk/releases/latest)
+- [View release notes](https://github.com/DrewL33/ShowDesk/releases)
+- [Report an issue](https://github.com/DrewL33/ShowDesk/issues)

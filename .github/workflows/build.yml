@@ -1,6 +1,5 @@
 name: ShowDesk CI
-# Development pushes validate the current source. Only explicit RELEASE Build### commits publish.
-# Build097: package v0.1.97 smooth Signal Explorer zoom and sticky workspace tabs.
+# Development pushes validate the current source. Build commits publish field tests and updater feeds; stable version tags publish official releases.
 permissions:
   contents: read
 concurrency:
@@ -46,7 +45,7 @@ jobs:
         run: |
           node <<'NODE'
           const next=require('./src-tauri/tauri.conf.json').version;
-          const previous=['0.1.58','0.1.57','0.1.56','0.1.55','0.1.54','0.1.53','0.1.52','0.1.51','0.1.50','0.1.49','0.1.48','0.1.47','0.1.46','0.1.45','0.1.44','0.1.43','0.1.42','0.1.41','0.1.40','0.1.39','0.1.38','0.1.0-37','0.1.0-36','0.1.0'];
+          const previous=['0.1.105','0.1.104','0.1.103','0.1.102','0.1.101','0.1.100','0.1.99','0.1.98','0.1.58','0.1.57','0.1.56','0.1.55','0.1.54','0.1.53','0.1.52','0.1.51','0.1.50','0.1.49','0.1.48','0.1.47','0.1.46','0.1.45','0.1.44','0.1.43','0.1.42','0.1.41','0.1.40','0.1.39','0.1.38','0.1.0-37','0.1.0-36','0.1.0'];
           const parse=v=>{const [core,pre]=v.split('-');return {n:core.split('.').map(Number),pre};};
           const gt=(a,b)=>{a=parse(a);b=parse(b);for(let i=0;i<3;i++){if(a.n[i]!==b.n[i])return a.n[i]>b.n[i];}if(a.pre===undefined&&b.pre!==undefined)return true;if(a.pre!==undefined&&b.pre===undefined)return false;return String(a.pre||'')>String(b.pre||'');};
           for(const old of previous)if(!gt(next,old))throw new Error(`${next} is not newer than ${old}`);
@@ -179,7 +178,7 @@ jobs:
   publish-updater:
     permissions:
       contents: write
-    if: startsWith(github.event.head_commit.message, 'RELEASE Build')
+    if: github.ref_type == 'branch' && startsWith(github.event.head_commit.message, 'RELEASE Build')
     needs: tauri-shell
     runs-on: ubuntu-latest
     steps:
@@ -205,46 +204,50 @@ jobs:
           WIN_SRC="$(find updater-input -type f -name '*-setup.exe' | head -n1)"
           WIN_SIG_SRC="$(find updater-input -type f -name '*-setup.exe.sig' | head -n1)"
           test -n "$MAC_SRC" && test -n "$MAC_SIG_SRC" && test -n "$WIN_SRC" && test -n "$WIN_SIG_SRC"
-          cp "$MAC_SRC" updater-release/ShowDesk-Beta2-Build059-macOS-arm64.app.tar.gz
-          cp "$MAC_SIG_SRC" updater-release/ShowDesk-Beta2-Build059-macOS-arm64.app.tar.gz.sig
-          cp "$WIN_SRC" updater-release/ShowDesk-Beta2-Build059-Windows-x64-setup.exe
-          cp "$WIN_SIG_SRC" updater-release/ShowDesk-Beta2-Build059-Windows-x64-setup.exe.sig
+          cp "$MAC_SRC" "updater-release/ShowDesk-${APP_VERSION}-macOS-arm64.app.tar.gz"
+          cp "$MAC_SIG_SRC" "updater-release/ShowDesk-${APP_VERSION}-macOS-arm64.app.tar.gz.sig"
+          cp "$WIN_SRC" "updater-release/ShowDesk-${APP_VERSION}-Windows-x64-setup.exe"
+          cp "$WIN_SIG_SRC" "updater-release/ShowDesk-${APP_VERSION}-Windows-x64-setup.exe.sig"
           export APP_VERSION
           node <<'NODE'
           const fs=require('fs');
-          const base='https://github.com/DrewL33/ShowDesk/releases/download/showdesk-beta-latest/';
+          const base='https://github.com/DrewL33/ShowDesk/releases/download/showdesk-stable-latest/';
           const feed={
             version:process.env.APP_VERSION,
-            notes:'Build059: consolidate ShowDesk workspaces into one restrained native visual system.',
+            notes:'ShowDesk '+process.env.APP_VERSION+' release.',
             pub_date:new Date().toISOString(),
             platforms:{
               'darwin-aarch64':{
-                signature:fs.readFileSync('updater-release/ShowDesk-Beta2-Build059-macOS-arm64.app.tar.gz.sig','utf8').trim(),
-                url:base+'ShowDesk-Beta2-Build059-macOS-arm64.app.tar.gz'
+                signature:fs.readFileSync(`updater-release/ShowDesk-${process.env.APP_VERSION}-macOS-arm64.app.tar.gz.sig`,'utf8').trim(),
+                url:base+`ShowDesk-${process.env.APP_VERSION}-macOS-arm64.app.tar.gz`
               },
               'windows-x86_64':{
-                signature:fs.readFileSync('updater-release/ShowDesk-Beta2-Build059-Windows-x64-setup.exe.sig','utf8').trim(),
-                url:base+'ShowDesk-Beta2-Build059-Windows-x64-setup.exe'
+                signature:fs.readFileSync(`updater-release/ShowDesk-${process.env.APP_VERSION}-Windows-x64-setup.exe.sig`,'utf8').trim(),
+                url:base+`ShowDesk-${process.env.APP_VERSION}-Windows-x64-setup.exe`
               }
             }
           };
           fs.writeFileSync('updater-release/latest.json',JSON.stringify(feed,null,2)+'\n');
           NODE
           node -e "const fs=require('fs');const expected=require('./src-tauri/tauri.conf.json').version;const feed=JSON.parse(fs.readFileSync('updater-release/latest.json','utf8'));if(feed.version!==expected||!feed.platforms?.['darwin-aarch64']||!feed.platforms?.['windows-x86_64'])process.exit(1)"
-      - name: Publish updater release
+      - name: Publish stable and legacy updater feeds
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
+          if ! gh release view showdesk-stable-latest --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release create showdesk-stable-latest --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "ShowDesk Stable Updates" --notes "Signed ShowDesk stable updater feed." --prerelease
+          fi
+          gh release upload showdesk-stable-latest updater-release/* --repo "${{ github.repository }}" --clobber
           if ! gh release view showdesk-beta-latest --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release create showdesk-beta-latest --repo "${{ github.repository }}" --title "ShowDesk Beta Latest" --notes "Signed ShowDesk beta updater feed." --prerelease
           fi
-          gh release upload showdesk-beta-latest updater-release/* --repo "${{ github.repository }}" --clobber
+          gh release upload showdesk-beta-latest updater-release/latest.json --repo "${{ github.repository }}" --clobber
       - name: Verify published updater feed
         shell: bash
         run: |
           set -euo pipefail
-          URL="https://github.com/${{ github.repository }}/releases/download/showdesk-beta-latest/latest.json"
+          URL="https://github.com/${{ github.repository }}/releases/download/showdesk-stable-latest/latest.json"
           for attempt in 1 2 3 4 5; do
             if curl -fL --retry 3 --retry-delay 2 -H 'Cache-Control: no-cache' "$URL?run=${{ github.run_id }}&attempt=$attempt" -o published-latest.json; then
               node -e "const fs=require('fs');const expected=require('./src-tauri/tauri.conf.json').version;const feed=JSON.parse(fs.readFileSync('published-latest.json','utf8'));if(feed.version!==expected||!feed.platforms?.['darwin-aarch64']||!feed.platforms?.['windows-x86_64'])process.exit(1)"
@@ -254,10 +257,100 @@ jobs:
           done
           exit 1
 
+  publish-official-release:
+    permissions:
+      contents: write
+    if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
+    needs: tauri-shell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ShowDesk-Beta2-Build059-Native-*
+          path: release-input
+          merge-multiple: true
+      - name: Prepare customer installers and signed updater assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_VERSION="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          test "v$APP_VERSION" = "${GITHUB_REF_NAME}"
+          MAC_DMG="$(find release-input -type f -name '*.dmg' | head -n1)"
+          WIN_EXE="$(find release-input -type f -name '*-setup.exe' | head -n1)"
+          MAC_TAR="$(find release-input -type f -name '*.app.tar.gz' | head -n1)"
+          MAC_SIG="$(find release-input -type f -name '*.app.tar.gz.sig' | head -n1)"
+          WIN_SIG="$(find release-input -type f -name '*-setup.exe.sig' | head -n1)"
+          test -n "$MAC_DMG" && test -n "$WIN_EXE" && test -n "$MAC_TAR" && test -n "$MAC_SIG" && test -n "$WIN_SIG"
+          mkdir -p official-release
+          cp "$MAC_DMG" official-release/ShowDesk-macOS-Installer.dmg
+          cp "$WIN_EXE" official-release/ShowDesk-Windows-Installer.exe
+          cp "$MAC_TAR" "official-release/ShowDesk-${APP_VERSION}-macOS-arm64.app.tar.gz"
+          cp "$MAC_SIG" "official-release/ShowDesk-${APP_VERSION}-macOS-arm64.app.tar.gz.sig"
+          cp "$WIN_EXE" "official-release/ShowDesk-${APP_VERSION}-Windows-x64-setup.exe"
+          cp "$WIN_SIG" "official-release/ShowDesk-${APP_VERSION}-Windows-x64-setup.exe.sig"
+          export APP_VERSION GITHUB_REF_NAME
+          node <<'NODE'
+          const fs=require('fs');
+          const version=process.env.APP_VERSION;
+          const base=`https://github.com/DrewL33/ShowDesk/releases/download/${process.env.GITHUB_REF_NAME}/`;
+          const feed={
+            version,
+            notes:'ShowDesk '+version+' stable release.',
+            pub_date:new Date().toISOString(),
+            platforms:{
+              'darwin-aarch64':{
+                signature:fs.readFileSync(`official-release/ShowDesk-${version}-macOS-arm64.app.tar.gz.sig`,'utf8').trim(),
+                url:base+`ShowDesk-${version}-macOS-arm64.app.tar.gz`
+              },
+              'windows-x86_64':{
+                signature:fs.readFileSync(`official-release/ShowDesk-${version}-Windows-x64-setup.exe.sig`,'utf8').trim(),
+                url:base+`ShowDesk-${version}-Windows-x64-setup.exe`
+              }
+            }
+          };
+          fs.writeFileSync('official-release/latest.json',JSON.stringify(feed,null,2)+'\n');
+          NODE
+      - name: Publish official GitHub release and updater channels
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          APP_VERSION="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          if ! gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "ShowDesk $APP_VERSION" --notes-file RELEASE_NOTES.md --latest
+          else
+            gh release edit "$TAG" --repo "${{ github.repository }}" --title "ShowDesk $APP_VERSION" --notes-file RELEASE_NOTES.md --latest
+          fi
+          gh release upload "$TAG" official-release/* --repo "${{ github.repository }}" --clobber
+          if ! gh release view showdesk-stable-latest --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release create showdesk-stable-latest --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "ShowDesk Stable Updates" --notes "Signed ShowDesk stable updater feed." --prerelease
+          fi
+          gh release upload showdesk-stable-latest official-release/ShowDesk-*-macOS-arm64.app.tar.gz official-release/ShowDesk-*-macOS-arm64.app.tar.gz.sig official-release/ShowDesk-*-Windows-x64-setup.exe official-release/ShowDesk-*-Windows-x64-setup.exe.sig official-release/latest.json --repo "${{ github.repository }}" --clobber
+          if gh release view showdesk-beta-latest --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload showdesk-beta-latest official-release/latest.json --repo "${{ github.repository }}" --clobber
+          fi
+      - name: Verify official downloads and stable updater feed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/${{ github.repository }}/releases/tags/${GITHUB_REF_NAME}" --jq '.draft')" = "false"
+          gh api "repos/${{ github.repository }}/releases/tags/${GITHUB_REF_NAME}" --jq '.assets[].name' | sort > published-assets.txt
+          grep -qx 'ShowDesk-macOS-Installer.dmg' published-assets.txt
+          grep -qx 'ShowDesk-Windows-Installer.exe' published-assets.txt
+          curl -fL --retry 3 --retry-delay 2 -H 'Cache-Control: no-cache' "https://github.com/${{ github.repository }}/releases/download/showdesk-stable-latest/latest.json" -o published-latest.json
+          node -e "const f=JSON.parse(require('fs').readFileSync('published-latest.json','utf8'));if(f.version!==require('./src-tauri/tauri.conf.json').version||!f.platforms?.['darwin-aarch64']||!f.platforms?.['windows-x86_64'])process.exit(1)"
+
   publish-field-test:
     permissions:
       contents: write
-    if: startsWith(github.event.head_commit.message, 'RELEASE Build')
+    if: github.ref_type == 'branch' && startsWith(github.event.head_commit.message, 'RELEASE Build')
     needs: tauri-shell
     runs-on: ubuntu-latest
     steps:
