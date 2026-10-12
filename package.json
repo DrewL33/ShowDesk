@@ -1,14 +1,14 @@
 {
   "name": "showdesk",
-  "version": "0.1.99",
+  "version": "0.1.100",
   "private": true,
   "description": "ShowDesk local web application for live-production engineering observability.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "check": "node --check src/server.js && node --check src/atem-state.js && node --check src/static-assets.js && node --check public/transport.js && node --check public/signal-paths.js && node --check public/reference-parser.js && node --check public/app.js && npm test",
+    "check": "node --check src/server.js && node --check src/atem-state.js && node --check src/static-assets.js && node --check public/transport.js && node --check public/signal-paths.js && node --check public/reference-parser.js && node --check public/app.js && node --check public/mobile-viewer.js && npm test",
     "bundle": "node scripts/package-runtime.js",
-    "test": "node tests/signal-paths.test.js && node tests/atem-state.test.js && node tests/reference-parser.test.js && node tests/viewer-lifecycle.test.js && node tests/release-readiness.test.js",
+    "test": "node tests/signal-paths.test.js && node tests/atem-state.test.js && node tests/reference-parser.test.js && node tests/viewer-lifecycle.test.js && node tests/mobile-viewer.test.js && node tests/mobile-viewer-integration.test.js && node tests/release-readiness.test.js",
     "tauri": "tauri",
     "tauri:build": "tauri build"
   },

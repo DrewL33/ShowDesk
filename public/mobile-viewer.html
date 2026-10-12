@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101820">
+  <title>ShowDesk Mobile Viewer</title>
+  <link rel="stylesheet" href="/mobile-viewer.css">
+  <script src="/mobile-viewer.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brandMark">S</span><div><strong>SHOWDESK</strong><small id="modelName">MOBILE VIEWER</small></div></div>
+    <div class="connectionPill" id="connectionPill" data-status="connecting"><i></i><span id="connectionLabel">CONNECTING</span></div>
+  </header>
+  <main>
+    <form id="hostForm" class="hostForm">
+      <label for="hostAddress">SHOWDESK HOST IP</label>
+      <div class="hostRow"><input id="hostAddress" name="hostAddress" inputmode="decimal" autocomplete="url" placeholder="192.168.1.100"><button type="submit" id="connectButton">CONNECT</button></div>
+      <p id="connectionMessage" aria-live="polite">Connecting to this ShowDesk Host on port 47822…</p>
+    </form>
+
+    <nav class="tabs" aria-label="Viewer tabs">
+      <button type="button" class="tabButton is-active" data-tab="show" aria-selected="true">SHOW</button>
+      <button type="button" class="tabButton" data-tab="signal" aria-selected="false">SIGNAL</button>
+      <button type="button" class="tabButton" data-tab="inspect" aria-selected="false">INSPECT</button>
+    </nav>
+
+    <section id="showTab" class="tabPage is-active" aria-label="Show View">
+      <div class="sectionHeading"><div><span class="eyebrow">LIVE SWITCHING</span><h1>Show View</h1></div><span class="readOnly">READ ONLY</span></div>
+      <div class="programGrid">
+        <article class="programCard program"><span>PROGRAM <b>ON AIR</b></span><strong id="programSource">—</strong><small id="programContext">Waiting for switcher state</small></article>
+        <article class="programCard preview"><span>PREVIEW <b>READY</b></span><strong id="previewSource">—</strong><small id="previewContext">Waiting for switcher state</small></article>
+      </div>
+      <div class="card"><div class="cardTitle"><h2>ACTIVE SOURCES</h2><span id="activeCount">0 ACTIVE</span></div><div id="activeSources" class="stack"><p class="empty">Connect to a host to see live sources.</p></div></div>
+      <div class="card"><div class="cardTitle"><h2>RECENT CHANGES</h2><span>THIS SESSION</span></div><div id="recentChanges" class="stack"><p class="empty">No changes yet.</p></div></div>
+    </section>
+
+    <section id="signalTab" class="tabPage" aria-label="Signal Explorer" hidden>
+      <div class="sectionHeading"><div><span class="eyebrow">ROUTING OVERVIEW</span><h1>Signal</h1></div></div>
+      <label class="searchLabel" for="signalSearch">FIND A SOURCE OR ROUTE</label>
+      <input id="signalSearch" class="search" type="search" placeholder="Search signals…">
+      <div id="signalContent" class="stack"><p class="empty">Signal paths appear when live state arrives.</p></div>
+    </section>
+
+    <section id="inspectTab" class="tabPage" aria-label="Inspect" hidden>
+      <div class="sectionHeading"><div><span class="eyebrow">SWITCHER STATUS</span><h1>Inspect</h1></div></div>
+      <div class="summaryGrid" id="summaryGrid"></div>
+      <div class="card"><div class="cardTitle"><h2>INPUT INVENTORY</h2><span id="inputCount">0 INPUTS</span></div><div id="inputInventory" class="stack"><p class="empty">Input inventory appears when live state arrives.</p></div></div>
+      <div class="card"><div class="cardTitle"><h2>KEYERS</h2><span>LIVE STATE</span></div><div id="keyerInventory" class="stack"><p class="empty">No keyer state yet.</p></div></div>
+      <div class="card"><div class="cardTitle"><h2>AUX ROUTING</h2><span id="auxCount">0 ROUTES</span></div><div id="auxInventory" class="stack"><p class="empty">No AUX routes yet.</p></div></div>
+    </section>
+  </main>
+  <footer><span>ShowDesk Mobile Viewer</span><span>READ ONLY · LIVE HOST DATA</span></footer>
+</body>
+</html>

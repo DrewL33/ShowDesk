@@ -1,0 +1,34 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '..');
+const html = fs.readFileSync(path.join(root, 'public/mobile-viewer.html'), 'utf8');
+const js = fs.readFileSync(path.join(root, 'public/mobile-viewer.js'), 'utf8');
+const css = fs.readFileSync(path.join(root, 'public/mobile-viewer.css'), 'utf8');
+const server = fs.readFileSync(path.join(root, 'src/server.js'), 'utf8');
+const assets = fs.readFileSync(path.join(root, 'src/static-assets.js'), 'utf8');
+
+assert.match(html, /name="viewport"[^>]*width=device-width/,'Mobile viewer must use the device viewport');
+assert.match(html, /href="\/mobile-viewer\.css"/,'Mobile viewer must load its responsive stylesheet');
+assert.match(html, /src="\/mobile-viewer\.js"/,'Mobile viewer must load its browser controller');
+assert.match(html, /data-tab="show"[\s\S]*data-tab="signal"[\s\S]*data-tab="inspect"/,'Mobile viewer must preserve all three workspaces');
+assert.match(html, /id="hostAddress"/,'Mobile viewer must let the user enter a ShowDesk Host address');
+assert.match(html, /READ ONLY/,'Mobile viewer must clearly indicate read-only access');
+assert.match(js, /url\.pathname\s*=\s*'\/viewer'/,'Mobile viewer must connect directly to the read-only Viewer socket');
+assert.match(js, /if\s*\(!url\.port\)\s*url\.port\s*=\s*'47822'/,'Mobile viewer must use the standard Host viewer port by default');
+assert.match(js, /message\.type === 'snapshot'/,'Mobile viewer must render the initial Host snapshot');
+assert.match(js, /message\.type === 'state'/,'Mobile viewer must render live Host state updates');
+assert.match(js, /setTimeout\(\(\) => socketConnect\(value, true\), 2000\)/,'Mobile viewer must reconnect after an established socket drops');
+assert.doesNotMatch(js, /\.send\s*\(/,'Mobile viewer must not send control commands to the Host');
+assert.match(js, /function renderSignal\(/,'Mobile Signal tab must provide a compact routing overview');
+assert.match(js, /function renderInspect\(/,'Mobile Inspect tab must show inventory and routing details');
+assert.match(css, /@media\(max-width:360px\)/,'Mobile layout must support narrow phone widths');
+assert.match(css, /env\(safe-area-inset-bottom/,'Mobile layout must account for device safe areas');
+assert.match(assets, /'\/mobile-viewer\.js'/,'Mobile browser assets must be served by the packaged runtime');
+assert.match(server, /const item = ASSETS\[pathname === '\/' \? '\/mobile' : pathname\]/,'Viewer service root must serve the phone UI');
+assert.match(server, /'Content-Security-Policy': "default-src 'self'/,'Viewer web page must ship with a restrictive CSP');
+assert.match(server, /viewerWss = new WebSocketServer\(\{ server: viewerServer, path: '\/viewer' \}\)/,'Phone UI and read-only websocket must share the reachable Viewer service');
+
+console.log('Mobile browser viewer regression checks passed');

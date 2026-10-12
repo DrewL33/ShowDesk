@@ -7,6 +7,7 @@ const transport=fs.readFileSync('public/transport.js','utf8');
 const styles=fs.readFileSync('public/styles.css','utf8');
 const html=fs.readFileSync('public/index.html','utf8');
 const server=fs.readFileSync('src/server.js','utf8');
+const releaseVersion=require('../src-tauri/tauri.conf.json').version;
 assert.match(app,/function enterViewerConnection[\s\S]*?ensureLiveStateSubscription\(window\.ATEM_TRANSPORT\)/,'Viewer must subscribe to live state when entering Viewer mode');
 assert.match(app,/function disconnectShowDesk[\s\S]*?clearLiveStateSubscription\(\)/,'Disconnect must clear the active live-state subscription');
 assert.match(app,/connectionInputChanged\(\);viewerInputChanged\(\)/,'Disconnect must revalidate retained Host and Viewer addresses');
@@ -126,7 +127,7 @@ assert.match(styles,/\.eng \.matrixViewport\{height:300px!important/,'Routing Ma
 assert.match(styles,/\.settingsModal\{position:fixed!important;inset:0!important/,'Settings must remain a fixed modal overlay');
 assert.match(styles,/\.settingsCard\{width:min\(520px/,'Settings must remain compact rather than full-screen');
 assert.ok(!html.includes('Build057 • 0.1.57'),'Settings About must not expose stale Build057');
-assert.match(html,/id="settingsBuild">Build099 · 0\.1\.99/,'Settings About must ship with the release candidate version');
+assert.ok(html.includes(`id="settingsBuild">Build${String(releaseVersion.split('.')[2]).padStart(3,'0')} · ${releaseVersion}`),'Settings About must ship with the release candidate version');
 
 assert.match(app,/let committedMeState=new Map\(\)/,'Transition display must keep a committed M/E state');
 assert.match(app,/transitioning&&committed\?\{\.\.\.me,pgm:committed\.pgm,pvw:committed\.pvw\}/,'Intermediate transitions must retain committed PGM/PVW');

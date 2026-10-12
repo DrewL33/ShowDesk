@@ -247,11 +247,24 @@ wss.on('connection', (ws) => {
 });
 // Viewer service is intentionally separate from the local control service.
 const viewerServer = http.createServer((req, res) => {
-  if (req.url === '/health') {
+  const pathname = new URL(req.url, `http://${req.headers.host}`).pathname;
+  if (pathname === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     return res.end(JSON.stringify({ service: 'ShowDesk Viewer', connected: hasConnected, model: lastState ? discovery(lastState).name : null }));
   }
-  res.writeHead(404); res.end('Not found');
+  const item = ASSETS[pathname === '/' ? '/mobile' : pathname];
+  if (!item) { res.writeHead(404); return res.end('Not found'); }
+  try {
+    res.writeHead(200, {
+      'Content-Type': item[1],
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' ws: wss:; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+    });
+    res.end(asset(item[0]));
+  } catch {
+    res.writeHead(500); res.end('ShowDesk Viewer asset error');
+  }
 });
 const viewerWss = new WebSocketServer({ server: viewerServer, path: '/viewer' });
 viewerWss.on('connection', ws => {
