@@ -1,0 +1,18 @@
+const fs=require('node:fs');
+const assert=require('node:assert/strict');
+const native=JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json','utf8'));
+const html=fs.readFileSync('public/index.html','utf8');
+const app=fs.readFileSync('public/app.js','utf8');
+const workflow=fs.readFileSync('.github/workflows/build.yml','utf8');
+const version=native.version;
+const build=Number(version.split('.')[2]);
+assert.match(version,/^0\.1\.\d+$/,'Native release must use a numeric beta version');
+assert.ok(html.includes('id="settingsVersion">'+version+'</span>'),'Settings version must match native bundle');
+assert.ok(html.includes('id="settingsBuild">Build'+String(build).padStart(3,'0')+' · '+version+'</span>'),'About build must match native bundle');
+assert.ok(app.includes('showDeskUpdater.currentVersion||"'+version+'"'),'Updater fallback must match native bundle');
+assert.ok(workflow.includes('Verify published updater feed'),'Updater publishing must verify the live manifest');
+assert.ok(workflow.includes('Verify exactly two tester downloads'),'Field-test release must verify downloads');
+assert.ok(native.bundle?.createUpdaterArtifacts,'Signed updater artifacts must be enabled');
+assert.ok(native.plugins?.updater?.pubkey,'Updater public key must be configured');
+assert.ok(native.plugins?.updater?.endpoints?.length,'Updater endpoint must be configured');
+console.log('Release readiness checks passed for Build'+String(build).padStart(3,'0')+' v'+version);
