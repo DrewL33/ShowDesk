@@ -37,5 +37,11 @@ assert.match(hostHtml, /data-change-action="hyperdeck-enabled"/, 'HyperDeck Moni
 assert.match(hostHtml, /id="hyperdeckBtn"[^>]*>HyperDeck Monitoring/, 'Enabling the feature must expose the matching workspace tab');
 assert.match(hostHtml, /class="hyperdeckPage"[\s\S]*id="hyperdeckHost"/, 'The HyperDeck tab must let users add decks by IP');
 assert.match(hostApp, /hyperdeckMonitoring\?hyperdeckConfigs:\[\]/, 'Deck connections should only run while optional monitoring is enabled');
+assert.match(hostApp, /hyperdeckRackUnit/, 'Each deck should render as its own rack unit');
+assert.match(hostApp, /lcdTimecode/, 'Rack units should foreground the live timecode display');
+assert.match(hostApp, /Media slot information/, 'Additional HyperDeck status should be grouped in expandable sections');
+const styles = fs.readFileSync('public/styles.css', 'utf8');
+assert.match(styles, /\.hyperdeckPage \.hyperdeckCards\{display:grid;grid-template-columns:minmax\(0,1fr\)/, 'Rack units should stack vertically');
+assert.match(styles, /\.rackFace\{background:var\(--sd-work\)/, 'The rack should use ShowDesk workspace colors');
 
 console.log('ShowDesk stable and beta release channels are isolated.');
