@@ -1,6 +1,6 @@
 {
   "name": "showdesk",
-  "version": "0.1.98",
+  "version": "0.1.99",
   "private": true,
   "description": "ShowDesk local web application for live-production engineering observability.",
   "main": "src/server.js",

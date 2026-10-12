@@ -98,7 +98,7 @@ function renderSavedConnectionChoices(){
  }
  const list=$("settingsSavedConnections");if($("settingsSavedCount"))$("settingsSavedCount").textContent=showDeskSavedConnections.length+" SAVED";if(list)list.innerHTML=showDeskSavedConnections.length?showDeskSavedConnections.map(c=>{
   const key=showDeskSavedConnections.indexOf(c);
-  return '<div class="savedConnectionRow"><div><b>'+escapeShowDeskText(c.name)+'</b><small>'+escapeShowDeskText(c.mode==="host"?"ATEM":"VIEWER")+' · '+escapeShowDeskText(c.ip)+(c.preferred?' · ★ Preferred':'')+'</small></div><details class="savedConnectionMenu"><summary aria-label="Connection actions">···</summary><div><button type="button" onclick="renameSavedConnection('+key+')">Rename</button><button type="button" onclick="preferSavedConnection('+key+')">Set preferred</button><button type="button" onclick="removeSavedConnection('+key+')">Remove</button></div></details></div>';
+  return '<div class="savedConnectionRow"><div><b>'+escapeShowDeskText(c.name)+'</b><small>'+escapeShowDeskText(c.mode==="host"?"ATEM":"VIEWER")+' · '+escapeShowDeskText(c.ip)+(c.preferred?' · ★ Preferred':'')+'</small></div><details class="savedConnectionMenu"><summary aria-label="Connection actions">···</summary><div><button type="button" data-action="rename-saved" data-index="'+key+'">Rename</button><button type="button" data-action="prefer-saved" data-index="'+key+'">Set preferred</button><button type="button" data-action="remove-saved" data-index="'+key+'">Remove</button></div></details></div>';
  }).join(""):'<p class="settingsHint">No saved connections yet. Successful connections are saved automatically.</p>';
 }
 document.addEventListener("click",event=>{const button=event.target.closest?.("[data-saved-mode][data-saved-ip]");if(!button)return;selectSavedConnection(button.dataset.savedMode,button.dataset.savedIp)});
@@ -346,7 +346,7 @@ function refreshShowDeskSettings(){
  if($("settingsDevice"))$("settingsDevice").textContent=connectedDevice?.name||connectedDevice?.productIdentifier||liveEngineering.productIdentifier||"—";
  if($("settingsAddress"))$("settingsAddress").textContent=connectedDevice?.ip||viewerConnectionContext?.ip||"—";
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
- if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.98"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.98").split(".").pop()).padStart(3,"0")} · ${showDeskUpdater.currentVersion||"0.1.98"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
+ if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.99"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.99").split(".").pop()).padStart(3,"0")} · ${showDeskUpdater.currentVersion||"0.1.99"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
 }
 function openShowDeskSettings(){refreshShowDeskSettings();updateReferenceUI();renderSavedConnectionChoices();syncSettingsWorkspaceMenu();closeSettingsWorkspaceMenu();if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");$("settingsModal").hidden=false}
 function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true}
@@ -861,7 +861,7 @@ function explorerDraw(graph){
  }).join("");
  const nodes=graph.nodes.map(n=>{
   const p=pos.get(n.id);
-  return '<g class="overviewNode" data-signal-node="'+explorerEscape(n.id)+'" onmouseenter="explorerInspect(\''+explorerEscape(n.id)+'\')" onmouseleave="explorerInspect(null)" onclick="explorerInspect(\''+explorerEscape(n.id)+'\',true)"><rect x="'+p.x+'" y="'+p.y+'" width="'+W+'" height="'+H+'" rx="4"/><text x="'+(p.x+9)+'" y="'+(p.y+24)+'">'+explorerEscape(n.label)+'</text><title>'+explorerEscape(n.label)+'</title></g>';
+  return '<g class="overviewNode" data-signal-node="'+explorerEscape(n.id)+'"><rect x="'+p.x+'" y="'+p.y+'" width="'+W+'" height="'+H+'" rx="4"/><text x="'+(p.x+9)+'" y="'+(p.y+24)+'">'+explorerEscape(n.label)+'</text><title>'+explorerEscape(n.label)+'</title></g>';
  }).join("");
  const fittedHeight=Math.min(height,Math.max(routedBottom+40,Math.max(...[...pos.values()].map(p=>p.y+H))+30));
  return '<svg class="signalOverview" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+width+' '+fittedHeight+'" width="'+width+'" height="'+fittedHeight+'" data-width="'+width+'" data-height="'+fittedHeight+'" role="img" aria-label="Live ATEM signal overview">'+paths+labels.join("")+nodes+'</svg>';
@@ -946,7 +946,7 @@ function renderTransitionStatus(){
 function render(){
  const activeMe=selectedME(),displayPgm=activeMe?.pgm||pgm,displayPvw=activeMe?.pvw||pvw;
  if($("pgm"))$("pgm").textContent=displayPgm;if($("pvw"))$("pvw").textContent=displayPvw;
- const meSelector=$("meSelector");if(meSelector)meSelector.innerHTML=(liveEngineering.mixEffects||[]).map(me=>`<button class="tinyAction meSelectBtn ${me.index===selectedMeIndex?"on":""}" onclick="selectME(${me.index})">M/E ${me.index}</button>`).join("");
+ const meSelector=$("meSelector");if(meSelector)meSelector.innerHTML=(liveEngineering.mixEffects||[]).map(me=>`<button class="tinyAction meSelectBtn ${me.index===selectedMeIndex?"on":""}" data-action="select-me" data-index="${Number(me.index)||1}">M/E ${me.index}</button>`).join("");
  renderTransitionStatus();
 
  let total=Object.keys(actual).filter(n=>actual[n]!=="UNUSED").length;
@@ -961,7 +961,7 @@ function render(){
    if(isChanged){const sec=Math.max(0,Math.floor((Date.now()-hist.at)/1000));const age=sec<60?`${sec}s ago`:`${Math.floor(sec/60)}m ago`;change=`← was ${hist.from}<br>${age}`;}
    const isMismatch=mismatchNames.has(n);if(isMismatch){const mm=mismatches.find(x=>x.name===n);change=`EXPECTED ${mm.expected}<br>ACTUAL ${mm.actual}`;}
    return `<div class="drow ${isMismatch?"mismatch":isChanged?"changed":"quiet"}"><b>${n}</b><div class="destRoute"><strong>${current}</strong><small>${detail}</small></div><div class="changeState">${change}</div></div>`;
- }).join("")+(unusedDestNames.length?`<button class="unusedDestSummary" onclick="setTab('signal')"><strong>${unusedDestNames.length} UNUSED OUTPUT${unusedDestNames.length===1?"":"S"}</strong><span>View in Signal Paths →</span></button>`:"");
+ }).join("")+(unusedDestNames.length?`<button class="unusedDestSummary" data-action="tab-signal"><strong>${unusedDestNames.length} UNUSED OUTPUT${unusedDestNames.length===1?"":"S"}</strong><span>View in Signal Paths →</span></button>`:"");
  if(destEl) destEl.classList.toggle("manyDestinations",activeDestNames.length>8);
  $("healthTitle").textContent=mismatches.length?"REFERENCE MISMATCH":changed.length?"ROUTING CHANGES":"SYSTEM READY";
  $("healthDetail").textContent=mismatches.length?`${mismatches.length} live state item${mismatches.length===1?" differs":"s differ"} from the attached reference`:changed.length?`${changed.length} destination route${changed.length>1?"s have":" has"} changed during this session`:`${total} destinations currently routed`;
@@ -1111,4 +1111,72 @@ async function checkForShowDeskUpdate(manual=false){
  finally{showDeskUpdater.operation=null}
 }
 window.checkForShowDeskUpdate=checkForShowDeskUpdate;
+function runShowDeskAction(action,element){
+ const index=Number(element.dataset.index);
+ switch(action){
+  case "choose-host":chooseConnectionMode("host");break;
+  case "choose-viewer":chooseConnectionMode("viewer");break;
+  case "setup-back":chooseConnectionMode(null);break;
+  case "connect-host":connectAtem();break;
+  case "connect-viewer":connectViewer();break;
+  case "tab-show":setTab("show");break;
+  case "tab-signal":setTab("signal");break;
+  case "tab-inspect":setTab("engineering");break;
+  case "disconnect":disconnectShowDesk();break;
+  case "disconnect-settings":disconnectFromSettings();break;
+  case "clear-trace":explorerClear();break;
+  case "zoom-out":explorerZoom(-1);break;
+  case "zoom-fit":explorerZoom(0);break;
+  case "zoom-in":explorerZoom(1);break;
+  case "clear-reference":clearReference();break;
+  case "import-reference-click":$("referenceFile")?.click();break;
+  case "export-log":exportLogReport();break;
+  case "toggle-debug":toggleDebug();break;
+  case "close-settings":closeShowDeskSettings();break;
+  case "workspace-menu":toggleSettingsWorkspaceMenu();break;
+  case "save-reference-preferences":saveReferencePreferences();break;
+  case "check-updates":checkUpdatesFromSettings();break;
+  case "open-repository":openShowDeskRepository();break;
+  case "rename-saved":renameSavedConnection(index);break;
+  case "prefer-saved":preferSavedConnection(index);break;
+  case "remove-saved":removeSavedConnection(index);break;
+  case "select-me":selectME(index);break;
+ }
+}
+document.addEventListener("click",event=>{
+ const target=event.target.closest?.("[data-action],[data-settings-tab],[data-workspace],[data-signal-node]");
+ if(!target)return;
+ if(target.hasAttribute("data-settings-tab")){showSettingsSection(target.dataset.settingsTab);return;}
+ if(target.hasAttribute("data-workspace")){chooseSettingsWorkspace(target.dataset.workspace);return;}
+ if(target.hasAttribute("data-signal-node")){explorerInspect(target.dataset.signalNode,true);return;}
+ runShowDeskAction(target.dataset.action,target);
+});
+document.addEventListener("input",event=>{
+ const target=event.target.closest?.("[data-input-action]");if(!target)return;
+ if(target.dataset.inputAction==="connection-ip")connectionInputChanged();
+ else if(target.dataset.inputAction==="viewer-ip")viewerInputChanged();
+ else if(target.dataset.inputAction==="signal-search")renderPaths();
+});
+document.addEventListener("change",event=>{
+ const target=event.target;
+ if(target.dataset.compare){setReferenceComparison(target.dataset.compare,target.checked);return;}
+ switch(target.dataset.changeAction){
+  case "explorer-highlight":explorerHighlight();break;
+  case "import-reference":importReferenceFile(event);break;
+  case "auto-connect":changeAutoConnectPreference(target.checked);break;
+  case "auto-updates":changeAutomaticUpdateChecks(target.checked);break;
+ }
+});
+document.addEventListener("keydown",event=>{
+ if(event.key!=="Enter")return;
+ const target=event.target.closest?.("[data-enter-action]");if(!target)return;
+ if(target.dataset.enterAction==="connect-host"&&!$("connectAtemBtn").disabled)connectAtem();
+ else if(target.dataset.enterAction==="connect-viewer"&&!$("connectViewerBtn").disabled)connectViewer();
+});
+document.addEventListener("mouseover",event=>{
+ const node=event.target.closest?.("[data-signal-node]");if(node&&!node.contains(event.relatedTarget))explorerInspect(node.dataset.signalNode);
+});
+document.addEventListener("mouseout",event=>{
+ const node=event.target.closest?.("[data-signal-node]");if(node&&!node.contains(event.relatedTarget))explorerInspect(null);
+});
 document.addEventListener("DOMContentLoaded",()=>{const close=$("updateCloseBtn");if(close)close.onclick=closeUpdateModal;if(tauriInvoke()){ensureUpdateProgressListener().then(()=>{if(showDeskPreferences.automaticUpdateChecks)setTimeout(()=>checkForShowDeskUpdate(false),1200)}).catch(console.error)}setTimeout(attemptPreferredAutoConnection,1800)});

@@ -26,6 +26,11 @@ assert.match(styles,/\.showContent,\.signalPage,\.eng\{display:none!important\}/
 assert.match(styles,/\.tab-show \.showContent\{display:block!important\}/,'Show tab isolation');
 assert.match(styles,/\.tab-signal \.signalPage\{display:block!important\}/,'Signal tab isolation');
 assert.match(styles,/\.tab-engineering \.eng\{display:block!important\}/,'Inspect tab isolation');
+assert.doesNotMatch(html,/\son(?:click|change|input|keydown|mouseenter|mouseleave)\s*=/i,'Packaged HTML must not rely on inline event handlers blocked by Tauri CSP');
+assert.doesNotMatch(app,/\son(?:click|change|input|keydown|mouseenter|mouseleave)\s*=\s*["']/i,'Generated frontend markup must not add CSP-blocked inline event attributes');
+assert.match(app,/function runShowDeskAction\(/,'Native button actions must use CSP-compatible JavaScript listeners');
+assert.match(html,/data-action="tab-signal"/,'Signal Explorer tab must dispatch through the JavaScript action listener');
+assert.match(html,/data-action="tab-inspect"/,'Inspect tab must dispatch through the JavaScript action listener');
 assert.match(styles,/\.hero\.pgm\{background:linear-gradient\(105deg,#241f21/,'Restrained Program surface');
 assert.match(styles,/\.hero\.pvw\{background:linear-gradient\(105deg,#182630/,'Restrained Preview surface');
 assert.match(styles,/\.explorerLayout\{display:grid/,'Signal Explorer must use full-width canvas layout');
@@ -121,7 +126,7 @@ assert.match(styles,/\.eng \.matrixViewport\{height:300px!important/,'Routing Ma
 assert.match(styles,/\.settingsModal\{position:fixed!important;inset:0!important/,'Settings must remain a fixed modal overlay');
 assert.match(styles,/\.settingsCard\{width:min\(520px/,'Settings must remain compact rather than full-screen');
 assert.ok(!html.includes('Build057 • 0.1.57'),'Settings About must not expose stale Build057');
-assert.match(html,/id="settingsBuild">Build098 · 0\.1\.98/,'Settings About must ship with the release candidate version');
+assert.match(html,/id="settingsBuild">Build099 · 0\.1\.99/,'Settings About must ship with the release candidate version');
 
 assert.match(app,/let committedMeState=new Map\(\)/,'Transition display must keep a committed M/E state');
 assert.match(app,/transitioning&&committed\?\{\.\.\.me,pgm:committed\.pgm,pvw:committed\.pvw\}/,'Intermediate transitions must retain committed PGM/PVW');
@@ -197,7 +202,7 @@ assert.match(html,/settingsAboutSummary/,'About must present a concise descripti
 assert.doesNotMatch(html,/class="settingsAboutDetails"/,'About must not show redundant technical details');
 
 assert.match(app,/function openShowDeskRepository\(\)/,'About must use native external browser action');
-assert.match(html,/onclick="openShowDeskRepository\(\)"/,'About repository action must be wired');
+assert.match(html,/data-action="open-repository"/,'About repository action must be wired through the CSP-compatible listener');
 assert.match(app,/inspectInputsExpanded=true/,'Inspect must expand the entire input inventory');
 assert.match(app,/line\("Connection mode",activeConnectionMode/,'Session report must include connection mode');
 assert.doesNotMatch(app,/line\("ShowDesk version","0\.1\.38"\)/,'Session report must not contain stale version');
