@@ -16,3 +16,9 @@ assert.ok(native.bundle?.createUpdaterArtifacts,'Signed updater artifacts must b
 assert.ok(native.plugins?.updater?.pubkey,'Updater public key must be configured');
 assert.ok(native.plugins?.updater?.endpoints?.length,'Updater endpoint must be configured');
 console.log('Release readiness checks passed for Build'+String(build).padStart(3,'0')+' v'+version);
+const capability=JSON.parse(fs.readFileSync('src-tauri/capabilities/default.json','utf8'));
+assert.ok(native.app?.security?.csp,'Native webview must ship with a Content Security Policy');
+assert.deepEqual(capability.permissions,['core:event:allow-listen'],'The frontend should have only the Tauri event permission it uses');
+assert.match(workflow,/^permissions:\n  contents: read$/m,'Workflow defaults to read-only repository access');
+assert.match(workflow,/  publish-updater:\n    permissions:\n      contents: write/m,'Updater publishing alone receives write access');
+assert.match(workflow,/  publish-field-test:\n    permissions:\n      contents: write/m,'Field-test publishing alone receives write access');
