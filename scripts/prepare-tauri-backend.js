@@ -26,10 +26,16 @@ if (process.platform !== 'win32') fs.chmodSync(nodeTarget, 0o755);
 // setup-node can provide a universal macOS executable. Keep only the slice
 // matching this build so every app does not ship both Node architectures.
 if (process.platform === 'darwin') {
-  const thinTarget = `${nodeTarget}.thin`;
-  execFileSync('lipo', ['-thin', process.arch, nodeTarget, '-output', thinTarget]);
-  fs.renameSync(thinTarget, nodeTarget);
-  fs.chmodSync(nodeTarget, 0o755);
+  const architectures = execFileSync('lipo', ['-archs', nodeTarget], { encoding: 'utf8' }).trim().split(/\s+/);
+  if (!architectures.includes(process.arch)) {
+    throw new Error(`Bundled Node runtime architectures (${architectures.join(', ')}) do not include ${process.arch}.`);
+  }
+  if (architectures.length > 1) {
+    const thinTarget = `${nodeTarget}.thin`;
+    execFileSync('lipo', ['-thin', process.arch, nodeTarget, '-output', thinTarget]);
+    fs.renameSync(thinTarget, nodeTarget);
+    fs.chmodSync(nodeTarget, 0o755);
+  }
 }
 
 console.log(`Prepared native ShowDesk backend at ${target}`);
