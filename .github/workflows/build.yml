@@ -2,7 +2,7 @@ name: ShowDesk CI
 # Development pushes validate the current source. Only explicit RELEASE Build### commits publish.
 # Build097: package v0.1.97 smooth Signal Explorer zoom and sticky workspace tabs.
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: showdesk-build-${{ github.ref }}
   cancel-in-progress: true
@@ -177,6 +177,8 @@ jobs:
           if-no-files-found: error
 
   publish-updater:
+    permissions:
+      contents: write
     if: startsWith(github.event.head_commit.message, 'RELEASE Build')
     needs: tauri-shell
     runs-on: ubuntu-latest
@@ -253,6 +255,8 @@ jobs:
           exit 1
 
   publish-field-test:
+    permissions:
+      contents: write
     if: startsWith(github.event.head_commit.message, 'RELEASE Build')
     needs: tauri-shell
     runs-on: ubuntu-latest
