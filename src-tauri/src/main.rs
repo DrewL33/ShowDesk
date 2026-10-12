@@ -33,18 +33,26 @@ fn backend_paths(app: &AppHandle) -> Result<(std::path::PathBuf, std::path::Path
 
 fn spawn_atem_service(app: &AppHandle) -> Result<Child, String> {
     let (backend, node, server) = backend_paths(app)?;
+    let supervisor = backend.join("src").join("service-supervisor.js");
+    if !supervisor.is_file() {
+        return Err(format!("Bundled ATEM service supervisor is missing: {}", supervisor.display()));
+    }
     let log_dir = app.path().app_log_dir().map_err(|e| e.to_string())?;
     fs::create_dir_all(&log_dir).map_err(|e| e.to_string())?;
     let log_path = log_dir.join("atem-service.log");
     let stdout = OpenOptions::new().create(true).append(true).open(&log_path).map_err(|e| e.to_string())?;
     let stderr = stdout.try_clone().map_err(|e| e.to_string())?;
 
-    Command::new(node)
+    Command::new(&node)
+        .arg(supervisor)
+        .arg(node)
         .arg(server)
         .current_dir(&backend)
         .env("SHOWDESK_NO_OPEN", "1")
         .env("SHOWDESK_PORT", "47821")
-        .stdin(Stdio::null())
+        // The supervisor watches this pipe and kills the service if ShowDesk
+        // crashes or is force-quit, even when the service's event loop is stuck.
+        .stdin(Stdio::piped())
         .stdout(Stdio::from(stdout))
         .stderr(Stdio::from(stderr))
         .spawn()
@@ -208,8 +216,20 @@ fn stop_atem_service(app: &AppHandle) {
     if let Some(state) = app.try_state::<AtemService>() {
         if let Ok(mut guard) = state.0.lock() {
             if let Some(mut child) = guard.take() {
-                let _ = child.kill();
-                let _ = child.wait();
+                // Closing stdin asks the supervisor to stop the service. The
+                // supervisor handles the forced-kill fallback if it is stuck.
+                drop(child.stdin.take());
+                let deadline = Instant::now() + Duration::from_secs(4);
+                loop {
+                    match child.try_wait() {
+                        Ok(Some(_)) => break,
+                        Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(25)),
+                        _ => {
+                            eprintln!("[ShowDesk ATEM service] Shutdown supervisor is still stopping the service.");
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
