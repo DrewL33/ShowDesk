@@ -16,6 +16,8 @@
 
 Beta builds are available for early feature testing and install as a separate **ShowDesk BETA** app. Beta uses its own update feed and does not replace or update the stable ShowDesk app. Beta updates are published from the `beta` branch.
 
+The macOS BETA app uses an ad-hoc bundle signature. On first launch, macOS may require you to allow it under **System Settings → Privacy & Security** after attempting to open it.
+
 - [Download ShowDesk BETA for macOS (Apple silicon)](https://github.com/DrewL33/ShowDesk/releases/download/showdesk-beta-latest/ShowDesk-BETA-macOS-Installer.dmg)
 - [Download ShowDesk BETA for Windows (x64)](https://github.com/DrewL33/ShowDesk/releases/download/showdesk-beta-latest/ShowDesk-BETA-Windows-Installer.exe)
 - [View Beta release details](https://github.com/DrewL33/ShowDesk/releases/tag/showdesk-beta-latest)

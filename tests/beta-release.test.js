@@ -15,6 +15,7 @@ const assets = fs.readFileSync('src/static-assets.js', 'utf8');
 assert.equal(stable.productName, 'ShowDesk');
 assert.equal(beta.productName, 'ShowDesk BETA');
 assert.notEqual(stable.identifier, beta.identifier, 'Beta must install alongside the stable app');
+assert.equal(beta.bundle.macOS.signingIdentity, '-', 'Beta macOS apps must have a complete ad-hoc bundle signature');
 assert.ok(stable.plugins.updater.endpoints[0].includes('showdesk-stable-latest'));
 assert.ok(beta.plugins.updater.endpoints[0].includes('showdesk-beta-latest'));
 assert.match(betaWorkflow, /branches:\s*\[beta\]/, 'Beta workflow must follow the beta branch');
