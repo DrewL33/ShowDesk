@@ -13,7 +13,7 @@ const mobile = fs.readFileSync('public/mobile-viewer.html', 'utf8');
 const assets = fs.readFileSync('src/static-assets.js', 'utf8');
 
 assert.equal(stable.productName, 'ShowDesk');
-assert.equal(beta.productName, 'ShowDesk Beta');
+assert.equal(beta.productName, 'ShowDesk BETA');
 assert.notEqual(stable.identifier, beta.identifier, 'Beta must install alongside the stable app');
 assert.ok(stable.plugins.updater.endpoints[0].includes('showdesk-stable-latest'));
 assert.ok(beta.plugins.updater.endpoints[0].includes('showdesk-beta-latest'));

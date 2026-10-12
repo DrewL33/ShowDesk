@@ -1,4 +1,4 @@
-name: ShowDesk Beta
+name: ShowDesk BETA
 permissions:
   contents: read
 concurrency:
@@ -67,7 +67,7 @@ jobs:
           if [ "$RUNNER_OS" = "Windows" ]; then
             test -n "$(find src-tauri/target/release/bundle/nsis -type f -name '*-setup.exe' -print -quit)"
           else
-            APP="src-tauri/target/release/bundle/macos/ShowDesk Beta.app"
+            APP="src-tauri/target/release/bundle/macos/ShowDesk BETA.app"
             test -d "$APP"
             ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")
             test "$ID" = "app.showdesk.beta-preview"
@@ -75,7 +75,7 @@ jobs:
           fi
       - uses: actions/upload-artifact@v4
         with:
-          name: ShowDesk-Beta-${{ runner.os }}
+          name: ShowDesk-BETA-${{ runner.os }}
           path: |
             src-tauri/target/release/bundle/dmg/*.dmg
             src-tauri/target/release/bundle/nsis/*-setup.exe
@@ -92,7 +92,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: ShowDesk-Beta-*
+          pattern: ShowDesk-BETA-*
           path: beta-input
           merge-multiple: true
       - name: Prepare Beta installers and update feed
@@ -108,12 +108,12 @@ jobs:
           MAC_SIG="$(find beta-input -type f -name '*.app.tar.gz.sig' -print -quit)"
           WIN_SIG="$(find beta-input -type f -name '*-setup.exe.sig' -print -quit)"
           test -n "$MAC_DMG" && test -n "$WIN_EXE" && test -n "$MAC_TAR" && test -n "$MAC_SIG" && test -n "$WIN_SIG"
-          cp "$MAC_DMG" beta-release/ShowDesk-Beta-macOS-Installer.dmg
-          cp "$WIN_EXE" beta-release/ShowDesk-Beta-Windows-Installer.exe
-          cp "$MAC_TAR" "beta-release/ShowDesk-Beta-${BETA_VERSION}-macOS-arm64.app.tar.gz"
-          cp "$MAC_SIG" "beta-release/ShowDesk-Beta-${BETA_VERSION}-macOS-arm64.app.tar.gz.sig"
-          cp "$WIN_EXE" "beta-release/ShowDesk-Beta-${BETA_VERSION}-Windows-x64-setup.exe"
-          cp "$WIN_SIG" "beta-release/ShowDesk-Beta-${BETA_VERSION}-Windows-x64-setup.exe.sig"
+          cp "$MAC_DMG" beta-release/ShowDesk-BETA-macOS-Installer.dmg
+          cp "$WIN_EXE" beta-release/ShowDesk-BETA-Windows-Installer.exe
+          cp "$MAC_TAR" "beta-release/ShowDesk-BETA-${BETA_VERSION}-macOS-arm64.app.tar.gz"
+          cp "$MAC_SIG" "beta-release/ShowDesk-BETA-${BETA_VERSION}-macOS-arm64.app.tar.gz.sig"
+          cp "$WIN_EXE" "beta-release/ShowDesk-BETA-${BETA_VERSION}-Windows-x64-setup.exe"
+          cp "$WIN_SIG" "beta-release/ShowDesk-BETA-${BETA_VERSION}-Windows-x64-setup.exe.sig"
           export BETA_VERSION
           node <<'NODE'
           const fs=require('fs');
@@ -121,16 +121,16 @@ jobs:
           const version=process.env.BETA_VERSION;
           const feed={
             version,
-            notes:`ShowDesk Beta ${version} release.`,
+            notes:`ShowDesk BETA ${version} release.`,
             pub_date:new Date().toISOString(),
             platforms:{
               'darwin-aarch64':{
-                signature:fs.readFileSync(`beta-release/ShowDesk-Beta-${version}-macOS-arm64.app.tar.gz.sig`,'utf8').trim(),
-                url:base+`ShowDesk-Beta-${version}-macOS-arm64.app.tar.gz`
+                signature:fs.readFileSync(`beta-release/ShowDesk-BETA-${version}-macOS-arm64.app.tar.gz.sig`,'utf8').trim(),
+                url:base+`ShowDesk-BETA-${version}-macOS-arm64.app.tar.gz`
               },
               'windows-x86_64':{
-                signature:fs.readFileSync(`beta-release/ShowDesk-Beta-${version}-Windows-x64-setup.exe.sig`,'utf8').trim(),
-                url:base+`ShowDesk-Beta-${version}-Windows-x64-setup.exe`
+                signature:fs.readFileSync(`beta-release/ShowDesk-BETA-${version}-Windows-x64-setup.exe.sig`,'utf8').trim(),
+                url:base+`ShowDesk-BETA-${version}-Windows-x64-setup.exe`
               }
             }
           };
@@ -145,7 +145,7 @@ jobs:
           set -euo pipefail
           TAG=showdesk-beta-latest
           if ! gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            gh release create "$TAG" --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "ShowDesk Beta Updates" --notes "Signed ShowDesk Beta installers and updater feed. Beta installs alongside stable ShowDesk." --prerelease
+            gh release create "$TAG" --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "ShowDesk BETA Updates" --notes "Signed ShowDesk BETA installers and updater feed. BETA installs alongside stable ShowDesk." --prerelease
           fi
           gh release upload "$TAG" beta-release/* --repo "${{ github.repository }}" --clobber
       - name: Verify Beta updater feed

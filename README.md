@@ -12,12 +12,12 @@
   <a href="https://github.com/DrewL33/ShowDesk/releases/latest">All releases</a>
 </p>
 
-## Try ShowDesk Beta
+## Try ShowDesk BETA
 
-Beta builds are available for early feature testing and install as a separate **ShowDesk Beta** app. Beta uses its own update feed and does not replace or update the stable ShowDesk app. Beta updates are published from the `beta` branch.
+Beta builds are available for early feature testing and install as a separate **ShowDesk BETA** app. Beta uses its own update feed and does not replace or update the stable ShowDesk app. Beta updates are published from the `beta` branch.
 
-- [Download ShowDesk Beta for macOS (Apple silicon)](https://github.com/DrewL33/ShowDesk/releases/download/showdesk-beta-latest/ShowDesk-Beta-macOS-Installer.dmg)
-- [Download ShowDesk Beta for Windows (x64)](https://github.com/DrewL33/ShowDesk/releases/download/showdesk-beta-latest/ShowDesk-Beta-Windows-Installer.exe)
+- [Download ShowDesk BETA for macOS (Apple silicon)](https://github.com/DrewL33/ShowDesk/releases/download/showdesk-beta-latest/ShowDesk-BETA-macOS-Installer.dmg)
+- [Download ShowDesk BETA for Windows (x64)](https://github.com/DrewL33/ShowDesk/releases/download/showdesk-beta-latest/ShowDesk-BETA-Windows-Installer.exe)
 - [View Beta release details](https://github.com/DrewL33/ShowDesk/releases/tag/showdesk-beta-latest)
 
 ![ShowDesk Host or Viewer connection screen](docs/images/connection-view.png)
@@ -84,7 +84,7 @@ http://<host-computer-ip>:47822/
 
 The page connects to the Host automatically. Allow inbound TCP port **47822** through the Host computer’s firewall. The mobile Viewer is read-only and does not connect directly to or control the ATEM.
 
-For a ShowDesk Beta Host, open `http://<host-computer-ip>:47832/` and allow inbound TCP port **47832**. Stable and Beta use separate ports so both apps can run on the same computer.
+For a ShowDesk BETA Host, open `http://<host-computer-ip>:47832/` and allow inbound TCP port **47832**. Stable and Beta use separate ports so both apps can run on the same computer.
 
 For a desktop Viewer, open ShowDesk, choose **Viewer**, and enter the Host computer’s IP address. Host and Viewer can communicate over a LAN or a properly routed VPN. The Host’s local ATEM connection remains on the Host computer.
 
