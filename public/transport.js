@@ -13,7 +13,7 @@
   }
 
   function serviceUrl() {
-    if (isNativeTauri()) return 'ws://127.0.0.1:47821/ws';
+    if (isNativeTauri()) return `ws://127.0.0.1:${window.SHOWDESK_CONFIG?.servicePort || 47821}/ws`;
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${proto}//${location.host}/ws`;
   }
@@ -91,7 +91,7 @@
   async function connectViewer(host, reconnecting = false) {
     const target = host.trim().replace(/^wss?:\/\//, '').replace(/\/$/, '');
     if(!reconnecting){stopViewerReconnect();viewerReconnectEnabled=true;viewerReconnectHost=host;}
-    const url = `ws://${target.includes(':') ? target : target + ':47822'}/viewer`;
+    const url = `ws://${target.includes(':') ? target : target + ':' + (window.SHOWDESK_CONFIG?.viewerPort || 47822)}/viewer`;
     return new Promise((resolve, reject) => {
       const viewer = new WebSocket(url);
       viewerSocket = viewer;

@@ -11,6 +11,7 @@ const ASSETS = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/index.html': ['index.html', 'text/html; charset=utf-8'],
   '/transport.js': ['transport.js', 'text/javascript; charset=utf-8'],
+  '/runtime-config.js': ['runtime-config.js', 'text/javascript; charset=utf-8'],
   '/signal-paths.js': ['signal-paths.js', 'text/javascript; charset=utf-8'],
   '/reference-parser.js': ['reference-parser.js', 'text/javascript; charset=utf-8'],
   '/reference-comparison.js': ['reference-comparison.js', 'text/javascript; charset=utf-8'],

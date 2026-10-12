@@ -222,7 +222,7 @@ async function connectViewerHost(host) {
   if (!target) throw new Error('ShowDesk Host address is required.');
   await checkViewerHostHealth(target);
   broadcast({ type: 'connection', status: 'viewer-host-found', host: target });
-  const url = `ws://${target.includes(':') ? target : target + ':47822'}/viewer`;
+  const url = `ws://${target.includes(':') ? target : target + ':' + VIEWER_PORT}/viewer`;
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(url); viewerUpstream = ws; let settled = false;
     const isCurrent = () => generation === viewerUpstreamGeneration && viewerUpstream === ws;

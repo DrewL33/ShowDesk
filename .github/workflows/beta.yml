@@ -1,0 +1,158 @@
+name: ShowDesk Beta
+permissions:
+  contents: read
+concurrency:
+  group: showdesk-beta-${{ github.ref }}
+  cancel-in-progress: true
+on:
+  workflow_dispatch:
+  push:
+    branches: [beta]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require the Beta branch
+        run: test "$GITHUB_REF" = "refs/heads/beta"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm run check
+
+  build-beta:
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: npm ci
+      - name: Prepare isolated Beta channel
+        shell: bash
+        run: |
+          set -euo pipefail
+          export SHOWDESK_CHANNEL=beta
+          node scripts/prepare-channel-build.js
+          BETA_VERSION="1.1.0-beta.${GITHUB_RUN_NUMBER}"
+          printf '{"version":"%s"}\n' "$BETA_VERSION" > "$RUNNER_TEMP/showdesk-beta-version.json"
+          echo "Beta version: $BETA_VERSION"
+      - name: Prepare packaged ShowDesk service
+        run: |
+          npm run bundle
+          node scripts/prepare-tauri-backend.js
+      - name: Generate native app icons
+        run: npx tauri icon src-tauri/icons/icon.svg
+      - name: Build isolated Beta application
+        env:
+          SHOWDESK_CHANNEL: beta
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx tauri build --config src-tauri/tauri.beta.conf.json --config "$RUNNER_TEMP/showdesk-beta-version.json"
+      - name: Verify Beta app identity and installers
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            test -n "$(find src-tauri/target/release/bundle/nsis -type f -name '*-setup.exe' -print -quit)"
+          else
+            APP="src-tauri/target/release/bundle/macos/ShowDesk Beta.app"
+            test -d "$APP"
+            ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")
+            test "$ID" = "app.showdesk.beta-preview"
+            test -n "$(find src-tauri/target/release/bundle/dmg -type f -name '*.dmg' -print -quit)"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ShowDesk-Beta-${{ runner.os }}
+          path: |
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/target/release/bundle/nsis/*-setup.exe.sig
+            src-tauri/target/release/bundle/macos/*.app.tar.gz
+            src-tauri/target/release/bundle/macos/*.app.tar.gz.sig
+          if-no-files-found: error
+
+  publish-beta:
+    permissions:
+      contents: write
+    needs: build-beta
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ShowDesk-Beta-*
+          path: beta-input
+          merge-multiple: true
+      - name: Prepare Beta installers and update feed
+        shell: bash
+        env:
+          BETA_VERSION: 1.1.0-beta.${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          mkdir -p beta-release
+          MAC_DMG="$(find beta-input -type f -name '*.dmg' -print -quit)"
+          WIN_EXE="$(find beta-input -type f -name '*-setup.exe' -print -quit)"
+          MAC_TAR="$(find beta-input -type f -name '*.app.tar.gz' -print -quit)"
+          MAC_SIG="$(find beta-input -type f -name '*.app.tar.gz.sig' -print -quit)"
+          WIN_SIG="$(find beta-input -type f -name '*-setup.exe.sig' -print -quit)"
+          test -n "$MAC_DMG" && test -n "$WIN_EXE" && test -n "$MAC_TAR" && test -n "$MAC_SIG" && test -n "$WIN_SIG"
+          cp "$MAC_DMG" beta-release/ShowDesk-Beta-macOS-Installer.dmg
+          cp "$WIN_EXE" beta-release/ShowDesk-Beta-Windows-Installer.exe
+          cp "$MAC_TAR" "beta-release/ShowDesk-Beta-${BETA_VERSION}-macOS-arm64.app.tar.gz"
+          cp "$MAC_SIG" "beta-release/ShowDesk-Beta-${BETA_VERSION}-macOS-arm64.app.tar.gz.sig"
+          cp "$WIN_EXE" "beta-release/ShowDesk-Beta-${BETA_VERSION}-Windows-x64-setup.exe"
+          cp "$WIN_SIG" "beta-release/ShowDesk-Beta-${BETA_VERSION}-Windows-x64-setup.exe.sig"
+          export BETA_VERSION
+          node <<'NODE'
+          const fs=require('fs');
+          const base='https://github.com/DrewL33/ShowDesk/releases/download/showdesk-beta-latest/';
+          const version=process.env.BETA_VERSION;
+          const feed={
+            version,
+            notes:`ShowDesk Beta ${version} release.`,
+            pub_date:new Date().toISOString(),
+            platforms:{
+              'darwin-aarch64':{
+                signature:fs.readFileSync(`beta-release/ShowDesk-Beta-${version}-macOS-arm64.app.tar.gz.sig`,'utf8').trim(),
+                url:base+`ShowDesk-Beta-${version}-macOS-arm64.app.tar.gz`
+              },
+              'windows-x86_64':{
+                signature:fs.readFileSync(`beta-release/ShowDesk-Beta-${version}-Windows-x64-setup.exe.sig`,'utf8').trim(),
+                url:base+`ShowDesk-Beta-${version}-Windows-x64-setup.exe`
+              }
+            }
+          };
+          fs.writeFileSync('beta-release/latest.json',JSON.stringify(feed,null,2)+'\n');
+          NODE
+          node -e "const f=JSON.parse(require('fs').readFileSync('beta-release/latest.json','utf8'));if(f.version!==process.env.BETA_VERSION||!f.platforms?.['darwin-aarch64']||!f.platforms?.['windows-x86_64'])process.exit(1)"
+      - name: Publish independent Beta update channel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=showdesk-beta-latest
+          if ! gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "ShowDesk Beta Updates" --notes "Signed ShowDesk Beta installers and updater feed. Beta installs alongside stable ShowDesk." --prerelease
+          fi
+          gh release upload "$TAG" beta-release/* --repo "${{ github.repository }}" --clobber
+      - name: Verify Beta updater feed
+        shell: bash
+        env:
+          BETA_VERSION: 1.1.0-beta.${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 2 -H 'Cache-Control: no-cache' "https://github.com/${{ github.repository }}/releases/download/showdesk-beta-latest/latest.json?run=${{ github.run_id }}" -o published-beta.json
+          node -e "const f=JSON.parse(require('fs').readFileSync('published-beta.json','utf8'));if(f.version!==process.env.BETA_VERSION||!f.platforms?.['darwin-aarch64']||!f.platforms?.['windows-x86_64'])process.exit(1)"

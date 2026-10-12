@@ -13,8 +13,17 @@ use tauri_plugin_updater::UpdaterExt;
 struct AtemService(Mutex<Option<Child>>);
 struct UpdaterBusy(Mutex<bool>);
 
+fn showdesk_ports() -> (&'static str, &'static str) {
+    if option_env!("SHOWDESK_CHANNEL") == Some("beta") {
+        ("47831", "47832")
+    } else {
+        ("47821", "47822")
+    }
+}
+
 fn service_ready() -> bool {
-    let address: SocketAddr = "127.0.0.1:47821".parse().expect("valid ShowDesk service address");
+    let (service_port, _) = showdesk_ports();
+    let address: SocketAddr = format!("127.0.0.1:{service_port}").parse().expect("valid ShowDesk service address");
     TcpStream::connect_timeout(&address, Duration::from_millis(150)).is_ok()
 }
 
@@ -33,6 +42,7 @@ fn backend_paths(app: &AppHandle) -> Result<(std::path::PathBuf, std::path::Path
 
 fn spawn_atem_service(app: &AppHandle) -> Result<Child, String> {
     let (backend, node, server) = backend_paths(app)?;
+    let (service_port, viewer_port) = showdesk_ports();
     let supervisor = backend.join("src").join("service-supervisor.js");
     if !supervisor.is_file() {
         return Err(format!("Bundled ATEM service supervisor is missing: {}", supervisor.display()));
@@ -49,7 +59,8 @@ fn spawn_atem_service(app: &AppHandle) -> Result<Child, String> {
         .arg(server)
         .current_dir(&backend)
         .env("SHOWDESK_NO_OPEN", "1")
-        .env("SHOWDESK_PORT", "47821")
+        .env("SHOWDESK_PORT", service_port)
+        .env("SHOWDESK_VIEWER_PORT", viewer_port)
         // The supervisor watches this pipe and kills the service if ShowDesk
         // crashes or is force-quit, even when the service's event loop is stuck.
         .stdin(Stdio::piped())
@@ -205,8 +216,9 @@ fn show_about(app: &AppHandle) {
     let version = app.package_info().version.to_string();
     let build_number = version.split('-').nth(1).and_then(|n| n.parse::<u32>().ok()).or_else(|| version.split('.').nth(2).and_then(|n| n.parse::<u32>().ok()));
     let build = build_number.map(|n| format!("Build{:03}", n)).unwrap_or_else(|| version.clone());
+    let channel = if option_env!("SHOWDESK_CHANNEL") == Some("beta") { "\nBeta" } else { "" };
     app.dialog()
-        .message(format!("ShowDesk\n{build}\nVersion {version}\nBeta\n\nRead-only ATEM monitoring and signal-path tools."))
+        .message(format!("ShowDesk\n{build}\nVersion {version}{channel}\n\nRead-only ATEM monitoring and signal-path tools."))
         .kind(MessageDialogKind::Info)
         .title("About ShowDesk")
         .blocking_show();

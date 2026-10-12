@@ -223,7 +223,7 @@ async function connectViewer(){
  const attempt=++viewerConnectionAttempt;viewerConnectionContext={ip,btn,status,attempt};ensureViewerConnectionSubscription(transport);
  btn.disabled=true;btn.textContent="CONNECTING…";status.style.color="";status.textContent="Starting ShowDesk Viewer service…";
  try{
-   status.textContent="Contacting ShowDesk Host at "+ip+" on port 47822…";
+   status.textContent="Contacting ShowDesk Host at "+ip+" on port "+(window.SHOWDESK_CONFIG?.viewerPort||47822)+"…";
    const result=await transport.connectViewer(ip);if(attempt!==viewerConnectionAttempt)return;
    status.textContent="Host found — opening Viewer connection…";
    if(result?.status==="waiting"){status.textContent="ShowDesk Host reached at "+ip+". "+(result.reason||"Waiting for the Host to connect to an ATEM…");status.style.color="var(--amber)";btn.disabled=true;btn.textContent="WAITING FOR ATEM…";return;}
