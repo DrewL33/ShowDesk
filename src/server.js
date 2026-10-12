@@ -3,6 +3,7 @@ const { exec } = require('node:child_process');
 const { WebSocket, WebSocketServer } = require('ws');
 const { normalizeState } = require('./atem-state');
 const { createLatestStateCoalescer } = require('./state-coalescer');
+const { HyperDeckMonitor } = require('./hyperdeck-monitor');
 let Atem;
 
 function loadAtem() {
@@ -34,6 +35,8 @@ let hasConnected = false;
 let hostReferenceAttention = { attached: false, name: '', categories: [] };
 const clients = new Set();
 const viewerClients = new Set();
+const hyperDeckMonitor = new HyperDeckMonitor();
+hyperDeckMonitor.on('state', data => broadcast({ type: 'hyperdecks', data }));
 let viewerUpstream = null;
 let viewerUpstreamGeneration = 0;
 const stateBroadcast = createLatestStateCoalescer(({ instance, state }) => {
@@ -253,6 +256,7 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocketServer({ server, path: '/ws' });
 wss.on('connection', (ws) => {
   clients.add(ws);
+  ws.send(JSON.stringify({ type: 'hyperdecks', data: hyperDeckMonitor.snapshot() }));
   ws.on('close', () => clients.delete(ws));
   ws.on('message', async raw => {
     let msg;
@@ -265,6 +269,7 @@ wss.on('connection', (ws) => {
         return reply(true, { published: true });
       }
       if (msg.type === 'connect') return reply(true, await connectAtem(msg.ip));
+      if (msg.type === 'configureHyperdecks') return reply(true, { devices: hyperDeckMonitor.configure(msg.devices || []) });
       if (msg.type === 'connectViewerHost') return reply(true, await connectViewerHost(msg.host));
       if (msg.type === 'disconnectViewerHost') return reply(true, await disconnectViewerHost());
       if (msg.type === 'disconnect') { await disconnectAtem(); return reply(true, { disconnected: true }); }
@@ -319,5 +324,5 @@ server.listen(PORT, HOST, () => {
     exec(cmd, () => {});
   }
 });
-process.on('SIGINT', async () => { await disconnectAtem(); process.exit(0); });
-process.on('SIGTERM', async () => { await disconnectAtem(); process.exit(0); });
+process.on('SIGINT', async () => { hyperDeckMonitor.close(); await disconnectAtem(); process.exit(0); });
+process.on('SIGTERM', async () => { hyperDeckMonitor.close(); await disconnectAtem(); process.exit(0); });

@@ -7,6 +7,7 @@
   const connectionSubscribers = new Set();
   const healthSubscribers = new Set();
   const viewerCountSubscribers = new Set();
+  const hyperdeckSubscribers = new Set();
 
   function isNativeTauri() {
     return !!window.__TAURI_INTERNALS__;
@@ -58,6 +59,7 @@
         if (msg.type === 'connection') connectionSubscribers.forEach(fn => fn(msg));
         if (msg.type === 'health') healthSubscribers.forEach(fn => fn(msg));
         if (msg.type === 'viewerCount') viewerCountSubscribers.forEach(fn => fn(msg.count));
+        if (msg.type === 'hyperdecks') hyperdeckSubscribers.forEach(fn => fn(msg.data || []));
       });
       socket.addEventListener('close', () => {
         socket = null;
@@ -116,6 +118,8 @@
 
   window.ATEM_TRANSPORT = {
     connect(ip) { return request('connect', { ip }); },
+    configureHyperdecks(devices) { return request('configureHyperdecks', { devices }); },
+    subscribeHyperdecks(callback) { hyperdeckSubscribers.add(callback); return () => hyperdeckSubscribers.delete(callback); },
     publishReferenceAttention(data) { return request('referenceAttention', { data }); },
     connectViewer(host) { return connectViewer(host); },
     subscribe(callback) {

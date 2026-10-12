@@ -35,6 +35,18 @@ let inspectInputsExpanded=false;
 function $(id){return document.getElementById(id)}
 
 let liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],routing:[],productIdentifier:null,videoMode:null,topology:{},debug:null};
+const SHOWDESK_HYPERDECKS_KEY="showdesk.hyperdecks.v1";
+let hyperdeckConfigs=loadHyperdeckConfigs(),hyperdeckStates=[];
+let hyperdeckSubscription=null;
+function loadHyperdeckConfigs(){try{const list=JSON.parse(localStorage.getItem(SHOWDESK_HYPERDECKS_KEY)||"[]");return Array.isArray(list)?list.filter(d=>d&&typeof d.id==="string"&&typeof d.name==="string"&&typeof d.host==="string").slice(0,8):[]}catch{return []}}
+function persistHyperdeckConfigs(){try{localStorage.setItem(SHOWDESK_HYPERDECKS_KEY,JSON.stringify(hyperdeckConfigs))}catch(error){console.warn("Unable to save HyperDecks",error)}}
+function syncHyperdeckTab(){const enabled=showDeskPreferences.hyperdeckMonitoring===true,btn=$("hyperdeckBtn"),option=document.querySelector('#settingsWorkspaceOptions [data-workspace="hyperdecks"]');if(btn){btn.hidden=!enabled;btn.classList.toggle("on",$("app")?.classList.contains("tab-hyperdecks"))}if(option)option.hidden=!enabled;if(!enabled&&$("app")?.classList.contains("tab-hyperdecks"))setTab("show")}
+function setHyperdeckConfigs(list){hyperdeckConfigs=list.slice(0,8);persistHyperdeckConfigs();renderHyperdeckSettings();syncHyperdeckTab();const devices=showDeskPreferences.hyperdeckMonitoring?hyperdeckConfigs:[];return window.ATEM_TRANSPORT?.configureHyperdecks?.(devices).catch(error=>{console.error("HyperDeck configuration failed",error);if($("hyperdeckSettingsStatus"))$("hyperdeckSettingsStatus").textContent=error.message||String(error)})}
+function setHyperdeckMonitoringEnabled(enabled){showDeskPreferences.hyperdeckMonitoring=!!enabled;if(!enabled&&showDeskPreferences.workspace==="hyperdecks")showDeskPreferences.workspace="show";saveShowDeskPreferences();syncHyperdeckTab();syncSettingsWorkspaceMenu();if($("settingsHyperdeckEnabled"))$("settingsHyperdeckEnabled").checked=!!enabled;const devices=enabled?hyperdeckConfigs:[];window.ATEM_TRANSPORT?.configureHyperdecks?.(devices).catch(error=>console.error("HyperDeck monitor configuration failed",error));if(enabled)toast("HYPERDECK MONITORING TAB ADDED");else{hyperdeckStates=[];renderHyperdeckCards();toast("HYPERDECK MONITORING TAB REMOVED")}}
+function renderHyperdeckSettings(){const root=$("settingsHyperdeckList");if(!root)return;root.innerHTML=hyperdeckConfigs.length?hyperdeckConfigs.map(deck=>{const state=hyperdeckStates.find(item=>item.id===deck.id);return `<div class="settingsHyperdeckRow"><div><b>${escapeShowDeskText(deck.name)}</b><span>${escapeShowDeskText(deck.host)}:${Number(deck.port)||9993} · ${escapeShowDeskText((state?.status||"connecting").toUpperCase())}${state?.model?" · "+escapeShowDeskText(state.model):""}</span></div><button class="settingsAction dangerAction" type="button" data-action="remove-hyperdeck" data-id="${escapeShowDeskText(deck.id)}">REMOVE</button></div>`}).join(""):`<p>No HyperDecks configured.</p>`}
+function hyperdeckFieldList(values){const entries=Object.entries(values||{});return entries.length?`<dl class="hyperdeckFieldList">${entries.map(([key,value])=>`<div><dt>${escapeShowDeskText(key)}</dt><dd>${escapeShowDeskText(value)}</dd></div>`).join("")}</dl>`:`<p>No details reported yet.</p>`}
+function renderHyperdeckCards(){const root=$("hyperdeckCards");if(!root)return;if(!hyperdeckConfigs.length){root.innerHTML='<div class="panel">No HyperDecks added yet. Use the form above to connect a network-enabled deck.</div>';renderHyperdeckSettings();return}root.innerHTML=hyperdeckConfigs.map(config=>{const deck=hyperdeckStates.find(item=>item.id===config.id)||{...config,status:"connecting",slots:[],transport:{}};const t=deck.transport||{};const slots=(deck.slots||[]).map(slot=>`<div class="hyperdeckSlot"><span>SLOT ${escapeShowDeskText(slot.id||"—")} · ${escapeShowDeskText(slot.status||"UNKNOWN")}</span><b>${escapeShowDeskText(slot["volume name"]||slot["slot name"]||"No media name reported")}</b><small>${slot["recording time available"]?escapeShowDeskText(slot["recording time available"])+" seconds available":""}${slot["video format"]?" · "+escapeShowDeskText(slot["video format"]):""}</small><details><summary>Full slot report</summary>${hyperdeckFieldList(slot)}</details></div>`).join("")||'<div class="hyperdeckSlot"><span>MEDIA</span><b>No slot details reported yet</b></div>';return `<article class="panel hyperdeckCard"><div class="head"><h2>${escapeShowDeskText(deck.deviceName||deck.name)}</h2><span class="sub">${escapeShowDeskText(deck.host)}:${Number(deck.port)||9993}</span><button class="settingsAction dangerAction" data-action="remove-hyperdeck" data-id="${escapeShowDeskText(deck.id)}">REMOVE</button></div><div class="hyperdeckStatus ${deck.status==="connected"?"ok":"bad"}">${escapeShowDeskText((deck.status||"unknown").toUpperCase())}${deck.error?" · "+escapeShowDeskText(deck.error):""}</div><div class="hyperdeckFacts"><div><span>MODEL</span><b>${escapeShowDeskText(deck.model||"—")}</b></div><div><span>SOFTWARE</span><b>${escapeShowDeskText(deck.softwareVersion||"—")}</b></div><div><span>PROTOCOL</span><b>${escapeShowDeskText(deck.protocolVersion||"—")}</b></div><div><span>TRANSPORT</span><b>${escapeShowDeskText(t.status||"—")}</b></div><div><span>TIME CODE</span><b>${escapeShowDeskText(t["display timecode"]||t.timecode||"—")}</b></div><div><span>CLIP</span><b>${escapeShowDeskText(t["clip id"]||"—")}</b></div><div><span>SPEED</span><b>${escapeShowDeskText(t.speed||"—")}</b></div><div><span>SLOT</span><b>${escapeShowDeskText(t["slot name"]||t["slot id"]||"—")}</b></div><div><span>VIDEO FORMAT</span><b>${escapeShowDeskText(t["video format"]||"—")}</b></div><div><span>LOOP</span><b>${escapeShowDeskText(t.loop||"—")}</b></div><div><span>SINGLE CLIP</span><b>${escapeShowDeskText(t["single clip"]||"—")}</b></div><div><span>TIMELINE</span><b>${escapeShowDeskText(t.timeline||"—")}</b></div></div><h3>MEDIA SLOTS</h3><div class="hyperdeckSlots">${slots}</div><details class="hyperdeckReport"><summary>Full device information</summary>${hyperdeckFieldList(deck.deviceInfo)}</details><details class="hyperdeckReport"><summary>Full transport report</summary>${hyperdeckFieldList(t)}</details></article>`}).join("");renderHyperdeckSettings()}
+function addHyperdeck(){const name=$("hyperdeckName").value.trim(),host=$("hyperdeckHost").value.trim(),port=Number($("hyperdeckPort").value||9993);if(!name||!validIpLike(host)||!Number.isInteger(port)||port<1||port>65535){$("hyperdeckSettingsStatus").textContent="Enter a deck name, valid IPv4 address, and port from 1 to 65535.";return}if(hyperdeckConfigs.length>=8){$("hyperdeckSettingsStatus").textContent="ShowDesk supports up to 8 HyperDecks.";return}if(hyperdeckConfigs.some(deck=>deck.host===host&&Number(deck.port||9993)===port)){$("hyperdeckSettingsStatus").textContent="That HyperDeck address is already configured.";return}const id=window.crypto?.randomUUID?.()||"deck-"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);$("hyperdeckName").value="";$("hyperdeckHost").value="";$("hyperdeckSettingsStatus").textContent="Deck added. Connecting…";setHyperdeckConfigs([...hyperdeckConfigs,{id,name,host,port}]);setTab("hyperdecks")}
 function toggleDebug(){const el=$("atemDebug");if(!el)return;el.hidden=!el.hidden;if(!el.hidden)renderDebug()}
 function renderDebug(){const el=$("atemDebug");if(!el)return;el.textContent=JSON.stringify({productIdentifier:liveEngineering.productIdentifier,videoMode:liveEngineering.videoMode,topology:liveEngineering.topology,inputs:liveEngineering.inputs,mixEffects:liveEngineering.mixEffects,downstreamKeyers:liveEngineering.downstreamKeyers,auxRoutes:{...actual},rawExposedState:liveEngineering.debug},null,2)}
 function toast(msg){let t=$("toast");if(!t)return;t.textContent=msg;t.classList.add("show");clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove("show"),1100)}
@@ -58,9 +70,9 @@ function rememberSuccessfulConnection(kind,ip){if(!validIpLike(ip))return;try{co
 function restoreRememberedConnections(){const saved=loadRememberedConnections();if(saved.atemIp&&$("atemIp"))$("atemIp").value=saved.atemIp;if(saved.viewerHostIp&&$("viewerHostIp"))$("viewerHostIp").value=saved.viewerHostIp;connectionInputChanged();viewerInputChanged();}
 const SHOWDESK_PREFERENCES_KEY="showdesk.preferences.v1";
 const SHOWDESK_SAVED_CONNECTIONS_KEY="showdesk.savedConnections.v1";
-const showDeskPreferenceDefaults={workspace:"show",lastWorkspace:"show",autoConnect:false,automaticUpdateChecks:true};
+const showDeskPreferenceDefaults={workspace:"show",lastWorkspace:"show",autoConnect:false,automaticUpdateChecks:true,hyperdeckMonitoring:false};
 function loadShowDeskPreferences(){
- try{const v=JSON.parse(localStorage.getItem(SHOWDESK_PREFERENCES_KEY)||"{}");return {...showDeskPreferenceDefaults,...v,autoConnect:v.autoConnect===true,automaticUpdateChecks:v.automaticUpdateChecks!==false};}
+ try{const v=JSON.parse(localStorage.getItem(SHOWDESK_PREFERENCES_KEY)||"{}");return {...showDeskPreferenceDefaults,...v,autoConnect:v.autoConnect===true,automaticUpdateChecks:v.automaticUpdateChecks!==false,hyperdeckMonitoring:v.hyperdeckMonitoring===true};}
  catch{return {...showDeskPreferenceDefaults}}
 }
 let showDeskPreferences=loadShowDeskPreferences();
@@ -110,8 +122,8 @@ function selectSavedConnection(mode,ip){
 function renameSavedConnection(i){const c=showDeskSavedConnections[i];if(!c)return;const name=prompt("Connection name",c.name);if(name===null)return;const trimmed=name.trim().slice(0,60);if(!trimmed)return;c.name=trimmed;persistSavedConnections();renderSavedConnectionChoices()}
 function preferSavedConnection(i){const c=showDeskSavedConnections[i];if(!c)return;showDeskSavedConnections.forEach(x=>{if(x.mode===c.mode)x.preferred=x===c});persistSavedConnections();renderSavedConnectionChoices()}
 function removeSavedConnection(i){if(!showDeskSavedConnections[i])return;showDeskSavedConnections.splice(i,1);persistSavedConnections();renderSavedConnectionChoices()}
-function changeDefaultWorkspace(value){if(!["show","engineering","signal","last"].includes(value))return;showDeskPreferences.workspace=value;saveShowDeskPreferences()}
-const settingsWorkspaceNames={show:"Show View",engineering:"Inspect",signal:"Signal Explorer",last:"Last used workspace"};
+function changeDefaultWorkspace(value){if(!["show","engineering","signal","hyperdecks","last"].includes(value)||(value==="hyperdecks"&&!showDeskPreferences.hyperdeckMonitoring))return;showDeskPreferences.workspace=value;saveShowDeskPreferences()}
+const settingsWorkspaceNames={show:"Show View",engineering:"Inspect",signal:"Signal Explorer",hyperdecks:"HyperDeck Monitoring",last:"Last used workspace"};
 function syncSettingsWorkspaceMenu(){
  const current=showDeskPreferences.workspace;
  if($("settingsWorkspaceLabel"))$("settingsWorkspaceLabel").textContent=settingsWorkspaceNames[current]||settingsWorkspaceNames.show;
@@ -145,7 +157,7 @@ function attemptPreferredAutoConnection(){
  else if(preferred.mode==="host"&&transport.connect)connectAtem();
 }
 function showDeskStartupWorkspace(){return showDeskPreferences.workspace==="last"?showDeskPreferences.lastWorkspace:showDeskPreferences.workspace}
-function applyShowDeskStartupWorkspace(){const tab=showDeskStartupWorkspace();if(["show","engineering","signal"].includes(tab))setTab(tab)}
+function applyShowDeskStartupWorkspace(){const tab=showDeskStartupWorkspace();if(["show","engineering","signal","hyperdecks"].includes(tab))setTab(tab)}
 function showSettingsSection(section){
  for(const name of ["general","connections","reference","updates","about"]){const el=$("settingsSection"+name[0].toUpperCase()+name.slice(1));if(el)el.hidden=section!==name;}
  document.querySelectorAll("[data-settings-tab]").forEach(b=>{b.classList.toggle("on",b.dataset.settingsTab===section);b.setAttribute("aria-current",b.dataset.settingsTab===section?"page":"false")});if($("settingsPageTitle"))$("settingsPageTitle").textContent=section[0].toUpperCase()+section.slice(1);
@@ -348,7 +360,7 @@ function refreshShowDeskSettings(){
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
  if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"1.0.0"; if($("settingsBuild"))$("settingsBuild").textContent=`Version ${showDeskUpdater.currentVersion||"1.0.0"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
 }
-function openShowDeskSettings(){refreshShowDeskSettings();updateReferenceUI();renderSavedConnectionChoices();syncSettingsWorkspaceMenu();closeSettingsWorkspaceMenu();if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");$("settingsModal").hidden=false}
+function openShowDeskSettings(){refreshShowDeskSettings();updateReferenceUI();renderSavedConnectionChoices();syncSettingsWorkspaceMenu();syncHyperdeckTab();closeSettingsWorkspaceMenu();if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;if($("settingsHyperdeckEnabled"))$("settingsHyperdeckEnabled").checked=showDeskPreferences.hyperdeckMonitoring===true;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");$("settingsModal").hidden=false}
 function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true}
 async function disconnectFromSettings(){closeShowDeskSettings();await disconnectShowDesk()}
 async function openShowDeskRepository(){
@@ -361,9 +373,9 @@ async function openShowDeskRepository(){
  }catch(error){console.error("Could not open ShowDesk repository",error);toast("Could not open GitHub in your browser")}
 }
 function checkUpdatesFromSettings(){closeShowDeskSettings();checkForShowDeskUpdate(true)}
-function setTab(tab){if(!["show","signal","engineering"].includes(tab))return;showDeskPreferences.lastWorkspace=tab;saveShowDeskPreferences();toast((tab==="engineering"?"INSPECT":tab.toUpperCase())+" view");
+function setTab(tab){if(!["show","signal","engineering","hyperdecks"].includes(tab)||(tab==="hyperdecks"&&!showDeskPreferences.hyperdeckMonitoring))return;showDeskPreferences.lastWorkspace=tab;saveShowDeskPreferences();toast((tab==="engineering"?"INSPECT":tab==="hyperdecks"?"HYPERDECK MONITORING":tab.toUpperCase())+" view");
  $("app").className="wrap tab-"+tab;
- $("showBtn").classList.toggle("on",tab==="show");$("signalBtn").classList.toggle("on",tab==="signal");$("engBtn").classList.toggle("on",tab==="engineering");
+ $("showBtn").classList.toggle("on",tab==="show");$("signalBtn").classList.toggle("on",tab==="signal");$("engBtn").classList.toggle("on",tab==="engineering");$("hyperdeckBtn")?.classList.toggle("on",tab==="hyperdecks");
  if(tab==="signal"){renderPaths();requestAnimationFrame(explorerInitializeViewport)}
 }
 function recordEvent(kind,msg,data={}){const e={iso:new Date().toISOString(),t:new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}),kind,msg,data};sessionEvents.unshift(e);if(sessionEvents.length>500)sessionEvents.length=500;logs=sessionEvents;lastChangeText=msg;return e}
@@ -1111,8 +1123,8 @@ function showUpdateProgress(detail={}){
 }
 async function ensureUpdateProgressListener(){
  const internals=window.__TAURI_INTERNALS__;if(!internals)return;const listen=internals.event?.listen;
- if(typeof listen==="function"){await listen("showdesk-update-progress",event=>showUpdateProgress(event.payload||{}));await listen("showdesk-native-menu",event=>{if(event.payload==="check-for-updates")checkForShowDeskUpdate(true);else if(event.payload==="disconnect")disconnectShowDesk();else if(event.payload==="settings")openShowDeskSettings();else if(["show","signal","engineering"].includes(event.payload))setTab(event.payload);});return;}
- if(typeof internals.invoke==="function"){const transform=internals.transformCallback;if(typeof transform!=="function")throw new Error("Tauri event bridge is unavailable.");for(const [event,handler] of [["showdesk-update-progress",e=>showUpdateProgress(e.payload||{})],["showdesk-native-menu",e=>{if(e.payload==="check-for-updates")checkForShowDeskUpdate(true);else if(e.payload==="disconnect")disconnectShowDesk();else if(e.payload==="settings")openShowDeskSettings();else if(["show","signal","engineering"].includes(e.payload))setTab(e.payload);}]]){const id=transform(handler);await internals.invoke("plugin:event|listen",{event,target:{kind:"Any"},handler:id});}}
+ if(typeof listen==="function"){await listen("showdesk-update-progress",event=>showUpdateProgress(event.payload||{}));await listen("showdesk-native-menu",event=>{if(event.payload==="check-for-updates")checkForShowDeskUpdate(true);else if(event.payload==="disconnect")disconnectShowDesk();else if(event.payload==="settings")openShowDeskSettings();else if(["show","signal","engineering","hyperdecks"].includes(event.payload))setTab(event.payload);});return;}
+ if(typeof internals.invoke==="function"){const transform=internals.transformCallback;if(typeof transform!=="function")throw new Error("Tauri event bridge is unavailable.");for(const [event,handler] of [["showdesk-update-progress",e=>showUpdateProgress(e.payload||{})],["showdesk-native-menu",e=>{if(e.payload==="check-for-updates")checkForShowDeskUpdate(true);else if(e.payload==="disconnect")disconnectShowDesk();else if(e.payload==="settings")openShowDeskSettings();else if(["show","signal","engineering","hyperdecks"].includes(e.payload))setTab(e.payload);}]]){const id=transform(handler);await internals.invoke("plugin:event|listen",{event,target:{kind:"Any"},handler:id});}}
 }
 async function installShowDeskUpdate(){
  const invoke=tauriInvoke();if(!invoke||showDeskUpdater.operation)return;
@@ -1141,6 +1153,9 @@ function runShowDeskAction(action,element){
   case "tab-show":setTab("show");break;
   case "tab-signal":setTab("signal");break;
   case "tab-inspect":setTab("engineering");break;
+  case "tab-hyperdecks":setTab("hyperdecks");break;
+  case "add-hyperdeck":addHyperdeck();break;
+  case "remove-hyperdeck":setHyperdeckConfigs(hyperdeckConfigs.filter(deck=>deck.id!==element.dataset.id));renderHyperdeckCards();break;
   case "disconnect":disconnectShowDesk();break;
   case "disconnect-settings":disconnectFromSettings();break;
   case "clear-trace":explorerClear();break;
@@ -1184,6 +1199,7 @@ document.addEventListener("change",event=>{
   case "import-reference":importReferenceFile(event);break;
   case "auto-connect":changeAutoConnectPreference(target.checked);break;
   case "auto-updates":changeAutomaticUpdateChecks(target.checked);break;
+  case "hyperdeck-enabled":setHyperdeckMonitoringEnabled(target.checked);break;
  }
 });
 document.addEventListener("keydown",event=>{
@@ -1198,4 +1214,4 @@ document.addEventListener("mouseover",event=>{
 document.addEventListener("mouseout",event=>{
  const node=event.target.closest?.("[data-signal-node]");if(node&&!node.contains(event.relatedTarget))explorerInspect(null);
 });
-document.addEventListener("DOMContentLoaded",()=>{const close=$("updateCloseBtn");if(close)close.onclick=closeUpdateModal;if(tauriInvoke()){ensureUpdateProgressListener().then(()=>{if(showDeskPreferences.automaticUpdateChecks)setTimeout(()=>checkForShowDeskUpdate(false),1200)}).catch(console.error)}setTimeout(attemptPreferredAutoConnection,1800)});
+document.addEventListener("DOMContentLoaded",()=>{const close=$("updateCloseBtn");if(close)close.onclick=closeUpdateModal;syncHyperdeckTab();if($("settingsHyperdeckEnabled"))$("settingsHyperdeckEnabled").checked=showDeskPreferences.hyperdeckMonitoring===true;renderHyperdeckCards();const transport=window.ATEM_TRANSPORT;if(transport?.subscribeHyperdecks)hyperdeckSubscription=transport.subscribeHyperdecks(data=>{hyperdeckStates=Array.isArray(data)?data:[];renderHyperdeckCards();syncHyperdeckTab()});transport?.configureHyperdecks?.(showDeskPreferences.hyperdeckMonitoring?hyperdeckConfigs:[]).catch(error=>console.error("HyperDeck monitor startup failed",error));if(tauriInvoke()){ensureUpdateProgressListener().then(()=>{if(showDeskPreferences.automaticUpdateChecks)setTimeout(()=>checkForShowDeskUpdate(false),1200)}).catch(console.error)}setTimeout(attemptPreferredAutoConnection,1800)});

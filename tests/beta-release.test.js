@@ -11,6 +11,8 @@ const rust = fs.readFileSync('src-tauri/src/main.rs', 'utf8');
 const runtimeConfig = fs.readFileSync('public/runtime-config.js', 'utf8');
 const mobile = fs.readFileSync('public/mobile-viewer.html', 'utf8');
 const assets = fs.readFileSync('src/static-assets.js', 'utf8');
+const hostHtml = fs.readFileSync('public/index.html', 'utf8');
+const hostApp = fs.readFileSync('public/app.js', 'utf8');
 
 assert.equal(stable.productName, 'ShowDesk');
 assert.equal(beta.productName, 'ShowDesk BETA');
@@ -31,5 +33,9 @@ assert.match(rust, /\.env\("SHOWDESK_PORT", service_port\)/);
 assert.match(runtimeConfig, /"servicePort":47821,"viewerPort":47822/, 'Checked-in frontend runtime defaults must remain stable');
 assert.match(mobile, /src="\/runtime-config\.js"/, 'Mobile Viewer must load the active channel port configuration');
 assert.match(assets, /'\/runtime-config\.js'/, 'The Host must serve the channel configuration to phone Viewers');
+assert.match(hostHtml, /data-change-action="hyperdeck-enabled"/, 'HyperDeck Monitoring must be an optional workspace setting');
+assert.match(hostHtml, /id="hyperdeckBtn"[^>]*>HyperDeck Monitoring/, 'Enabling the feature must expose the matching workspace tab');
+assert.match(hostHtml, /class="hyperdeckPage"[\s\S]*id="hyperdeckHost"/, 'The HyperDeck tab must let users add decks by IP');
+assert.match(hostApp, /hyperdeckMonitoring\?hyperdeckConfigs:\[\]/, 'Deck connections should only run while optional monitoring is enabled');
 
 console.log('ShowDesk stable and beta release channels are isolated.');

@@ -52,6 +52,12 @@ function firstMessage(ws) {
     ws.once('error', reject);
   });
 }
+function nextReply(ws, id) {
+  return new Promise((resolve, reject) => {
+    const onMessage = raw => { let message; try { message = JSON.parse(raw.toString()); } catch { return; } if (message.replyTo !== id) return; ws.off('message', onMessage); resolve(message); };
+    ws.on('message', onMessage); ws.once('error', reject);
+  });
+}
 function nextMessageOfType(ws, type) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => { ws.off('message', onMessage); reject(new Error(`Timed out waiting for ${type}`)); }, 2000);
@@ -88,7 +94,7 @@ function nextMessageOfType(ws, type) {
 
     const control = new WebSocket(`ws://127.0.0.1:${appPort}/ws`);
     await new Promise((resolve, reject) => { control.once('open', resolve); control.once('error', reject); });
-    const published = firstMessage(control);
+    const published = nextReply(control, 'reference-test');
     control.send(JSON.stringify({ id: 'reference-test', type: 'referenceAttention', data: { attached: true, name: 'Show file', categories: [{ category: 'routing', label: 'AUX / Output Routing', status: 'mismatch', summary: '1 mismatch', details: [{ name: 'AUX 1', kind: 'mismatch', message: 'Expected Camera · Actual Laptop' }] }] } }));
     const publishReply = await published;
     assert.equal(publishReply.replyTo, 'reference-test', 'Host reference attention publish must receive an acknowledgement');
