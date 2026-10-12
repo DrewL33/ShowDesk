@@ -29,6 +29,7 @@ let atem = null;
 let currentIp = null;
 let lastState = null;
 let hasConnected = false;
+let hostReferenceAttention = { attached: false, name: '', categories: [] };
 const clients = new Set();
 const viewerClients = new Set();
 let viewerUpstream = null;
@@ -43,6 +44,22 @@ function viewerSnapshot() {
 function broadcastViewers(message) {
   const payload = JSON.stringify(message);
   for (const ws of viewerClients) if (ws.readyState === 1) ws.send(payload);
+}
+function normalizeReferenceAttention(value) {
+  if (!value || typeof value !== 'object') return { attached: false, name: '', categories: [] };
+  const categories = Array.isArray(value.categories) ? value.categories.slice(0, 8).map(category => ({
+    category: String(category.category || '').slice(0, 48),
+    label: String(category.label || '').slice(0, 80),
+    status: String(category.status || '').slice(0, 32),
+    summary: String(category.summary || '').slice(0, 100),
+    note: String(category.note || '').slice(0, 160),
+    details: Array.isArray(category.details) ? category.details.slice(0, 40).map(item => ({
+      name: String(item.name || '').slice(0, 100),
+      kind: String(item.kind || '').slice(0, 32),
+      message: String(item.message || '').slice(0, 180)
+    })) : []
+  })) : [];
+  return { attached: Boolean(value.attached), name: String(value.name || '').slice(0, 120), categories };
 }
 function broadcastViewerCount() {
   broadcast({ type: 'viewerCount', count: viewerClients.size });
@@ -234,6 +251,11 @@ wss.on('connection', (ws) => {
     try { msg = JSON.parse(raw.toString()); } catch { return; }
     const reply = (ok, data, error) => ws.send(JSON.stringify({ replyTo: msg.id, ok, data, error }));
     try {
+      if (msg.type === 'referenceAttention') {
+        hostReferenceAttention = normalizeReferenceAttention(msg.data);
+        broadcastViewers({ type: 'referenceAttention', data: hostReferenceAttention });
+        return reply(true, { published: true });
+      }
       if (msg.type === 'connect') return reply(true, await connectAtem(msg.ip));
       if (msg.type === 'connectViewerHost') return reply(true, await connectViewerHost(msg.host));
       if (msg.type === 'disconnectViewerHost') return reply(true, await disconnectViewerHost());
@@ -273,6 +295,7 @@ viewerWss.on('connection', ws => {
   const snapshot = viewerSnapshot();
   if (snapshot) ws.send(JSON.stringify(snapshot));
   else ws.send(JSON.stringify({ type: 'connection', status: 'waiting', reason: 'Host is not connected to an ATEM' }));
+  ws.send(JSON.stringify({ type: 'referenceAttention', data: hostReferenceAttention }));
   // Deliberately no message handler: Viewer mode cannot issue ATEM commands.
   ws.on('close', () => { viewerClients.delete(ws); broadcastViewerCount(); });
 });

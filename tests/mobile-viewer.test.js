@@ -16,8 +16,12 @@ assert.match(html, /src="\/mobile-viewer\.js"/,'Mobile viewer must load its brow
 assert.match(html, /data-tab="show"[\s\S]*data-tab="signal"[\s\S]*data-tab="inspect"/,'Mobile viewer must preserve all three workspaces');
 assert.doesNotMatch(html, /hostAddress|hostForm/,'Mobile viewer must not duplicate the Host IP already in the browser address');
 assert.match(html, /id="meSelector"[^>]*Select M\/E to watch/,'Show View must provide a mobile M/E picker');
-assert.match(html, /id="mobileMatrix"/,'Inspect must include a mobile routing matrix');
+assert.doesNotMatch(html, /mobileMatrix|ROUTING MATRIX/,'Inspect must not duplicate the Signal routing overview');
 assert.match(html, /id="diagnostics"/,'Inspect must include live diagnostics');
+assert.match(html, /id="meBusDetails"/,'Inspect must show per-M/E program, preview, and transition details');
+assert.match(html, /id="keyerInspector"/,'Inspect must show detailed upstream and downstream keyer state');
+assert.match(html, /id="referenceAttention"/,'Inspect must show Host reference attention read-only');
+assert.doesNotMatch(html, /INPUT INVENTORY|AUX ROUTING/,'Inspect must focus on diagnostics rather than duplicate inventory and routing lists');
 assert.match(html, /READ ONLY/,'Mobile viewer must clearly indicate read-only access');
 assert.match(js, /url\.pathname\s*=\s*'\/viewer'/,'Mobile viewer must connect directly to the read-only Viewer socket');
 assert.match(js, /if\s*\(!url\.port\)\s*url\.port\s*=\s*'47822'/,'Mobile viewer must use the standard Host viewer port by default');
@@ -29,7 +33,10 @@ assert.match(js, /function renderSignal\(/,'Mobile Signal tab must provide a com
 assert.match(js, /function buildSignalGraph\(/,'Mobile Signal tab must use the same source, bus, processor, internal-output, and destination topology model');
 assert.match(js, /data-signal-node/,'Mobile Signal nodes must be selectable for path tracing');
 assert.match(js, /feed\(me\.pgmId[\s\S]*feed\(me\.pvwId/,'Mobile signal graph must trace source feeds into M/E program and preview buses');
-assert.match(js, /function renderInspect\([\s\S]*?ROUTING DESTINATIONS[\s\S]*?KEYERS ON AIR[\s\S]*?FTB ACTIVE/,'Mobile Inspect must include routing matrix data and operational diagnostics');
+assert.match(js, /function renderInspect\([\s\S]*?ROUTING DESTINATIONS[\s\S]*?KEYERS ON AIR[\s\S]*?FTB ACTIVE/,'Mobile Inspect must include switcher operational diagnostics');
+assert.match(js, /meBusDetails[\s\S]*?PROGRAM[\s\S]*?PREVIEW[\s\S]*?FADE TO BLACK/,'Mobile Inspect must show M/E bus details');
+assert.match(js, /keyerInspector[\s\S]*?key\.type[\s\S]*?key\.fill[\s\S]*?key\.key[\s\S]*?key\.onAir/,'Mobile Inspect must show keyer type, fill, key, and on-air status');
+assert.match(js, /message\.type === 'referenceAttention'/,'Mobile viewer must receive read-only Host reference attention updates');
 assert.match(js, /socketConnect\(location\.hostname\)/,'Mobile viewer must connect using the host already in the browser address');
 assert.match(css, /@media\(max-width:360px\)/,'Mobile layout must support narrow phone widths');
 assert.match(css, /env\(safe-area-inset-bottom/,'Mobile layout must account for device safe areas');
@@ -37,5 +44,8 @@ assert.match(assets, /'\/mobile-viewer\.js'/,'Mobile browser assets must be serv
 assert.match(server, /const item = ASSETS\[pathname === '\/' \? '\/mobile' : pathname\]/,'Viewer service root must serve the phone UI');
 assert.match(server, /'Content-Security-Policy': "default-src 'self'/,'Viewer web page must ship with a restrictive CSP');
 assert.match(server, /viewerWss = new WebSocketServer\(\{ server: viewerServer, path: '\/viewer' \}\)/,'Phone UI and read-only websocket must share the reachable Viewer service');
+assert.match(server, /msg\.type === 'referenceAttention'[\s\S]*?broadcastViewers\(\{ type: 'referenceAttention'/,'Host must relay reference attention summaries to mobile viewers');
+assert.match(server, /ws\.send\(JSON\.stringify\(\{ type: 'referenceAttention', data: hostReferenceAttention \}\)\)/,'New mobile viewers must receive the current reference attention summary');
+assert.match(fs.readFileSync(path.join(root, 'public/app.js'), 'utf8'), /function publishReferenceAttention\([\s\S]*?referenceCategoryStatus\([\s\S]*?publishReferenceAttention\(data\)/,'Host app must publish the same reference comparison status it renders');
 
 console.log('Mobile browser viewer regression checks passed');

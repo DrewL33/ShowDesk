@@ -116,6 +116,7 @@
 
   window.ATEM_TRANSPORT = {
     connect(ip) { return request('connect', { ip }); },
+    publishReferenceAttention(data) { return request('referenceAttention', { data }); },
     connectViewer(host) { return connectViewer(host); },
     subscribe(callback) {
       subscribers.add(callback);

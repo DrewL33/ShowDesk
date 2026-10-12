@@ -346,7 +346,7 @@ function refreshShowDeskSettings(){
  if($("settingsDevice"))$("settingsDevice").textContent=connectedDevice?.name||connectedDevice?.productIdentifier||liveEngineering.productIdentifier||"—";
  if($("settingsAddress"))$("settingsAddress").textContent=connectedDevice?.ip||viewerConnectionContext?.ip||"—";
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
- if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.101"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.101").split(".").pop()).padStart(3,"0")} · ${showDeskUpdater.currentVersion||"0.1.101"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
+ if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.102"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.102").split(".").pop()).padStart(3,"0")} · ${showDeskUpdater.currentVersion||"0.1.102"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
 }
 function openShowDeskSettings(){refreshShowDeskSettings();updateReferenceUI();renderSavedConnectionChoices();syncSettingsWorkspaceMenu();closeSettingsWorkspaceMenu();if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");$("settingsModal").hidden=false}
 function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true}
@@ -462,6 +462,19 @@ function referenceCategoryStatus(category){
  const unknown=details.filter(item=>item.kind==="unverified").length;
  return {status:mismatches?"mismatch":unknown?"unverified":"matching",label:mismatches?`${mismatches} mismatch${mismatches===1?"":"es"}`:unknown?`${unknown} unverified`:`${details.length} matching`,details,selected:names.length};
 }
+let lastPublishedReferenceAttention="";
+function publishReferenceAttention(){
+ if(activeConnectionMode!=="host"||!window.ATEM_TRANSPORT?.publishReferenceAttention)return;
+ const categories=[["configuration","Configuration"],["routing","AUX / Output Routing"],["programPreview","Program / Preview"]].map(([category,label])=>{
+  const result=referenceCategoryStatus(category);
+  return {category,label,status:result.status,summary:result.label,note:category==="configuration"&&result.status==="unverified"?"No stable configuration fields are currently enforced by the imported parser.":"",details:result.details.filter(item=>item.kind!=="matching").map(item=>({name:item.name,kind:item.kind,message:item.kind==="unverified"?"Cannot verify live value":`Expected ${item.expected} · Actual ${item.actual}`}))};
+ });
+ const data={attached:baselineState.attached,name:baselineState.name||"",categories};
+ const encoded=JSON.stringify(data);
+ if(encoded===lastPublishedReferenceAttention)return;
+ lastPublishedReferenceAttention=encoded;
+ window.ATEM_TRANSPORT.publishReferenceAttention(data).catch(()=>{lastPublishedReferenceAttention="";});
+}
 function renderReferenceAttention(){
  if(!baselineState.attached)return `<div class="attentionItem"><b>NO REFERENCE ATTACHED</b><span>Import a reference to monitor expected values.</span></div>`;
  return [["configuration","Configuration"],["routing","AUX / Output Routing"],["programPreview","Program / Preview"]].map(([category,title])=>{
@@ -496,6 +509,7 @@ function updateReferenceUI(){
  const mm=getMismatches();if($("mismatchCount"))$("mismatchCount").textContent=on?mm.length:"—";
  if($("sessionChangeCount"))$("sessionChangeCount").textContent=sessionEvents.filter(e=>e.kind==="ROUTE"||e.kind==="STATE"||/^M\/E \d+$/.test(e.kind)).length;
  if($("logEventCount"))$("logEventCount").textContent=sessionEvents.length;
+ publishReferenceAttention();
 }
 function normalizeReferenceObject(obj){
  const routes={};

@@ -52,6 +52,18 @@ function firstMessage(ws) {
     ws.once('error', reject);
   });
 }
+function nextMessageOfType(ws, type) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { ws.off('message', onMessage); reject(new Error(`Timed out waiting for ${type}`)); }, 2000);
+    const onMessage = raw => {
+      let message; try { message = JSON.parse(raw.toString()); } catch { return; }
+      if (message.type !== type) return;
+      clearTimeout(timer); ws.off('message', onMessage); resolve(message);
+    };
+    ws.on('message', onMessage);
+    ws.once('error', reject);
+  });
+}
 
 (async () => {
   const appPort = await freePort();
@@ -74,12 +86,23 @@ function firstMessage(ws) {
     const style = await request(`http://127.0.0.1:${viewerPort}/mobile-viewer.css`);
     assert.equal(style.status, 200, 'Mobile Viewer stylesheet must load from the host');
 
+    const control = new WebSocket(`ws://127.0.0.1:${appPort}/ws`);
+    await new Promise((resolve, reject) => { control.once('open', resolve); control.once('error', reject); });
+    const published = firstMessage(control);
+    control.send(JSON.stringify({ id: 'reference-test', type: 'referenceAttention', data: { attached: true, name: 'Show file', categories: [{ category: 'routing', label: 'AUX / Output Routing', status: 'mismatch', summary: '1 mismatch', details: [{ name: 'AUX 1', kind: 'mismatch', message: 'Expected Camera · Actual Laptop' }] }] } }));
+    const publishReply = await published;
+    assert.equal(publishReply.replyTo, 'reference-test', 'Host reference attention publish must receive an acknowledgement');
+
     const ws = new WebSocket(`ws://127.0.0.1:${viewerPort}/viewer`);
     const greetingPromise = firstMessage(ws);
+    const attentionPromise = nextMessageOfType(ws, 'referenceAttention');
     await new Promise((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject); });
     const greeting = await greetingPromise;
     assert.equal(greeting.type, 'connection');
     assert.equal(greeting.status, 'waiting', 'Viewer socket must report that the Host is waiting when no ATEM is connected');
+    const attention = await attentionPromise;
+    assert.equal(attention.data.name, 'Show file', 'Viewer must receive the latest Host reference summary');
+    assert.equal(attention.data.categories[0].details[0].message, 'Expected Camera · Actual Laptop', 'Reference attention details must be relayed');
     const unexpectedReply = new Promise(resolve => {
       ws.once('message', () => resolve(true));
       setTimeout(() => resolve(false), 100);
@@ -87,6 +110,7 @@ function firstMessage(ws) {
     ws.send(JSON.stringify({ id: 'mobile-read-only-check', type: 'disconnect' }));
     assert.equal(await unexpectedReply, false, 'Read-only Viewer socket must ignore command messages');
     ws.close();
+    control.close();
     console.log('Mobile Viewer HTTP and read-only WebSocket integration checks passed');
   } finally {
     child.kill('SIGTERM');

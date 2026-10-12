@@ -11,6 +11,7 @@
   let latest = null;
   let previous = null;
   let changes = [];
+  let referenceAttention = null;
   let selectedMeIndex = null;
   let selectedSignalNode = null;
   let connectionStatus = 'connecting';
@@ -70,6 +71,9 @@
         setConnection('reconnecting', message.reason || 'Switcher connection lost; waiting for the host…');
       } else if (message.type === 'health' && message.atemConnected === false && !latest) {
         setConnection('waiting', 'ShowDesk Host is online and waiting for an ATEM connection.');
+      } else if (message.type === 'referenceAttention') {
+        referenceAttention = message.data || null;
+        renderReferenceAttention();
       }
     });
     current.addEventListener('error', () => {
@@ -217,22 +221,13 @@
   function renderInspect(data) {
     const inputs = data.inputs || [], mes = data.mixEffects || [], aux = data.aux || [], keys = [...mes.flatMap(me => (me.upstreamKeyers || []).map(key => ({ ...key, label: `M/E ${me.index} · USK ${key.index}` }))), ...(data.downstreamKeyers || []).map(key => ({ ...key, label: `DSK ${key.index}` }))];
     $('summaryGrid').innerHTML = [[data.name || data.productIdentifier || 'ATEM', 'SWITCHER'], [inputs.length, 'INPUTS'], [mes.length, 'M/E'], [aux.length, 'AUX ROUTES']].map(([value, label]) => `<div class="summaryTile"><strong>${escapeHtml(value)}</strong><small>${escapeHtml(label)}</small></div>`).join('');
-    $('inputCount').textContent = `${inputs.length} INPUT${inputs.length === 1 ? '' : 'S'}`;
-    $('inputInventory').innerHTML = inputs.length ? inputs.map(input => `<div class="listRow"><div><strong>${escapeHtml(input.name || input.shortName || `Input ${input.id}`)}</strong><small>${escapeHtml(input.shortName || `INPUT ${input.id}`)} · ID ${escapeHtml(input.id)}</small></div><span class="typeTag">${escapeHtml(input.externalPortType ?? 'SOURCE')}</span></div>`).join('') : '<p class="empty">No inputs reported.</p>';
-    $('keyerInventory').innerHTML = keys.length ? keys.map(key => `<div class="listRow"><div><strong>${escapeHtml(key.label)}</strong><small>${escapeHtml(key.fill || 'Fill —')}${key.key ? ` · ${escapeHtml(key.key)}` : ''}</small></div><span class="stateTag ${key.onAir ? 'is-on' : ''}">${key.onAir ? 'ON AIR' : 'OFF'}</span></div>`).join('') : '<p class="empty">No keyers reported.</p>';
-    $('auxCount').textContent = `${aux.length} ROUTE${aux.length === 1 ? '' : 'S'}`;
-    $('auxInventory').innerHTML = aux.length ? aux.map(route => `<div class="listRow"><div><strong>${escapeHtml(route.name || `AUX ${Number(route.busId) + 1}`)}</strong><small>Source · ${escapeHtml(route.route || '—')}</small></div><span class="typeTag">AUX</span></div>`).join('') : '<p class="empty">No AUX routes reported.</p>';
-    $('matrixCount').textContent = `${inputs.length} SOURCE${inputs.length === 1 ? '' : 'S'}`;
-    $('mobileMatrix').innerHTML = inputs.length ? inputs.map(input => {
-      const badges = [];
-      mes.forEach(me => {
-        if (me.pgm === input.name) badges.push(`<span class="matrixBadge pgm">M/E ${me.index} · PGM</span>`);
-        if (me.pvw === input.name) badges.push(`<span class="matrixBadge pvw">M/E ${me.index} · PVW</span>`);
-      });
-      keys.filter(key => key.fill === input.name || key.key === input.name).forEach(key => badges.push(`<span class="matrixBadge key">${escapeHtml(key.label)}</span>`));
-      aux.filter(route => route.route === input.name).forEach(route => badges.push(`<span class="matrixBadge route">${escapeHtml(route.name || `AUX ${Number(route.busId) + 1}`)}</span>`));
-      return `<div class="matrixSourceRow"><strong>${escapeHtml(input.name || input.shortName || `Input ${input.id}`)}</strong><div class="matrixBadges">${badges.join('') || '<span class="typeTag">NO CURRENT ROUTES</span>'}</div></div>`;
-    }).join('') : '<p class="empty">No input or routing state reported.</p>';
+    $('meBusDetails').innerHTML = mes.length ? mes.map(me => {
+      const position = Number(me.transition?.position);
+      const transition = me.transition?.inTransition ? `IN TRANSITION${Number.isFinite(position) ? ` · ${Math.round(position / 100)}%` : ''}` : 'IDLE';
+      const ftb = me.ftb?.inTransition ? 'IN TRANSITION' : me.ftb?.isFullyBlack ? 'FULLY BLACK' : 'CLEAR';
+      return `<div class="busDetail"><div class="cardTitle"><strong>M/E ${escapeHtml(me.index)}</strong><span>${escapeHtml(transition)}</span></div><div class="busSources"><div><small>PROGRAM</small><strong>${escapeHtml(me.pgm || '—')}</strong></div><div><small>PREVIEW</small><strong>${escapeHtml(me.pvw || '—')}</strong></div></div><div class="busFtb"><small>FADE TO BLACK</small><b>${escapeHtml(ftb)}</b></div></div>`;
+    }).join('') : '<p class="empty">No M/E buses reported.</p>';
+    $('keyerInspector').innerHTML = keys.length ? keys.map(key => `<div class="listRow"><div><strong>${escapeHtml(key.label)}</strong><small>${escapeHtml(key.type || 'Key type unavailable')} · Fill ${escapeHtml(key.fill || '—')} · Key ${escapeHtml(key.key || '—')}</small></div><span class="stateTag ${key.onAir ? 'is-on' : ''}">${key.onAir ? 'ON AIR' : 'OFF'}</span></div>`).join('') : '<p class="empty">No keyers reported.</p>';
     const videoModes = { 0:['525i59.94','59.94i'],1:['625i50','50i'],2:['525i59.94 16:9','59.94i'],3:['625i50 16:9','50i'],4:['720p50','50 fps'],5:['720p59.94','59.94 fps'],6:['1080i50','50i'],7:['1080i59.94','59.94i'],8:['1080p23.98','23.98 fps'],9:['1080p24','24 fps'],10:['1080p25','25 fps'],11:['1080p29.97','29.97 fps'],12:['1080p50','50 fps'],13:['1080p59.94','59.94 fps'],14:['2160p23.98','23.98 fps'],15:['2160p24','24 fps'],16:['2160p25','25 fps'],17:['2160p29.97','29.97 fps'],18:['2160p50','50 fps'],19:['2160p59.94','59.94 fps'],20:['4320p23.98','23.98 fps'],21:['4320p24','24 fps'],22:['4320p25','25 fps'],23:['4320p29.97','29.97 fps'],24:['4320p50','50 fps'],25:['4320p59.94','59.94 fps'],26:['1080p30','30 fps'],27:['1080p60','60 fps'] };
     const video = videoModes[Number(data.videoMode)] || [data.videoMode ?? '—', '—'];
     const activeFtb = mes.filter(me => me.ftb && (me.ftb.isFullyBlack || me.ftb.inTransition)).map(me => `M/E ${me.index}${me.ftb.inTransition ? ' · TRANSITION' : ' · BLACK'}`);
@@ -244,6 +239,20 @@
       ['KEYERS ON AIR', liveKeyers, liveKeyers ? 'warning' : ''], ['FTB ACTIVE', activeFtb.join(', ') || 'NONE', activeFtb.length ? 'warning' : '']
     ];
     $('diagnostics').innerHTML = metrics.map(([label, value, kind]) => `<div class="diagnosticCell ${kind}"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></div>`).join('');
+  }
+  function renderReferenceAttention() {
+    const host = $('referenceAttention');
+    if (!host) return;
+    if (!referenceAttention || !referenceAttention.attached) {
+      host.innerHTML = '<p class="empty">No reference attached on Host.</p>';
+      return;
+    }
+    const categories = referenceAttention.categories || [];
+    host.innerHTML = `<p class="referenceName">${escapeHtml(referenceAttention.name || 'Reference attached on Host')}</p>${categories.length ? categories.map(category => {
+      const kind = category.status === 'mismatch' ? 'attentionMismatch' : category.status === 'matching' ? 'attentionGood' : '';
+      const details = category.details || [];
+      return `<div class="referenceCategory ${kind}"><div><strong>${escapeHtml(category.label || category.category || 'Reference')}</strong><span>${escapeHtml(category.summary || category.status || 'Status unavailable')}</span></div>${details.map(item => `<small><b>${escapeHtml(item.name || 'Value')}</b> · ${escapeHtml(item.message || item.kind || 'Attention')}</small>`).join('') || `<small>${escapeHtml(category.note || 'No individual discrepancies.')}</small>`}</div>`;
+    }).join('') : '<p class="empty">No reference categories reported.</p>'}`;
   }
   function renderState(data) {
     if (!data) return;
