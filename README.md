@@ -26,9 +26,9 @@ ShowDesk turns live switcher state into a clear operational view. It reads the A
 - **Phone and tablet Viewer** — open a compact, read-only Show, Signal, and Inspect interface served by the Host.
 - **Signed in-app updates** — check for the current release from Settings and install when ready.
 
-## Interface previews
+## Product screenshots
 
-These previews use fictional sample show data; they do not show a connected production switcher.
+The Show View and mobile Viewer illustrations use sample show data. Signal Explorer and Inspect below are real app screenshots; source names, routing, and switcher state reflect the connected system at capture time.
 
 ### Show View
 
@@ -38,15 +38,19 @@ Program and preview, active sources, and keyer state for the selected M/E.
 
 ### Signal Explorer
 
-Follow the live source-to-destination picture, including keyers and output routing.
+Trace the live source-to-destination graph across M/E buses, key assignments, processors, internal outputs, and destinations. The pinned view highlights one path while dimming unrelated routes.
 
-![ShowDesk Signal Explorer workspace](docs/images/signal-explorer.svg)
+![ShowDesk Signal Explorer overview of live switcher routing](docs/images/signal-explorer-overview.png)
+
+![ShowDesk Signal Explorer with a source path pinned](docs/images/signal-explorer-trace.png)
 
 ### Inspect
 
-Switch from the big picture to input, route, bus, keyer, and diagnostic details.
+Review the input inventory, attention and reference status, and session summary. The lower workspace contains the routing matrix, live M/E bus state, keyer assignments, and switcher diagnostics.
 
-![ShowDesk Inspect workspace](docs/images/inspect.svg)
+![ShowDesk Inspect input inventory, attention, reference, and session summary](docs/images/inspect-inventory.png)
+
+![ShowDesk Inspect routing matrix, M/E buses, keyers, and diagnostics](docs/images/inspect-routing-and-diagnostics.png)
 
 ### Mobile Viewer
 
