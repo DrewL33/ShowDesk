@@ -1,6 +1,8 @@
 const http = require('node:http');
 const { exec } = require('node:child_process');
 const { WebSocket, WebSocketServer } = require('ws');
+const { normalizeState } = require('./atem-state');
+const { createLatestStateCoalescer } = require('./state-coalescer');
 let Atem;
 
 function loadAtem() {
@@ -34,6 +36,15 @@ const clients = new Set();
 const viewerClients = new Set();
 let viewerUpstream = null;
 let viewerUpstreamGeneration = 0;
+const stateBroadcast = createLatestStateCoalescer(({ instance, state }) => {
+  if (atem !== instance || !hasConnected) return;
+  const normalized = normalizeState(state);
+  if (normalized) {
+    const message = { type: 'state', data: normalized };
+    broadcast(message);
+    broadcastViewers(message);
+  }
+}, 100);
 
 function viewerSnapshot() {
   if (!hasConnected || !lastState) return null;
@@ -67,7 +78,6 @@ function broadcastViewerCount() {
 
 const { asset, ASSETS } = require('./static-assets');
 
-const { normalizeState } = require('./atem-state');
 function discovery(state) {
   const normalized = normalizeState(state) || { inputs: [], aux: [], mixEffects: [], downstreamKeyers: [] };
   return {
@@ -102,6 +112,7 @@ async function disconnectInstance(instance) {
 async function disconnectAtem() {
   const instance = atem;
   const wasConnected = hasConnected;
+  stateBroadcast.clear();
   atem = null; currentIp = null; lastState = null; hasConnected = false;
   await disconnectInstance(instance);
   if (wasConnected) {
@@ -125,15 +136,12 @@ async function connectAtem(ip) {
   instance.on('stateChanged', (state) => {
     if (atem !== instance) return;
     lastState = state;
-    const normalized = normalizeState(state);
-    if (normalized) {
-      broadcast({ type: 'state', data: normalized });
-      broadcastViewers({ type: 'state', data: normalized });
-    }
+    stateBroadcast.schedule({ instance, state });
   });
   instance.on('disconnected', () => {
     if (atem !== instance) return;
     const wasConnected = hasConnected;
+    stateBroadcast.clear();
     atem = null; currentIp = null; lastState = null; hasConnected = false;
     if (wasConnected) {
       const message = { type: 'connection', status: 'disconnected', reason: 'ATEM connection lost' };
