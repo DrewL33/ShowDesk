@@ -60,7 +60,12 @@ jobs:
           SHOWDESK_CHANNEL: beta
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npx tauri build --config src-tauri/tauri.beta.conf.json --config "$RUNNER_TEMP/showdesk-beta-version.json"
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            npx tauri build --bundles nsis --config src-tauri/tauri.beta.conf.json --config "$RUNNER_TEMP/showdesk-beta-version.json"
+          else
+            npx tauri build --config src-tauri/tauri.beta.conf.json --config "$RUNNER_TEMP/showdesk-beta-version.json"
+          fi
       - name: Verify Beta app identity and installers
         shell: bash
         run: |

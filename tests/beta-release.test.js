@@ -21,6 +21,7 @@ assert.match(betaWorkflow, /branches:\s*\[beta\]/, 'Beta workflow must follow th
 assert.match(betaWorkflow, /1\.1\.0-beta\.\$\{GITHUB_RUN_NUMBER\}/, 'Every Beta build must get an increasing updater version');
 assert.match(betaWorkflow, /SHOWDESK_CHANNEL:\s*beta/, 'Beta build must compile the beta runtime channel');
 assert.match(betaWorkflow, /name: Build isolated Beta application\n\s+shell: bash/, 'Cross-platform Beta build must use the shell syntax expected by its environment variables');
+assert.match(betaWorkflow, /--bundles nsis/, 'Windows Beta packaging must avoid MSI prerelease version restrictions');
 assert.match(betaWorkflow, /contents: write/, 'Only the Beta publishing job should request release write access');
 assert.doesNotMatch(stableWorkflow, /showdesk-beta-latest/, 'Stable publishing must not overwrite the Beta feed');
 assert.doesNotMatch(stableWorkflow, /branches:.*beta/, 'The stable workflow must not build the Beta branch');
