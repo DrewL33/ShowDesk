@@ -55,6 +55,7 @@ jobs:
       - name: Generate native app icons
         run: npx tauri icon src-tauri/icons/icon.svg
       - name: Build isolated Beta application
+        shell: bash
         env:
           SHOWDESK_CHANNEL: beta
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
