@@ -1,6 +1,6 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ShowDesk — v0.1.102</title>
+<title>ShowDesk — v0.1.103</title>
 <link rel="stylesheet" href="/styles.css">
 
 
@@ -91,6 +91,7 @@
    <div class="inspect" id="keyerInspector"></div></div><div class="panel"><div class="head"><h2>DIAGNOSTICS</h2><span class="sub">switcher + route health</span></div><div class="diag" id="diagnostics"></div></div><div class="panel" style="margin-top:10px"><div class="head"><h2>ATEM DEBUG</h2><span class="sub">read-only state exposed to ShowDesk</span><button class="tinyAction" data-action="toggle-debug">SHOW / HIDE</button></div><pre id="atemDebug" hidden style="max-height:360px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#080c0f;border:1px solid var(--line);border-radius:7px;padding:12px;font-size:9px;line-height:1.5"></pre></div></section>
 </div>
 <script src="/reference-parser.js"></script>
+<script src="/reference-comparison.js"></script>
 <div id="updateProgressModal" class="updateProgressModal" hidden aria-live="polite" aria-modal="true" role="dialog">
  <div class="updateProgressCard">
   <span id="updateEyebrow" class="updateEyebrow">SHOWDESK UPDATE</span>
@@ -147,12 +148,12 @@
     <div class="settingsFooter"><button class="settingsAction" type="button" data-action="save-reference-preferences">SAVE PREFERENCES</button><span id="settingsReferenceSaveStatus" role="status">Saved locally</span></div>
    </section>
    <section id="settingsSectionUpdates" class="settingsSection" hidden>
-    <h3>INSTALLED VERSION</h3><div class="settingsVersionLine"><strong>ShowDesk <span id="settingsVersion">0.1.102</span></strong><span id="settingsUpdateStatus">—</span></div>
+    <h3>INSTALLED VERSION</h3><div class="settingsVersionLine"><strong>ShowDesk <span id="settingsVersion">0.1.103</span></strong><span id="settingsUpdateStatus">—</span></div>
     <label class="settingsControlRow" for="settingsAutoUpdatesSecondary"><span>Check automatically on launch</span><input id="settingsAutoUpdatesSecondary" type="checkbox" data-change-action="auto-updates"></label>
     <div class="settingsFooter"><button class="settingsAction" type="button" data-action="check-updates">CHECK FOR UPDATES</button></div>
    </section>
    <section id="settingsSectionAbout" class="settingsSection settingsAbout" hidden>
-    <div class="settingsAboutBrand"><strong>ShowDesk</strong><span id="settingsBuild">Build102 · 0.1.102</span></div>
+    <div class="settingsAboutBrand"><strong>ShowDesk</strong><span id="settingsBuild">Build103 · 0.1.103</span></div>
     <p class="settingsAboutSummary">ATEM monitoring and signal diagnostics.</p>
     <button class="settingsRepository" type="button" data-action="open-repository">GITHUB REPOSITORY ↗</button>
    </section>

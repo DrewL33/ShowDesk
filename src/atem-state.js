@@ -5,6 +5,15 @@ function inputName(state, id) {
   const input = state?.inputs?.[id];
   return input?.longName || input?.shortName || input?.externalPortType || `INPUT ${id}`;
 }
+function keyTypeName(value) {
+  const types = ['Luma', 'Chroma', 'Pattern', 'DVE'];
+  if (typeof value === 'number') return types[value] || null;
+  if (typeof value === 'string') {
+    const match = types.find(type => type.toLowerCase() === value.toLowerCase());
+    return match || value;
+  }
+  return null;
+}
 function normalizeState(state) {
   if (!state) return null;
   const inputs = Object.entries(state.inputs || {}).map(([id, x]) => ({
@@ -26,11 +35,11 @@ function normalizeState(state) {
       inTransition: !!me.transitionPosition.inTransition,
       position: me.transitionPosition.handlePosition ?? null
     } : null,
-    ftb: me.fadeToBlack ? { isFullyBlack: !!me.fadeToBlack.isFullyBlack, inTransition: !!me.fadeToBlack.inTransition } : null,
+    ftb: me.fadeToBlack ? { rate: me.fadeToBlack.rate ?? null, isFullyBlack: !!me.fadeToBlack.isFullyBlack, inTransition: !!me.fadeToBlack.inTransition } : null,
     upstreamKeyers: (me.upstreamKeyers || []).filter(Boolean).map((keyer, k) => ({
       index: k + 1,
       onAir: !!keyer.onAir,
-      type: keyer.mixEffectKeyType ?? keyer.type ?? null,
+      type: keyTypeName(keyer.mixEffectKeyType ?? keyer.type),
       fill: inputName(state, keyer.fillSource),
       fillId: keyer.fillSource ?? null,
       key: inputName(state, keyer.cutSource),
@@ -117,4 +126,4 @@ function normalizeState(state) {
   };
 }
 
-module.exports = { inputName, normalizeState };
+module.exports = { inputName, keyTypeName, normalizeState };

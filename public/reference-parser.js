@@ -34,16 +34,16 @@
     });
     const mixEffects=blocks(xml,"MixEffectBlock").map((block,i)=>{
       const program=elements(block.body,"Program")[0]||{},preview=elements(block.body,"Preview")[0]||{},ftb=elements(block.body,"FadeToBlack")[0]||{};
-      const keys=elements(block.body,"Key").map(k=>({index:Number(k.index)+1,type:k.type||null,fillId:k.inputFill??null,fill:sourceName(k.inputFill),keyId:k.inputCut??null,key:sourceName(k.inputCut),onAir:k.onAir==="True"}));
-      return {index:Number(block.attrs.index??i)+1,programId:program.input??null,program:program.input!==undefined?sourceName(program.input):null,previewId:preview.input??null,preview:preview.input!==undefined?sourceName(preview.input):null,ftb:{isFullyBlack:ftb.isFullyBlack==="True"},upstreamKeyers:keys};
+      const keys=elements(block.body,"Key").map(k=>({index:Number(k.index)+1,type:k.type||null,fillId:k.inputFill??null,fill:k.inputFill!==undefined&&sources.has(String(k.inputFill))?sourceName(k.inputFill):null,keyId:k.inputCut??null,key:k.inputCut!==undefined&&sources.has(String(k.inputCut))?sourceName(k.inputCut):null,onAir:k.onAir==="True"}));
+      return {index:Number(block.attrs.index??i)+1,programId:program.input??null,program:program.input!==undefined?sourceName(program.input):null,previewId:preview.input??null,preview:preview.input!==undefined?sourceName(preview.input):null,ftb:{rate:ftb.rate!==undefined?Number(ftb.rate):null,isFullyBlack:ftb.isFullyBlack==="True"},upstreamKeyers:keys};
     });
-    const downstreamKeyers=elements(xml,"DownstreamKey").map((k,i)=>({index:Number(k.index??i)+1,fillId:k.fillSource??null,fill:sourceName(k.fillSource),keyId:k.keySource??null,key:sourceName(k.keySource),onAir:k.onAir==="True"}));
+    const downstreamKeyers=elements(xml,"DownstreamKey").map((k,i)=>({index:Number(k.index??i)+1,fillId:k.fillSource??null,fill:k.fillSource!==undefined&&sources.has(String(k.fillSource))?sourceName(k.fillSource):null,keyId:k.keySource??null,key:k.keySource!==undefined&&sources.has(String(k.keySource))?sourceName(k.keySource):null,onAir:k.onAir==="True"}));
     const first=mixEffects[0]||{};
     return {
       routes,
       pgm:first.program||null,
       pvw:first.preview||null,
-      metadata:{format:"ATEM Software Control",product:profile.product||null,mixEffects,downstreamKeyers,sourceCount:sources.size}
+      metadata:{format:"ATEM Software Control",product:profile.product||null,mixEffects:/<MixEffectBlocks\b/i.test(xml)?mixEffects:null,downstreamKeyers:/<DownstreamKeys\b/i.test(xml)?downstreamKeyers:null,sourceCount:sources.size}
     };
   }
   return {parseAtemSoftwareControlXml};

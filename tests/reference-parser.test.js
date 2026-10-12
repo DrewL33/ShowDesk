@@ -18,6 +18,7 @@ assert.equal(ref.pvw,'Camera 1');
 assert.deepEqual(ref.routes,{Online:'ME 1 - ONLINE',InRoom:'ME 2 - IN ROOM'});
 assert.equal(ref.metadata.mixEffects.length,2);
 assert.equal(ref.metadata.mixEffects[0].upstreamKeyers[0].fill,'Announcements');
+assert.equal(ref.metadata.mixEffects[0].ftb.rate,30);
 assert.equal(ref.metadata.mixEffects[1].ftb.isFullyBlack,true);
 assert.equal(ref.metadata.downstreamKeyers[0].fill,'Announcements');
 assert.throws(()=>parseAtemSoftwareControlXml('<foo/>'),/ATEM Software Control/);

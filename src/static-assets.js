@@ -13,6 +13,7 @@ const ASSETS = {
   '/transport.js': ['transport.js', 'text/javascript; charset=utf-8'],
   '/signal-paths.js': ['signal-paths.js', 'text/javascript; charset=utf-8'],
   '/reference-parser.js': ['reference-parser.js', 'text/javascript; charset=utf-8'],
+  '/reference-comparison.js': ['reference-comparison.js', 'text/javascript; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
   '/styles.css': ['styles.css', 'text/css; charset=utf-8'],
   '/mobile': ['mobile-viewer.html', 'text/html; charset=utf-8'],

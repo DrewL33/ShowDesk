@@ -18,7 +18,7 @@ const state = {
       programInput: 15,
       previewInput: 2,
       transitionPosition: { inTransition: true, handlePosition: 5000 },
-      fadeToBlack: { isFullyBlack: true, inTransition: false },
+      fadeToBlack: { rate: 30, isFullyBlack: true, inTransition: false },
       upstreamKeyers: [{ onAir: true, mixEffectKeyType: 1, fillSource: 1, cutSource: 2 }]
     }],
     downstreamKeyers: [{ onAir: true, sources: { fillSource: 2, cutSource: 1 } }],
@@ -33,9 +33,10 @@ assert.equal(result.productIdentifier, 'Test ATEM');
 assert.equal(result.videoMode, 12);
 assert.equal(result.mixEffects[0].pgmId, 15);
 assert.equal(result.mixEffects[0].pvwId, 2);
-assert.deepEqual(result.mixEffects[0].ftb, { isFullyBlack: true, inTransition: false });
+assert.deepEqual(result.mixEffects[0].ftb, { rate: 30, isFullyBlack: true, inTransition: false });
 assert.equal(result.mixEffects[0].upstreamKeyers[0].fillId, 1);
 assert.equal(result.mixEffects[0].upstreamKeyers[0].keyId, 2);
+assert.equal(result.mixEffects[0].upstreamKeyers[0].type, 'Chroma');
 assert.equal(result.downstreamKeyers[0].fillId, 2);
 assert.equal(result.downstreamKeyers[0].keyId, 1);
 assert.deepEqual(result.aux.map(x => [x.busId, x.destinationId, x.name, x.sourceId]), [

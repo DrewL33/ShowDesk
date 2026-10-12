@@ -346,7 +346,7 @@ function refreshShowDeskSettings(){
  if($("settingsDevice"))$("settingsDevice").textContent=connectedDevice?.name||connectedDevice?.productIdentifier||liveEngineering.productIdentifier||"—";
  if($("settingsAddress"))$("settingsAddress").textContent=connectedDevice?.ip||viewerConnectionContext?.ip||"—";
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
- if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.102"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.102").split(".").pop()).padStart(3,"0")} · ${showDeskUpdater.currentVersion||"0.1.102"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
+ if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"0.1.103"; if($("settingsBuild"))$("settingsBuild").textContent=`Build${String((showDeskUpdater.currentVersion||"0.1.103").split(".").pop()).padStart(3,"0")} · ${showDeskUpdater.currentVersion||"0.1.103"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
 }
 function openShowDeskSettings(){refreshShowDeskSettings();updateReferenceUI();renderSavedConnectionChoices();syncSettingsWorkspaceMenu();closeSettingsWorkspaceMenu();if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");$("settingsModal").hidden=false}
 function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true}
@@ -429,8 +429,15 @@ function setReferenceItemsAll(category,enabled){
 }
 function referenceCategoryItems(category){
  if(!baselineState.attached)return [];
+ if(category==="configuration")return window.ShowDeskReferenceComparison?.configurationChecks(baselineState.metadata,liveEngineering).map(item=>item.name)||[];
  if(category==="routing")return Object.keys(baselineState.routes||{});
  if(category==="programPreview")return [["PROGRAM",baselineState.pgm],["PREVIEW",baselineState.pvw]].filter(x=>x[1]).map(x=>x[0]);
+ return [];
+}
+function referenceCategoryChecks(category){
+ if(category==="configuration")return window.ShowDeskReferenceComparison?.configurationChecks(baselineState.metadata,liveEngineering)||[];
+ if(category==="routing")return Object.entries(baselineState.routes||{}).map(([name,expected])=>({name,expected,actual:actual[name]}));
+ if(category==="programPreview")return [["PROGRAM",baselineState.pgm,pgm],["PREVIEW",baselineState.pvw,pvw]].filter(([,expected])=>expected).map(([name,expected,actual])=>({name,expected,actual}));
  return [];
 }
 function renderReferenceItems(){
@@ -452,11 +459,10 @@ function referenceCategoryStatus(category){
  const names=referenceCategoryItems(category).filter(name=>referenceItemEnabled(category,name));
  if(!referenceComparisonSettings()[category])return {status:"disabled",label:"Not monitored",details:[],selected:names.length};
  if(!baselineState.attached||!names.length)return {status:"unverified",label:"No comparable values",details:[],selected:names.length};
- const details=names.map(name=>{
-  const expectedValue=category==="routing"?baselineState.routes[name]:name==="PROGRAM"?baselineState.pgm:baselineState.pvw;
-  const actualValue=category==="routing"?actual[name]:name==="PROGRAM"?pgm:pvw;
-  const unknown=actualValue===undefined||actualValue===null||actualValue===""||actualValue==="—"||actualValue==="UNUSED";
-  return {name,expected:expectedValue,actual:actualValue,kind:unknown?"unverified":String(expectedValue)===String(actualValue)?"matching":"mismatch"};
+ const checks=referenceCategoryChecks(category),details=names.map(name=>{
+  const check=checks.find(item=>item.name===name)||{},expectedValue=check.expected,actualValue=check.actual;
+  const kind=category==="configuration"?window.ShowDeskReferenceComparison.compareValues(expectedValue,actualValue,check.mode):actualValue===undefined||actualValue===null||actualValue===""||actualValue==="—"||actualValue==="UNUSED"?"unverified":String(expectedValue)===String(actualValue)?"matching":"mismatch";
+  return {name,expected:expectedValue,actual:actualValue,kind};
  });
  const mismatches=details.filter(item=>item.kind==="mismatch").length;
  const unknown=details.filter(item=>item.kind==="unverified").length;
@@ -467,7 +473,7 @@ function publishReferenceAttention(){
  if(activeConnectionMode!=="host"||!window.ATEM_TRANSPORT?.publishReferenceAttention)return;
  const categories=[["configuration","Configuration"],["routing","AUX / Output Routing"],["programPreview","Program / Preview"]].map(([category,label])=>{
   const result=referenceCategoryStatus(category);
-  return {category,label,status:result.status,summary:result.label,note:category==="configuration"&&result.status==="unverified"?"No stable configuration fields are currently enforced by the imported parser.":"",details:result.details.filter(item=>item.kind!=="matching").map(item=>({name:item.name,kind:item.kind,message:item.kind==="unverified"?"Cannot verify live value":`Expected ${item.expected} · Actual ${item.actual}`}))};
+  return {category,label,status:result.status,summary:result.label,note:category==="configuration"&&!referenceCategoryItems("configuration").length?"This reference contains no supported configuration values.":"",details:result.details.filter(item=>item.kind!=="matching").map(item=>({name:item.name,kind:item.kind,message:item.kind==="unverified"?"Cannot verify live value":`Expected ${item.expected} · Actual ${item.actual}`}))};
  });
  const data={attached:baselineState.attached,name:baselineState.name||"",categories};
  const encoded=JSON.stringify(data);
@@ -491,10 +497,8 @@ function getMismatches(){
  if(settings.routing)Object.entries(baselineState.routes||{}).filter(([name])=>referenceItemEnabled("routing",name)).forEach(([name,expectedRoute])=>{
    if(actual[name]!==undefined&&actual[name]!==expectedRoute)out.push({type:"ROUTE",name,expected:expectedRoute,actual:actual[name]});
  });
- if(settings.programPreview){
-  if(referenceItemEnabled("programPreview","PROGRAM")&&baselineState.pgm&&pgm!==baselineState.pgm)out.push({type:"PROGRAM",name:"M/E 1 PROGRAM",expected:baselineState.pgm,actual:pgm});
-  if(referenceItemEnabled("programPreview","PREVIEW")&&baselineState.pvw&&pvw!==baselineState.pvw)out.push({type:"PREVIEW",name:"M/E 1 PREVIEW",expected:baselineState.pvw,actual:pvw});
- }
+ if(settings.configuration)referenceCategoryStatus("configuration").details.filter(item=>item.kind==="mismatch").forEach(item=>out.push({type:"CONFIGURATION",...item}));
+ if(settings.programPreview)referenceCategoryStatus("programPreview").details.filter(item=>item.kind==="mismatch").forEach(item=>out.push({type:item.name,name:`M/E 1 ${item.name}`,expected:item.expected,actual:item.actual}));
  return out;
 }
 function updateReferenceUI(){
@@ -504,7 +508,7 @@ function updateReferenceUI(){
  if($("referenceAttached"))$("referenceAttached").hidden=!on;
  if(on){if($("engReferenceName"))$("engReferenceName").textContent=name;if($("referenceMeta"))$("referenceMeta").textContent=`${Object.keys(baselineState.routes).length} comparable routes • loaded ${new Date(baselineState.loadedAt).toLocaleTimeString()}`;}
  if($("diagReference"))$("diagReference").textContent=on?name:"NONE";
- const controls=$("referenceComparisonControls");if(controls){controls.hidden=!on;if(on){const settings=referenceComparisonSettings();["configuration","routing","programPreview"].forEach(k=>{const el=$("referenceCompare"+k);if(el)el.checked=Boolean(settings[k]);});const kind=$("referenceKind");if(kind)kind.textContent=baselineState.metadata?.format==="ATEM Software Control"?"ATEM snapshot · informational by default":"Imported reference";const note=$("referenceCompareNote");if(note)note.textContent=settings.configuration?"Configuration comparison enabled; no stable configuration fields are currently enforced by the imported parser.":"Configuration comparison disabled.";}}
+ const controls=$("referenceComparisonControls");if(controls){controls.hidden=!on;if(on){const settings=referenceComparisonSettings();["configuration","routing","programPreview"].forEach(k=>{const el=$("referenceCompare"+k);if(el)el.checked=Boolean(settings[k]);});const kind=$("referenceKind");if(kind)kind.textContent=baselineState.metadata?.format==="ATEM Software Control"?"ATEM snapshot · informational by default":"Imported reference";const note=$("referenceCompareNote");if(note)note.textContent=!settings.configuration?"Configuration comparison disabled.":referenceCategoryItems("configuration").length?"Checks model, M/E and keyer counts, keyer types and assignments, and FTB rates when available.":"No supported configuration values were found in this reference.";}}
  const settings=referenceComparisonSettings();REFERENCE_CATEGORIES.forEach(k=>{for(const prefix of ["referenceCompare","settingsReference"]){const el=$(prefix+k);if(el)el.checked=Boolean(settings[k]);}});renderReferenceItems();
  const mm=getMismatches();if($("mismatchCount"))$("mismatchCount").textContent=on?mm.length:"—";
  if($("sessionChangeCount"))$("sessionChangeCount").textContent=sessionEvents.filter(e=>e.kind==="ROUTE"||e.kind==="STATE"||/^M\/E \d+$/.test(e.kind)).length;
@@ -564,7 +568,8 @@ async function importReferenceFile(event){
    const text=await file.text();let ref;
    if(file.name.toLowerCase().endsWith(".json")){ref=normalizeReferenceObject(JSON.parse(text));}
    else {ref=parseXmlReference(text);}
-   if(!Object.keys(ref.routes).length&&!ref.pgm&&!ref.pvw)throw new Error("No comparable routing or bus state was found in this file.");
+   const configValues=window.ShowDeskReferenceComparison?.configurationChecks(ref.metadata||{},{}).length||0;
+   if(!Object.keys(ref.routes).length&&!ref.pgm&&!ref.pvw&&!configValues)throw new Error("No comparable routing, bus, or configuration values were found in this file.");
    baselineState.attached=true;baselineState.name=file.name;baselineState.loadedAt=new Date().toISOString();baselineState.pgm=ref.pgm;baselineState.pvw=ref.pvw;baselineState.metadata=ref.metadata||{};
    Object.keys(baselineState.routes).forEach(k=>delete baselineState.routes[k]);Object.assign(baselineState.routes,ref.routes);
    recordEvent("REFERENCE",`Reference attached: ${file.name}`,{routes:Object.keys(ref.routes).length});persistReference();updateReferenceUI();render();toast("Reference attached");
