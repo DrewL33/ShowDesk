@@ -647,3 +647,29 @@ body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!importa
 .rackSectionLabel,.rackModelPanel small{color:var(--sd-muted)}.rackModelPanel b,.rackModelPanel span{color:var(--sd-text)}.rackModelPanel span{color:var(--sd-muted)}
 .miniSlot{border-bottom-color:var(--sd-line-soft)}.miniSlot>span,.noSlotStatus{color:var(--sd-muted)}.miniSlot b{color:var(--sd-text)}
 .rackDetails>details{background:var(--sd-panel);border-color:var(--sd-line);border-radius:1px}.rackDetails summary{color:var(--sd-text)}.rackDetails summary:after{color:var(--sd-muted)}.rackDetails .hyperdeckSlot{background:var(--sd-bg);border-color:var(--sd-line)}.rackDetails .hyperdeckFieldList>div{background:var(--sd-bg);border-color:var(--sd-line)}.rackDetails .hyperdeckFieldList dt{color:var(--sd-muted)}.rackDetails .hyperdeckFieldList dd{color:var(--sd-text)}
+/* Give the monitor more readable scale without simulating physical rack ears. */
+.hyperdeckRackUnit{display:block;overflow:visible}
+.rackFace{padding:16px 18px 15px}
+.rackHeader{gap:12px;padding-bottom:12px}
+.rackIdentity{gap:5px}
+.rackIdentity b{font-size:15px}
+.rackIdentity span{font-size:11px}
+.rackNameLabel{color:var(--sd-muted);font-size:9px;font-weight:800;letter-spacing:.1em}
+.rackNameInput{width:min(100%,320px);padding:5px 8px;background:var(--sd-bg);border:1px solid var(--sd-line);border-radius:1px;color:var(--sd-text);font-family:inherit;font-size:15px;font-weight:700;letter-spacing:.02em}
+.rackNameInput:focus{outline:2px solid var(--sd-blue);outline-offset:1px}
+.rackConnection{font-size:10px}
+.rackRemove{padding:7px 10px;font-size:9px}
+.rackPanel{gap:12px;padding-top:12px}
+.rackTransport,.rackSlotIndicators,.rackModelPanel{padding:12px}
+.rackSectionLabel,.rackModelPanel small{font-size:9px}
+.rackTransportLeds>span{font-size:9px}.rackTransportLeds i,.slotLed{width:8px;height:8px}
+.rackStaticControls span{min-width:27px;padding:7px 5px;font-size:11px}
+.lcdTop,.lcdBottom{font-size:9px}.lcdMain small{font-size:9px}.lcdTransport{font-size:15px!important}.lcdTimecode{font-size:clamp(24px,2.7vw,36px)}
+.miniSlot>span{font-size:9px}.miniSlot b{font-size:10px}
+.rackModelPanel{gap:8px}.rackModelPanel b{font-size:12px}.rackModelPanel span{font-size:9px}
+.rackDetails{gap:10px;margin-top:10px}.rackDetails>details{padding:10px 12px}.rackDetails summary{font-size:10px}
+.hyperdeckForm{grid-template-columns:minmax(190px,.75fr) minmax(250px,1.5fr) 100px auto;gap:10px}
+.hyperdeckForm label{font-size:11px}.hyperdeckForm input{padding:12px;font-size:13px}.hyperdeckForm button{height:42px}
+.hyperdeckSetupPanel{padding:16px}
+@media(max-width:850px){.rackPanel{grid-template-columns:minmax(160px,.75fr) minmax(260px,1.6fr)}.rackSlotIndicators,.rackModelPanel{min-height:84px}}
+@media(max-width:560px){.rackFace{padding:12px}.rackHeader{gap:9px}.rackIdentity{flex:1 1 calc(100% - 42px)}.rackIdentity b,.rackNameInput{font-size:14px}.rackIdentity span{font-size:10px;white-space:normal}.rackConnection{margin-left:38px;font-size:9px}.rackPanel{grid-template-columns:minmax(0,1fr)}.rackLcd{min-height:128px}.rackTimecode{font-size:22px}.rackDetails{grid-template-columns:1fr}.hyperdeckForm{grid-template-columns:1fr 1fr}.hyperdeckForm label:first-child{grid-column:1/-1}.hyperdeckForm button{grid-column:1/-1}}

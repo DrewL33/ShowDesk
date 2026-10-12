@@ -36,12 +36,17 @@ assert.match(assets, /'\/runtime-config\.js'/, 'The Host must serve the channel 
 assert.match(hostHtml, /data-change-action="hyperdeck-enabled"/, 'HyperDeck Monitoring must be an optional workspace setting');
 assert.match(hostHtml, /id="hyperdeckBtn"[^>]*>HyperDeck Monitoring/, 'Enabling the feature must expose the matching workspace tab');
 assert.match(hostHtml, /class="hyperdeckPage"[\s\S]*id="hyperdeckHost"/, 'The HyperDeck tab must let users add decks by IP');
+assert.match(hostHtml, /Name \(optional\)/, 'Deck names must be optional when adding a HyperDeck');
 assert.match(hostApp, /hyperdeckMonitoring\?hyperdeckConfigs:\[\]/, 'Deck connections should only run while optional monitoring is enabled');
 assert.match(hostApp, /hyperdeckRackUnit/, 'Each deck should render as its own rack unit');
+assert.match(hostApp, /nextHyperdeckName/, 'New decks should receive the next available HyperDeck number automatically');
+assert.match(hostApp, /data-change-action="hyperdeck-name"/, 'Deck names should be editable after adding');
+assert.match(hostApp, /normalizedHyperdeckEndpoint/, 'Duplicate saved endpoints should be normalized and detected consistently');
 assert.match(hostApp, /lcdTimecode/, 'Rack units should foreground the live timecode display');
 assert.match(hostApp, /Media slot information/, 'Additional HyperDeck status should be grouped in expandable sections');
 const styles = fs.readFileSync('public/styles.css', 'utf8');
 assert.match(styles, /\.hyperdeckPage \.hyperdeckCards\{display:grid;grid-template-columns:minmax\(0,1fr\)/, 'Rack units should stack vertically');
+assert.match(styles, /\.hyperdeckRackUnit\{display:block;overflow:visible\}/, 'The deck display should not draw decorative rack ears');
 assert.match(styles, /\.rackFace\{background:var\(--sd-work\)/, 'The rack should use ShowDesk workspace colors');
 
 console.log('ShowDesk stable and beta release channels are isolated.');

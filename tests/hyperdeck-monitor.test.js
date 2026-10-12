@@ -45,6 +45,11 @@ function waitFor(predicate, timeoutMs = 1500) {
   await new Promise(resolve => fakeDeck.listen(0, '127.0.0.1', resolve));
   const monitor = new HyperDeckMonitor();
   try {
+    assert.equal(cleanConfig({ id: 'deck-default', host: '127.0.0.1', port: fakeDeck.address().port }).name, 'HyperDeck');
+    assert.throws(() => monitor.configure([
+      { id: 'deck-a', name: 'HyperDeck 1', host: '127.0.0.1', port: fakeDeck.address().port },
+      { id: 'deck-b', name: 'HyperDeck 2', host: '127.0.0.1', port: fakeDeck.address().port }
+    ]), /endpoint can only be configured once/);
     monitor.configure([{ id: 'deck1', name: 'Studio A', host: '127.0.0.1', port: fakeDeck.address().port }]);
     await waitFor(() => monitor.snapshot()[0]?.transport?.status === 'play' && monitor.snapshot()[0]?.slots?.length === 1);
     const deck = monitor.snapshot()[0];
@@ -56,6 +61,11 @@ function waitFor(predicate, timeoutMs = 1500) {
     const sent = commands;
     assert.deepEqual(sent.sort(), ['device info', 'notify: device info: true', 'notify: slot: true', 'notify: transport: true', 'slot info', 'transport info'].sort());
     assert(!sent.some(command => /^(play|stop|record|jog|shuttle|goto|preview|remote)$/.test(command)));
+    const commandCount = commands.length;
+    monitor.configure([{ id: 'deck1', name: 'Studio A - renamed', host: '127.0.0.1', port: fakeDeck.address().port }]);
+    assert.equal(monitor.snapshot()[0].name, 'Studio A - renamed');
+    assert.equal(monitor.snapshot()[0].status, 'connected');
+    assert.equal(commands.length, commandCount, 'renaming a deck must not reconnect or reinitialize its socket');
     monitor.configure([]);
     assert.equal(monitor.snapshot().length, 0);
   } finally {

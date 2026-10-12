@@ -11,7 +11,7 @@ const RECONNECT_MAX_MS = 30_000;
 function cleanConfig(config) {
   if (!config || typeof config !== 'object') throw new Error('Invalid HyperDeck configuration');
   const id = String(config.id || '').slice(0, 64);
-  const name = String(config.name || '').trim().slice(0, 64);
+  const name = String(config.name || 'HyperDeck').trim().slice(0, 64) || 'HyperDeck';
   const host = String(config.host || '').trim();
   const port = Number(config.port ?? 9993);
   if (!/^[\w-]{1,64}$/.test(id)) throw new Error('Invalid HyperDeck id');
@@ -46,11 +46,16 @@ class HyperDeckMonitor extends EventEmitter {
     if (!Array.isArray(configs) || configs.length > MAX_DECKS) throw new Error(`Configure no more than ${MAX_DECKS} HyperDecks`);
     const normalized = configs.map(cleanConfig);
     if (new Set(normalized.map(item => item.id)).size !== normalized.length) throw new Error('HyperDeck IDs must be unique');
+    const endpoints = normalized.map(item => `${item.host.toLowerCase()}:${item.port}`);
+    if (new Set(endpoints).size !== endpoints.length) throw new Error('A HyperDeck network endpoint can only be configured once');
     const keep = new Set(normalized.map(item => item.id));
     for (const id of this.entries.keys()) if (!keep.has(id)) this.remove(id);
     for (const config of normalized) {
       const existing = this.entries.get(config.id);
-      if (existing && existing.config.host === config.host && existing.config.port === config.port && existing.config.name === config.name) continue;
+      if (existing && existing.config.host === config.host && existing.config.port === config.port) {
+        existing.config = config;
+        continue;
+      }
       if (existing) this.remove(config.id);
       const entry = { config, socket: null, retry: null, retryMs: this.reconnectMinMs, buffer: '', lines: [], info: {}, transport: {}, slots: {}, status: 'connecting', error: '' };
       this.entries.set(config.id, entry);
