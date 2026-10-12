@@ -12,7 +12,7 @@
   <a href="https://github.com/DrewL33/ShowDesk/releases/latest">All releases</a>
 </p>
 
-![ShowDesk Show View](docs/images/show-view.svg)
+![ShowDesk Host or Viewer connection screen](docs/images/connection-view.png)
 
 ## See the whole signal path
 
