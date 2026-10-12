@@ -14,11 +14,7 @@
     <div class="connectionPill" id="connectionPill" data-status="connecting"><i></i><span id="connectionLabel">CONNECTING</span></div>
   </header>
   <main>
-    <form id="hostForm" class="hostForm">
-      <label for="hostAddress">SHOWDESK HOST IP</label>
-      <div class="hostRow"><input id="hostAddress" name="hostAddress" inputmode="decimal" autocomplete="url" placeholder="192.168.1.100"><button type="submit" id="connectButton">CONNECT</button></div>
-      <p id="connectionMessage" aria-live="polite">Connecting to this ShowDesk Host on port 47822…</p>
-    </form>
+    <div class="connectionInfo"><p id="connectionMessage" aria-live="polite">Connecting to this ShowDesk Host…</p><button type="button" id="connectButton" hidden>RECONNECT</button></div>
 
     <nav class="tabs" aria-label="Viewer tabs">
       <button type="button" class="tabButton is-active" data-tab="show" aria-selected="true">SHOW</button>
@@ -32,6 +28,7 @@
         <article class="programCard program"><span>PROGRAM <b>ON AIR</b></span><strong id="programSource">—</strong><small id="programContext">Waiting for switcher state</small></article>
         <article class="programCard preview"><span>PREVIEW <b>READY</b></span><strong id="previewSource">—</strong><small id="previewContext">Waiting for switcher state</small></article>
       </div>
+      <div id="meSelector" class="meSelector" role="group" aria-label="Select M/E to watch"></div>
       <div class="card"><div class="cardTitle"><h2>ACTIVE SOURCES</h2><span id="activeCount">0 ACTIVE</span></div><div id="activeSources" class="stack"><p class="empty">Connect to a host to see live sources.</p></div></div>
       <div class="card"><div class="cardTitle"><h2>RECENT CHANGES</h2><span>THIS SESSION</span></div><div id="recentChanges" class="stack"><p class="empty">No changes yet.</p></div></div>
     </section>
@@ -46,7 +43,9 @@
     <section id="inspectTab" class="tabPage" aria-label="Inspect" hidden>
       <div class="sectionHeading"><div><span class="eyebrow">SWITCHER STATUS</span><h1>Inspect</h1></div></div>
       <div class="summaryGrid" id="summaryGrid"></div>
-      <div class="card"><div class="cardTitle"><h2>INPUT INVENTORY</h2><span id="inputCount">0 INPUTS</span></div><div id="inputInventory" class="stack"><p class="empty">Input inventory appears when live state arrives.</p></div></div>
+      <div class="card"><div class="cardTitle"><h2>ROUTING MATRIX</h2><span id="matrixCount">0 SOURCES</span></div><div id="mobileMatrix" class="stack"><p class="empty">Routing matrix appears when live state arrives.</p></div></div>
+      <div class="card"><div class="cardTitle"><h2>DIAGNOSTICS</h2><span>HOST + SWITCHER</span></div><div id="diagnostics" class="diagnosticsGrid"><p class="empty">Diagnostics appear when live state arrives.</p></div></div>
+      <details class="card inventoryDisclosure"><summary>INPUT INVENTORY <span id="inputCount">0 INPUTS</span></summary><div id="inputInventory" class="stack"><p class="empty">Input inventory appears when live state arrives.</p></div></details>
       <div class="card"><div class="cardTitle"><h2>KEYERS</h2><span>LIVE STATE</span></div><div id="keyerInventory" class="stack"><p class="empty">No keyer state yet.</p></div></div>
       <div class="card"><div class="cardTitle"><h2>AUX ROUTING</h2><span id="auxCount">0 ROUTES</span></div><div id="auxInventory" class="stack"><p class="empty">No AUX routes yet.</p></div></div>
     </section>

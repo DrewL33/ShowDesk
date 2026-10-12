@@ -14,7 +14,10 @@ assert.match(html, /name="viewport"[^>]*width=device-width/,'Mobile viewer must 
 assert.match(html, /href="\/mobile-viewer\.css"/,'Mobile viewer must load its responsive stylesheet');
 assert.match(html, /src="\/mobile-viewer\.js"/,'Mobile viewer must load its browser controller');
 assert.match(html, /data-tab="show"[\s\S]*data-tab="signal"[\s\S]*data-tab="inspect"/,'Mobile viewer must preserve all three workspaces');
-assert.match(html, /id="hostAddress"/,'Mobile viewer must let the user enter a ShowDesk Host address');
+assert.doesNotMatch(html, /hostAddress|hostForm/,'Mobile viewer must not duplicate the Host IP already in the browser address');
+assert.match(html, /id="meSelector"[^>]*Select M\/E to watch/,'Show View must provide a mobile M/E picker');
+assert.match(html, /id="mobileMatrix"/,'Inspect must include a mobile routing matrix');
+assert.match(html, /id="diagnostics"/,'Inspect must include live diagnostics');
 assert.match(html, /READ ONLY/,'Mobile viewer must clearly indicate read-only access');
 assert.match(js, /url\.pathname\s*=\s*'\/viewer'/,'Mobile viewer must connect directly to the read-only Viewer socket');
 assert.match(js, /if\s*\(!url\.port\)\s*url\.port\s*=\s*'47822'/,'Mobile viewer must use the standard Host viewer port by default');
@@ -23,7 +26,11 @@ assert.match(js, /message\.type === 'state'/,'Mobile viewer must render live Hos
 assert.match(js, /setTimeout\(\(\) => socketConnect\(value, true\), 2000\)/,'Mobile viewer must reconnect after an established socket drops');
 assert.doesNotMatch(js, /\.send\s*\(/,'Mobile viewer must not send control commands to the Host');
 assert.match(js, /function renderSignal\(/,'Mobile Signal tab must provide a compact routing overview');
-assert.match(js, /function renderInspect\(/,'Mobile Inspect tab must show inventory and routing details');
+assert.match(js, /function buildSignalGraph\(/,'Mobile Signal tab must use the same source, bus, processor, internal-output, and destination topology model');
+assert.match(js, /data-signal-node/,'Mobile Signal nodes must be selectable for path tracing');
+assert.match(js, /feed\(me\.pgmId[\s\S]*feed\(me\.pvwId/,'Mobile signal graph must trace source feeds into M/E program and preview buses');
+assert.match(js, /function renderInspect\([\s\S]*?ROUTING DESTINATIONS[\s\S]*?KEYERS ON AIR[\s\S]*?FTB ACTIVE/,'Mobile Inspect must include routing matrix data and operational diagnostics');
+assert.match(js, /socketConnect\(location\.hostname\)/,'Mobile viewer must connect using the host already in the browser address');
 assert.match(css, /@media\(max-width:360px\)/,'Mobile layout must support narrow phone widths');
 assert.match(css, /env\(safe-area-inset-bottom/,'Mobile layout must account for device safe areas');
 assert.match(assets, /'\/mobile-viewer\.js'/,'Mobile browser assets must be served by the packaged runtime');

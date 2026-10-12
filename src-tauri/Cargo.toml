@@ -1,6 +1,6 @@
 [package]
 name = "showdesk"
-version = "0.1.100"
+version = "0.1.101"
 description = "ShowDesk desktop shell"
 edition = "2021"
 
