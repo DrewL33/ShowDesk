@@ -14,7 +14,7 @@
 
 ![ShowDesk Host or Viewer connection screen](docs/images/connection-view.png)
 
-## See the whole signal path
+## Description
 
 ShowDesk turns live switcher state into a clear operational view. It reads the ATEM directly in Host Mode, or connects as a read-only desktop or phone Viewer to a ShowDesk Host.
 
