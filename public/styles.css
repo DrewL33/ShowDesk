@@ -677,7 +677,7 @@ body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!importa
 .hyperdeckSetupPanel .head{align-items:flex-start;margin-bottom:16px}
 .hyperdeckSetupPanel .head h2{color:var(--sd-text);font-size:15px;letter-spacing:.1em}
 .hyperdeckSetupPanel .head p{margin:5px 0 0;color:var(--sd-muted);font-size:12px}
-.hyperdeckForm{grid-template-columns:minmax(280px,1.8fr) minmax(180px,.9fr) 110px auto;gap:12px}
+.hyperdeckForm{grid-template-columns:minmax(280px,1.8fr) minmax(180px,.9fr) auto;gap:12px}
 .hyperdeckForm label{color:var(--sd-muted);font-size:10px;font-weight:800;letter-spacing:.06em}
 .hyperdeckForm .hyperdeckAddressField{color:var(--sd-text);font-size:11px}
 .hyperdeckForm input{min-height:45px;margin-top:7px;padding:12px 13px;background:var(--sd-bg);border:1px solid var(--sd-line);border-radius:1px;color:var(--sd-text);font-size:14px}
@@ -686,7 +686,7 @@ body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!importa
 .hyperdeckForm button{min-height:45px;height:45px;padding:0 18px;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--sd-blue);border-color:var(--sd-blue);color:#fff;font-size:11px;font-weight:900;letter-spacing:.04em;white-space:nowrap}
 .hyperdeckForm button span{font-size:16px;line-height:1}
 #hyperdeckSettingsStatus{display:block;margin-top:12px;font-size:11px}
-@media(max-width:850px){.hyperdeckForm{grid-template-columns:minmax(220px,1.5fr) minmax(150px,1fr) 95px}.hyperdeckForm button{grid-column:1/-1;justify-self:start}}
+@media(max-width:850px){.hyperdeckForm{grid-template-columns:minmax(220px,1.5fr) minmax(150px,1fr)}.hyperdeckForm button{grid-column:1/-1;justify-self:start}}
 @media(max-width:560px){.hyperdeckSetupPanel{padding:15px}.hyperdeckSetupPanel .head{flex-direction:column}.hyperdeckSetupPanel .head .sub{margin-top:7px}.hyperdeckForm{grid-template-columns:1fr 90px}.hyperdeckForm .hyperdeckAddressField,.hyperdeckForm label:nth-child(2),.hyperdeckForm button{grid-column:1/-1}.hyperdeckForm button{justify-self:stretch}}
 .rackDetails>details{background:var(--sd-work);border-left:3px solid var(--sd-line);padding:12px 14px}
 .rackDetails>details[open]{border-left-color:var(--sd-blue)}

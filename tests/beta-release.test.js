@@ -41,6 +41,8 @@ assert.match(hostHtml, /Name \(optional\)/i, 'Deck names must be optional when a
 assert.match(hostHtml, /id="hyperdeckName"[^>]*placeholder="HyperDeck"/, 'The optional name suggestion should not include a number');
 assert.match(hostHtml, /HYPERDECK IP ADDRESS/, 'Adding a deck should make the IP address the primary field');
 assert.match(hostHtml, /CONNECT A HYPERDECK/, 'The add form should be presented as the prominent deck connection action');
+assert.match(hostHtml, /TCP 9993/, 'The HyperDeck setup should explain the fixed protocol port');
+assert.doesNotMatch(hostHtml, /id="hyperdeckPort"/, 'The add form should not expose a port override');
 assert.match(hostApp, /hyperdeckMonitoring\?hyperdeckConfigs:\[\]/, 'Deck connections should only run while optional monitoring is enabled');
 assert.match(hostApp, /hyperdeckRackUnit/, 'Each deck should render as its own rack unit');
 assert.match(hostApp, /nextHyperdeckName/, 'New decks should receive the next available HyperDeck number automatically');
@@ -48,7 +50,9 @@ assert.match(hostApp, /data-change-action="hyperdeck-name"/, 'Deck names should 
 assert.match(hostApp, /normalizedHyperdeckEndpoint/, 'Duplicate saved endpoints should be normalized and detected consistently');
 assert.match(hostApp, /lcdTimecode/, 'Rack units should foreground the live timecode display');
 assert.match(hostApp, /Media slot information/, 'Additional HyperDeck status should be grouped in expandable sections');
-assert.match(hostApp, /SOFTWARE VERSION/, 'The deck front panel should show the reported software version clearly');
+assert.match(hostApp, /deck\.softwareVersion\?`<span>SOFTWARE VERSION/, 'Show the software version only when the device reports it');
+assert.match(hostApp, /hyperdeckFieldList\(t,\["status","display timecode","speed","clip id","video format"\]\)/, 'Transport details should omit values already visible on the front display');
+assert.match(hostApp, /rawHost=\$\("hyperdeckHost"\)\.value\.trim\(\),port=9993/, 'New HyperDeck connections should use the standard fixed port');
 assert.match(styles, /\.rackDetails \.hyperdeckFieldList dd\{margin-top:6px;font-size:13px/, 'Expandable HyperDeck details should use readable value text');
 assert.match(styles, /\.hyperdeckPage \.hyperdeckCards\{display:grid;grid-template-columns:minmax\(0,1fr\)/, 'Rack units should stack vertically');
 assert.match(styles, /\.hyperdeckRackUnit\{display:block;overflow:visible\}/, 'The deck display should not draw decorative rack ears');
