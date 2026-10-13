@@ -38,6 +38,7 @@ assert.match(hostHtml, /data-change-action="hyperdeck-enabled"/, 'HyperDeck Moni
 assert.match(hostHtml, /id="hyperdeckBtn"[^>]*>HyperDeck Monitoring/, 'Enabling the feature must expose the matching workspace tab');
 assert.match(hostHtml, /class="hyperdeckPage"[\s\S]*id="hyperdeckHost"/, 'The HyperDeck tab must let users add decks by IP');
 assert.match(hostHtml, /Name \(optional\)/i, 'Deck names must be optional when adding a HyperDeck');
+assert.match(hostHtml, /id="hyperdeckName"[^>]*placeholder="HyperDeck"/, 'The optional name suggestion should not include a number');
 assert.match(hostHtml, /HYPERDECK IP ADDRESS/, 'Adding a deck should make the IP address the primary field');
 assert.match(hostHtml, /CONNECT A HYPERDECK/, 'The add form should be presented as the prominent deck connection action');
 assert.match(hostApp, /hyperdeckMonitoring\?hyperdeckConfigs:\[\]/, 'Deck connections should only run while optional monitoring is enabled');
