@@ -92,6 +92,7 @@
    <div class="inspect" id="keyerInspector"></div></div><div class="panel"><div class="head"><h2>DIAGNOSTICS</h2><span class="sub">switcher + route health</span></div><div class="diag" id="diagnostics"></div></div><div class="panel" style="margin-top:10px"><div class="head"><h2>ATEM DEBUG</h2><span class="sub">read-only state exposed to ShowDesk</span><button class="tinyAction" data-action="toggle-debug">SHOW / HIDE</button></div><pre id="atemDebug" hidden style="max-height:360px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#080c0f;border:1px solid var(--line);border-radius:7px;padding:12px;font-size:9px;line-height:1.5"></pre></div></section>
 <section class="hyperdeckPage" aria-label="HyperDeck monitor">
   <div class="signalWorkspaceHead"><div><h2>HYPERDECK MONITORING</h2><p>Read-only deck, transport, timecode, and media-slot status.</p></div></div>
+  <p id="hyperdeckViewerNotice" class="hyperdeckViewerNotice" hidden>Read-only status is relayed by the ShowDesk Host. This Viewer does not connect directly to HyperDecks.</p>
   <div class="panel hyperdeckSetupPanel"><div class="head"><div><h2>CONNECT A HYPERDECK</h2><p>Enter the deck’s IP address to start monitoring.</p></div><span class="sub">HyperDeck Ethernet protocol · TCP 9993</span></div>
    <div class="hyperdeckForm"><label class="hyperdeckAddressField">HYPERDECK IP ADDRESS<input id="hyperdeckHost" inputmode="decimal" placeholder="192.168.1.50" aria-describedby="hyperdeckSettingsStatus" data-enter-action="add-hyperdeck"></label><label>NAME (OPTIONAL)<input id="hyperdeckName" maxlength="64" placeholder="HyperDeck" data-enter-action="add-hyperdeck"></label><button class="tinyAction primaryAction" type="button" data-action="add-hyperdeck"><span aria-hidden="true">＋</span> ADD HYPERDECK</button></div>
    <small id="hyperdeckSettingsStatus" role="status">ShowDesk reads status only and does not control playback or recording.</small>
@@ -140,14 +141,17 @@
    </section>
    <section id="settingsSectionHyperdeck" class="settingsSection" hidden>
     <h3>WORKSPACE</h3>
-    <p>Enable the HyperDeck Monitoring workspace to add a dedicated tab to ShowDesk.</p>
+    <p id="hyperdeckSettingsIntro">Enable the HyperDeck Monitoring workspace to add a dedicated tab to ShowDesk.</p>
     <label class="settingsControlRow" for="settingsHyperdeckEnabled"><span>Show HyperDeck Monitor tab</span><input id="settingsHyperdeckEnabled" type="checkbox" data-change-action="hyperdeck-enabled"></label>
-    <h3>DEVICE SETUP</h3>
-    <p>Add a deck by IP address, rename it, and review its connection from the HyperDeck Monitoring tab. ShowDesk reads status only and does not control playback or recording.</p>
-    <h3>SAVED IP ADDRESSES</h3>
-    <p>Addresses appear here only after ShowDesk connects successfully. Choose one to prefill the add form on the monitor tab.</p>
-    <button class="settingsAction settingsHyperdeckViewAll" type="button" data-action="view-hyperdecks">VIEW DECKS</button>
-    <div id="settingsHyperdeckAddresses" class="settingsHyperdeckList" aria-live="polite"><p>No confirmed HyperDeck addresses yet.</p></div>
+    <p id="hyperdeckViewerSettingsNotice" hidden>Viewer mode receives read-only status from the ShowDesk Host. No HyperDeck IP address is needed on this computer.</p>
+    <div id="hyperdeckHostSettings">
+     <h3>DEVICE SETUP</h3>
+     <p>Add a deck by IP address on the Host, rename it, and review its connection from the HyperDeck Monitoring tab. ShowDesk reads status only and does not control playback or recording.</p>
+     <h3>SAVED IP ADDRESSES</h3>
+     <p>Addresses appear here only after ShowDesk connects successfully. Choose one to prefill the add form on the monitor tab.</p>
+     <button class="settingsAction settingsHyperdeckViewAll" type="button" data-action="view-hyperdecks">VIEW DECKS</button>
+     <div id="settingsHyperdeckAddresses" class="settingsHyperdeckList" aria-live="polite"><p>No confirmed HyperDeck addresses yet.</p></div>
+    </div>
    </section>
    <section id="settingsSectionConnections" class="settingsSection" hidden>
     <div class="settingsSectionHeader"><h3>CURRENT SESSION</h3><b id="settingsConnection">DISCONNECTED</b></div>

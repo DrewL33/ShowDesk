@@ -46,6 +46,11 @@ assert.match(hostApp, /String\(deck\.status\|\|""\)\.toLowerCase\(\)!=="connecte
 assert.match(hostApp, /data-action="use-saved-hyperdeck"/, 'Saved HyperDeck addresses should prefill the monitor tab');
 assert.match(hostApp, /function forgetSavedHyperdeckAddress\(endpoint\)\{savedHyperdeckAddresses=/, 'Saved HyperDeck addresses should be forgettable while still configured on the monitor tab');
 assert.doesNotMatch(hostApp, /\$\{active\?"VIEW DECK":"USE ADDRESS"\}/, 'Saved address rows should not duplicate the global View Decks action');
+assert.match(hostApp, /function isShowDeskViewer\(\)\{return activeConnectionMode==="viewer"\|\|\$\("viewerSetup"\)\?\.hidden===false\}/, 'Viewer setup must be treated as Viewer mode before the connection completes');
+assert.match(hostApp, /function setTab\(tab\)\{if\(!\["show","signal","engineering","hyperdecks"\]\.includes\(tab\)\|\|\(tab==="hyperdecks"&&!showDeskPreferences\.hyperdeckMonitoring\)\)return/, 'The locally enabled HyperDeck workspace must be reachable in Viewer mode');
+assert.match(hostApp, /if\(!isShowDeskViewer\(\)\)configureLocalHyperdeckMonitor\(\)/, 'The Viewer-side tab toggle must not initiate direct HyperDeck connections');
+assert.match(hostApp, /else if\(mode==="viewer"\)window\.ATEM_TRANSPORT\?\.configureHyperdecks\?\.\(\[\],false\)/, 'Choosing Viewer mode must stop any local HyperDeck IP connections');
+assert.match(hostHtml, /id="hyperdeckViewerSettingsNotice"[^>]*>Viewer mode receives read-only status from the ShowDesk Host\. No HyperDeck IP address is needed on this computer\./, 'Viewer Settings must explain that the Host supplies HyperDeck status');
 assert.match(hostHtml, /id="hyperdeckBtn"[^>]*>HyperDeck Monitoring/, 'Enabling the feature must expose the matching workspace tab');
 assert.match(hostHtml, /class="hyperdeckPage"[\s\S]*id="hyperdeckHost"/, 'The HyperDeck tab must let users add decks by IP');
 assert.match(hostHtml, /Name \(optional\)/i, 'Deck names must be optional when adding a HyperDeck');
@@ -55,7 +60,8 @@ assert.match(hostHtml, /id="hyperdeckHost"[^>]*data-enter-action="add-hyperdeck"
 assert.match(hostHtml, /CONNECT A HYPERDECK/, 'The add form should be presented as the prominent deck connection action');
 assert.match(hostHtml, /TCP 9993/, 'The HyperDeck setup should explain the fixed protocol port');
 assert.doesNotMatch(hostHtml, /id="hyperdeckPort"/, 'The add form should not expose a port override');
-assert.match(hostApp, /hyperdeckMonitoring\?hyperdeckConfigs:\[\]/, 'Deck connections should only run while optional monitoring is enabled');
+assert.match(hostApp, /function configureLocalHyperdeckMonitor\(\)\{const enabled=showDeskPreferences\.hyperdeckMonitoring===true,devices=enabled\?hyperdeckConfigs:\[\]/, 'Deck connections should only run while optional monitoring is enabled');
+assert.match(hostApp, /if\(mode==="host"\)configureLocalHyperdeckMonitor\(\)/, 'The Host mode should restore its configured HyperDeck connections');
 assert.match(hostApp, /hyperdeckRackUnit/, 'Each deck should render as its own rack unit');
 assert.match(hostApp, /nextHyperdeckName/, 'New decks should receive the next available HyperDeck number automatically');
 assert.match(hostApp, /data-change-action="hyperdeck-name"/, 'Deck names should be editable after adding');
