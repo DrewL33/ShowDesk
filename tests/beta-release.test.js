@@ -54,6 +54,7 @@ assert.match(hostApp, /document\.addEventListener\("pointermove"/, 'The dragged 
 assert.match(hostApp, /requestAnimationFrame\(\(\)=>\{card\.style\.transition="transform 220ms/, 'Reordered decks should animate into their new positions');
 assert.match(hostApp, /normalizedHyperdeckEndpoint/, 'Duplicate saved endpoints should be normalized and detected consistently');
 assert.match(hostApp, /lcdTimecode/, 'Rack units should foreground the live timecode display');
+assert.match(hostApp, /SLOT \$\{escapeShowDeskText\(slot\.id\|\|"—"\)\}<\/b><em>\$\{escapeShowDeskText\(slot\.status\|\|"UNKNOWN"\)\}/, 'Media indicators should label the slot ID and state clearly');
 assert.match(hostApp, /activeSlotId=t\["slot id"\]/, 'Live Status should use the active slot ID reported by the transport');
 assert.match(hostApp, /MEDIA SLOT <b>\$\{escapeShowDeskText\(activeSlotId\)\}<\/b>/, 'Live Status should show the slot ID instead of a count of reported slots');
 assert.match(hostApp, /Media slot information/, 'Additional HyperDeck status should be grouped in expandable sections');
@@ -61,6 +62,7 @@ assert.match(hostApp, /deck\.softwareVersion\?`<span>SOFTWARE VERSION/, 'Show th
 assert.match(hostApp, /hyperdeckFieldList\(t,\["status","display timecode","speed","clip id","video format"\]\)/, 'Transport details should omit values already visible on the front display');
 assert.match(hostApp, /rawHost=\$\("hyperdeckHost"\)\.value\.trim\(\),port=9993/, 'New HyperDeck connections should use the standard fixed port');
 assert.match(styles, /\.rackDetails \.hyperdeckFieldList dd\{margin-top:6px;font-size:13px/, 'Expandable HyperDeck details should use readable value text');
+assert.match(styles, /\.rackSlotIndicators \.miniSlot\{padding:0;border:0/, 'Media slot indicators should stay compact without a redundant divider');
 assert.match(styles, /\.hyperdeckPage \.hyperdeckCards\{display:grid;grid-template-columns:minmax\(0,1fr\)/, 'Rack units should stack vertically');
 assert.match(styles, /\.hyperdeckRackUnit\{display:block;overflow:visible\}/, 'The deck display should not draw decorative rack ears');
 assert.match(styles, /\.rackFace\{background:var\(--sd-work\)/, 'The rack should use ShowDesk workspace colors');

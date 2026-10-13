@@ -734,3 +734,13 @@ body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!importa
 .hyperdeckRackUnit.isDragging{opacity:.72;z-index:4;pointer-events:none;box-shadow:0 12px 26px #000b,0 0 0 1px #6a93a488}
 .hyperdeckRackUnit.isDropTarget{outline:2px solid var(--sd-blue);outline-offset:2px}
 .hyperdeckRackUnit{transition:opacity 140ms ease,outline-color 140ms ease}
+.rackPanel{grid-template-columns:minmax(150px,.72fr) minmax(280px,1.7fr) minmax(100px,.42fr) minmax(125px,.7fr)}
+.rackSlotIndicators{display:flex;flex-direction:column;justify-content:center;gap:7px}
+.rackSlotIndicators .rackSectionLabel{margin:0}
+.rackSlotIndicators .miniSlot{padding:0;border:0;gap:7px}
+.rackSlotIndicators .miniSlot>span{display:flex;flex-direction:row;align-items:center;gap:8px;font-size:11px}
+.rackSlotIndicators .miniSlot b{font-size:11px}
+.rackSlotIndicators .miniSlot em{font-style:normal;color:#bac8ce;font-size:9px;font-weight:900;letter-spacing:.04em;text-transform:uppercase}
+.rackSlotIndicators .miniSlot .slotLed.ready+span em{color:var(--green)}
+@media(max-width:850px){.rackPanel{grid-template-columns:minmax(140px,.75fr) minmax(240px,1.6fr)}.rackSlotIndicators,.rackModelPanel{min-height:60px}}
+@media(max-width:560px){.rackPanel{grid-template-columns:minmax(0,1fr)}}
