@@ -37,8 +37,12 @@ assert.match(assets, /'\/runtime-config\.js'/, 'The Host must serve the channel 
 assert.match(hostHtml, /data-change-action="hyperdeck-enabled"/, 'HyperDeck Monitoring must be an optional workspace setting');
 assert.match(hostHtml, /data-settings-tab="hyperdeck"[^>]*>[^<]*<span class="settingsNavGlyph">▣<\/span>HyperDeck Monitor/, 'HyperDeck Monitoring should have its own Settings section');
 assert.match(hostHtml, /id="settingsSectionHyperdeck"[\s\S]*?id="settingsHyperdeckEnabled"/, 'The Settings section should own the HyperDeck Monitoring toggle');
+assert.match(hostHtml, /id="settingsHyperdeckAddresses"/, 'Settings should list only known-good HyperDeck IP addresses');
 assert.match(hostApp, /sections=\["general","hyperdeck","connections"/, 'Settings navigation should show and hide the HyperDeck section');
 assert.match(hostApp, /hyperdeck:"HyperDeck Monitor"/, 'The Settings page title should use the HyperDeck Monitor name');
+assert.match(hostApp, /SHOWDESK_HYPERDECK_ADDRESSES_KEY="showdesk\.hyperdeck-known-addresses\.v1"/, 'Confirmed HyperDeck addresses should persist separately from current monitor devices');
+assert.match(hostApp, /String\(deck\.status\|\|""\)\.toLowerCase\(\)!=="connected"\)continue/, 'Only successfully connected HyperDecks should be added to saved addresses');
+assert.match(hostApp, /data-action="use-saved-hyperdeck"/, 'Saved HyperDeck addresses should prefill the monitor tab');
 assert.match(hostHtml, /id="hyperdeckBtn"[^>]*>HyperDeck Monitoring/, 'Enabling the feature must expose the matching workspace tab');
 assert.match(hostHtml, /class="hyperdeckPage"[\s\S]*id="hyperdeckHost"/, 'The HyperDeck tab must let users add decks by IP');
 assert.match(hostHtml, /Name \(optional\)/i, 'Deck names must be optional when adding a HyperDeck');
