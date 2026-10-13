@@ -30,6 +30,7 @@ function waitFor(predicate, timeoutMs = 1500) {
     fakeSocket = socket;
     let infoResponded = false;
     let transportInfoCount = 0;
+    let slotInfoCount = 0;
     socket.write('500 connection info:\r\nprotocol version: 1.8\r\nmodel: HyperDeck Studio HD Plus\r\n\r\n');
     let buffer = '';
     socket.on('data', chunk => {
@@ -42,7 +43,6 @@ function waitFor(predicate, timeoutMs = 1500) {
       if (commands.includes('device info') && !infoResponded) {
         infoResponded = true;
         socket.write('204 device info:\r\nmodel: HyperDeck Studio HD Plus\r\ndevice name: Studio A\r\nsoftware version: 9.0\r\n\r\n');
-        socket.write('202 slot info:\r\nslot id: 1\r\nslot name: SDI\r\nstatus: mounted\r\nvolume name: SHOW DRIVE\r\nrecording time available: 3600\r\n\r\n');
       }
       const transportCommands = commands.filter(command => command === 'transport info').length;
       if (transportCommands > transportInfoCount) {
@@ -50,6 +50,11 @@ function waitFor(predicate, timeoutMs = 1500) {
         const clipTimecode = transportInfoCount === 1 ? '00:00:00:01' : '00:00:00:02';
         const displayTimecode = `14:25:02;${String(22 + transportInfoCount).padStart(2, '0')}`;
         socket.write(`208 transport info:\r\nstatus: ${transportStatus}\r\ntimecode: ${clipTimecode}\r\ndisplay timecode: ${displayTimecode}\r\nclip id: 12\r\n\r\n`);
+      }
+      const slotCommands = commands.filter(command => command === 'slot info').length;
+      if (slotCommands > slotInfoCount) {
+        slotInfoCount = slotCommands;
+        socket.write(`202 slot info:\r\nslot id: 1\r\nslot name: SDI\r\nstatus: mounted\r\nvolume name: SHOW DRIVE\r\nrecording time available: ${3600 - slotInfoCount}\r\n\r\n`);
       }
     });
   });
@@ -71,6 +76,7 @@ function waitFor(predicate, timeoutMs = 1500) {
     assert.equal(deck.slots[0]['volume name'], 'SHOW DRIVE');
     await waitFor(() => monitor.snapshot()[0]?.transport?.['display timecode'] === '14:25:02;24');
     assert.equal(monitor.snapshot()[0].transport['display timecode'], '14:25:02;24', 'A fresh transport response must replace the display timecode');
+    assert.notEqual(monitor.snapshot()[0].slots[0]['recording time available'], '3600', 'The SSD recording-time countdown should refresh during recording');
     assert.equal(monitor.snapshot()[0].error, '', 'Asynchronous timecode updates are normal status, not connection errors');
     await waitFor(() => monitor.snapshot()[0]?.transport?.timecode === '00:00:00:02');
     assert(commands.filter(command => command === 'transport info').length > 1, 'A connected deck should receive periodic read-only transport info requests');
@@ -80,6 +86,7 @@ function waitFor(predicate, timeoutMs = 1500) {
     fakeSocket.write('508 transport info:\r\nstatus: preview\r\ntimecode: 00:00:00:02\r\n\r\n');
     await waitFor(() => monitor.snapshot()[0]?.transport?.status === 'preview');
     assert(monitor.entries.get('deck1').transportPoll, 'Display timecode polling should continue in preview mode');
+    assert.equal(monitor.entries.get('deck1').slotPoll, null, 'SSD time-remaining polling should stop when the deck is no longer recording');
     await waitFor(() => monitor.snapshot()[0]?.transport?.['display timecode'] === '14:25:02;25');
     const sent = commands;
     assert.deepEqual([...new Set(sent)].sort(), ['device info', 'notify: device info: true', 'notify: slot: true', 'slot info', 'transport info'].sort());

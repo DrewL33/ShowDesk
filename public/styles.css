@@ -742,9 +742,10 @@ body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!importa
 .rackSlotIndicators{display:flex;flex-direction:column;justify-content:center;gap:7px}
 .rackSlotIndicators .rackSectionLabel{margin:0}
 .rackSlotIndicators .miniSlot{padding:0;border:0;gap:7px}
-.rackSlotIndicators .miniSlot>span{display:flex;flex-direction:row;align-items:center;gap:8px;font-size:11px}
+.rackSlotIndicators .miniSlot>span{display:flex;flex-direction:row;align-items:center;flex-wrap:wrap;gap:8px;font-size:11px}
 .rackSlotIndicators .miniSlot b{font-size:11px}
 .rackSlotIndicators .miniSlot em{font-style:normal;color:#bac8ce;font-size:9px;font-weight:900;letter-spacing:.04em;text-transform:uppercase}
+.rackSlotIndicators .miniSlot small{flex-basis:100%;margin-top:1px;color:#84969e;font-size:9px;font-variant-numeric:tabular-nums;letter-spacing:.04em}
 .rackSlotIndicators .miniSlot .slotLed.ready+span em{color:var(--green)}
 @media(max-width:850px){.rackPanel{grid-template-columns:minmax(140px,.75fr) minmax(240px,1.6fr)}.rackSlotIndicators,.rackModelPanel{min-height:60px}}
 @media(max-width:560px){.rackPanel{grid-template-columns:minmax(0,1fr)}}

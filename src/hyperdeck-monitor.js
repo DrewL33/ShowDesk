@@ -58,7 +58,7 @@ class HyperDeckMonitor extends EventEmitter {
         continue;
       }
       if (existing) this.remove(config.id);
-      const entry = { config, socket: null, retry: null, retryMs: this.reconnectMinMs, transportPoll: null, buffer: '', lines: [], info: {}, transport: {}, slots: {}, status: 'connecting', error: '' };
+      const entry = { config, socket: null, retry: null, retryMs: this.reconnectMinMs, transportPoll: null, slotPoll: null, buffer: '', lines: [], info: {}, transport: {}, slots: {}, status: 'connecting', error: '' };
       this.entries.set(config.id, entry);
       this.open(entry);
     }
@@ -73,6 +73,7 @@ class HyperDeckMonitor extends EventEmitter {
     clearTimeout(entry.retry);
     clearTimeout(entry.connectTimer);
     clearInterval(entry.transportPoll);
+    clearInterval(entry.slotPoll);
     entry.socket?.destroy();
     this.publish();
   }
@@ -102,6 +103,7 @@ class HyperDeckMonitor extends EventEmitter {
       if (entry.socket !== socket) return;
       clearTimeout(entry.connectTimer); entry.connectTimer = null;
       clearInterval(entry.transportPoll); entry.transportPoll = null;
+      clearInterval(entry.slotPoll); entry.slotPoll = null;
       entry.socket = null; entry.status = 'disconnected'; this.publish();
       if (this.entries.has(entry.config.id)) {
         entry.retry = setTimeout(() => this.open(entry), entry.retryMs);
@@ -167,6 +169,13 @@ class HyperDeckMonitor extends EventEmitter {
     } else if (!entry.socket?.writable && entry.transportPoll) {
       clearInterval(entry.transportPoll);
       entry.transportPoll = null;
+    }
+    if (entry.socket?.writable && String(entry.transport.status || '').toLowerCase() === 'record' && !entry.slotPoll) {
+      entry.slotPoll = setInterval(() => this.send(entry, 'slot info'), this.transportPollIntervalMs);
+      entry.slotPoll.unref?.();
+    } else if (String(entry.transport.status || '').toLowerCase() !== 'record' && entry.slotPoll) {
+      clearInterval(entry.slotPoll);
+      entry.slotPoll = null;
     }
   }
 
