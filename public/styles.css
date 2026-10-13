@@ -728,3 +728,9 @@ body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!importa
 .rackDetails .hyperdeckSlot{background:#111c22;border-color:#3b515e}
 .rackDetails summary:hover{color:#fff}
 @media(max-width:700px){.rackPanel{gap:10px}.rackDetails>details{box-shadow:none}}
+.rackDragHandle{width:28px;height:30px;flex:none;display:grid;place-items:center;padding:0;background:#111c22;border:1px solid #405762;color:#aabac2;font-size:19px;line-height:1;cursor:grab;touch-action:none}
+.rackDragHandle:hover{background:#263a45;color:#fff;border-color:#638091}
+.rackDragHandle:active{cursor:grabbing}
+.hyperdeckRackUnit.isDragging{opacity:.52}
+.hyperdeckRackUnit.isDropTarget{outline:2px solid var(--sd-blue);outline-offset:2px}
+.hyperdeckRackUnit{transition:opacity 140ms ease,outline-color 140ms ease}

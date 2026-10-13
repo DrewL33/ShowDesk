@@ -40,6 +40,7 @@ assert.match(hostHtml, /class="hyperdeckPage"[\s\S]*id="hyperdeckHost"/, 'The Hy
 assert.match(hostHtml, /Name \(optional\)/i, 'Deck names must be optional when adding a HyperDeck');
 assert.match(hostHtml, /id="hyperdeckName"[^>]*placeholder="HyperDeck"/, 'The optional name suggestion should not include a number');
 assert.match(hostHtml, /HYPERDECK IP ADDRESS/, 'Adding a deck should make the IP address the primary field');
+assert.match(hostHtml, /id="hyperdeckHost"[^>]*data-enter-action="add-hyperdeck"/, 'Pressing Enter in the IP field should add the HyperDeck');
 assert.match(hostHtml, /CONNECT A HYPERDECK/, 'The add form should be presented as the prominent deck connection action');
 assert.match(hostHtml, /TCP 9993/, 'The HyperDeck setup should explain the fixed protocol port');
 assert.doesNotMatch(hostHtml, /id="hyperdeckPort"/, 'The add form should not expose a port override');
@@ -47,6 +48,9 @@ assert.match(hostApp, /hyperdeckMonitoring\?hyperdeckConfigs:\[\]/, 'Deck connec
 assert.match(hostApp, /hyperdeckRackUnit/, 'Each deck should render as its own rack unit');
 assert.match(hostApp, /nextHyperdeckName/, 'New decks should receive the next available HyperDeck number automatically');
 assert.match(hostApp, /data-change-action="hyperdeck-name"/, 'Deck names should be editable after adding');
+assert.match(hostApp, /handle\.draggable=true/, 'Each deck should expose a drag handle for reordering');
+assert.match(hostApp, /function reorderHyperdecks\(/, 'Deck order changes should be saved through the shared config list');
+assert.match(hostApp, /requestAnimationFrame\(\(\)=>\{card\.style\.transition="transform 220ms/, 'Reordered decks should animate into their new positions');
 assert.match(hostApp, /normalizedHyperdeckEndpoint/, 'Duplicate saved endpoints should be normalized and detected consistently');
 assert.match(hostApp, /lcdTimecode/, 'Rack units should foreground the live timecode display');
 assert.match(hostApp, /activeSlotId=t\["slot id"\]/, 'Live Status should use the active slot ID reported by the transport');
