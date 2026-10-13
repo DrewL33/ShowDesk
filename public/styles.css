@@ -700,3 +700,31 @@ body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!importa
 .rackDetails .hyperdeckSlot .slotIdentity>span{font-size:10px}.rackDetails .hyperdeckSlot .slotIdentity>b{font-size:14px}.rackDetails .hyperdeckSlot .slotIdentity>small{font-size:11px;line-height:1.4}
 .rackModelPanel span{line-height:1.45;overflow-wrap:anywhere}
 @media(max-width:700px){.rackDetails .hyperdeckFieldList{grid-template-columns:repeat(auto-fit,minmax(145px,1fr))}.rackDetails .hyperdeckSlot{grid-template-columns:8px minmax(0,1fr)}}
+/* Lift each HyperDeck above the workspace and give its readouts clear panel edges. */
+.hyperdeckPage .hyperdeckCards{gap:14px}
+.hyperdeckRackUnit{background:#0a1116;border-color:#3b515e;box-shadow:0 8px 22px #0007,0 1px 0 #8aa5b522 inset}
+.rackFace{background:linear-gradient(180deg,#1b2a33 0%,#17252d 100%);box-shadow:inset 0 1px #ffffff0a}
+.rackHeader{border-bottom-color:#3b515e}
+.rackPanel{gap:13px}
+.rackTransport,.rackSlotIndicators,.rackModelPanel{background:linear-gradient(180deg,#22333d,#1b2a33);border-color:#3d535f;box-shadow:0 2px 7px #0003,inset 0 1px #ffffff08}
+.rackSectionLabel,.rackModelPanel small{color:#a4b4bd}
+.rackTransportLeds>span{color:#9cabb3}
+.rackStaticControls span{background:linear-gradient(180deg,#344752,#263740);border-color:#4a606b;color:#e0e8ec}
+.rackStaticControls span:nth-child(3){color:#a9f0bf}
+.rackLcd{background:radial-gradient(ellipse at 50% 0,#17333a,#0b151a 78%);border-color:#4c7075;box-shadow:inset 0 0 18px #0008,0 0 0 1px #79c5a51a}
+.lcdTop,.lcdBottom,.lcdMain small{color:#9ab2ad}
+.lcdTimecode{color:#effff2;text-shadow:0 0 10px #74da8c55}
+.miniSlot{border-bottom-color:#3c525d}
+.miniSlot>span,.noSlotStatus{color:#afbdc4}
+.miniSlot b,.rackModelPanel b{color:#f1f5f6}
+.rackDetails{gap:11px;margin-top:11px}
+.rackDetails>details{background:linear-gradient(180deg,#1c2c35,#17252d);border:1px solid #3b515e;border-left:3px solid #516a77;box-shadow:0 2px 7px #0002}
+.rackDetails>details[open]{background:#1a2931;border-color:#4a6572;border-left-color:var(--sd-blue)}
+.rackDetails summary{color:#e5ecef}
+.rackDetails summary:after{color:#c0cdd2}
+.rackDetails .hyperdeckFieldList>div{background:#0e171d;border-color:#354954}
+.rackDetails .hyperdeckFieldList dt{color:#a9bac2}
+.rackDetails .hyperdeckFieldList dd{color:#f1f5f6}
+.rackDetails .hyperdeckSlot{background:#111c22;border-color:#3b515e}
+.rackDetails summary:hover{color:#fff}
+@media(max-width:700px){.rackPanel{gap:10px}.rackDetails>details{box-shadow:none}}
