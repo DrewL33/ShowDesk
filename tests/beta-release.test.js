@@ -49,6 +49,8 @@ assert.match(hostApp, /nextHyperdeckName/, 'New decks should receive the next av
 assert.match(hostApp, /data-change-action="hyperdeck-name"/, 'Deck names should be editable after adding');
 assert.match(hostApp, /normalizedHyperdeckEndpoint/, 'Duplicate saved endpoints should be normalized and detected consistently');
 assert.match(hostApp, /lcdTimecode/, 'Rack units should foreground the live timecode display');
+assert.match(hostApp, /activeSlotId=t\["slot id"\]/, 'Live Status should use the active slot ID reported by the transport');
+assert.match(hostApp, /MEDIA SLOT <b>\$\{escapeShowDeskText\(activeSlotId\)\}<\/b>/, 'Live Status should show the slot ID instead of a count of reported slots');
 assert.match(hostApp, /Media slot information/, 'Additional HyperDeck status should be grouped in expandable sections');
 assert.match(hostApp, /deck\.softwareVersion\?`<span>SOFTWARE VERSION/, 'Show the software version only when the device reports it');
 assert.match(hostApp, /hyperdeckFieldList\(t,\["status","display timecode","speed","clip id","video format"\]\)/, 'Transport details should omit values already visible on the front display');
