@@ -688,3 +688,15 @@ body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!importa
 #hyperdeckSettingsStatus{display:block;margin-top:12px;font-size:11px}
 @media(max-width:850px){.hyperdeckForm{grid-template-columns:minmax(220px,1.5fr) minmax(150px,1fr) 95px}.hyperdeckForm button{grid-column:1/-1;justify-self:start}}
 @media(max-width:560px){.hyperdeckSetupPanel{padding:15px}.hyperdeckSetupPanel .head{flex-direction:column}.hyperdeckSetupPanel .head .sub{margin-top:7px}.hyperdeckForm{grid-template-columns:1fr 90px}.hyperdeckForm .hyperdeckAddressField,.hyperdeckForm label:nth-child(2),.hyperdeckForm button{grid-column:1/-1}.hyperdeckForm button{justify-self:stretch}}
+.rackDetails>details{background:var(--sd-work);border-left:3px solid var(--sd-line);padding:12px 14px}
+.rackDetails>details[open]{border-left-color:var(--sd-blue)}
+.rackDetails summary{font-size:12px;letter-spacing:.04em}
+.rackDetails .hyperdeckFieldList{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-top:12px}
+.rackDetails .hyperdeckFieldList>div{padding:10px 12px;background:var(--sd-panel);border-color:var(--sd-line)}
+.rackDetails .hyperdeckFieldList dt{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.rackDetails .hyperdeckFieldList dd{margin-top:6px;font-size:13px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+.rackDetails .hyperdeckSlot{grid-template-columns:8px minmax(130px,.7fr) minmax(0,2fr);gap:12px;padding:12px}
+.rackDetails .hyperdeckSlot .hyperdeckFieldList{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.rackDetails .hyperdeckSlot .slotIdentity>span{font-size:10px}.rackDetails .hyperdeckSlot .slotIdentity>b{font-size:14px}.rackDetails .hyperdeckSlot .slotIdentity>small{font-size:11px;line-height:1.4}
+.rackModelPanel span{line-height:1.45;overflow-wrap:anywhere}
+@media(max-width:700px){.rackDetails .hyperdeckFieldList{grid-template-columns:repeat(auto-fit,minmax(145px,1fr))}.rackDetails .hyperdeckSlot{grid-template-columns:8px minmax(0,1fr)}}

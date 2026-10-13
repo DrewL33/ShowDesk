@@ -79,7 +79,7 @@ class HyperDeckMonitor extends EventEmitter {
     return [...this.entries.values()].map(entry => ({
       id: entry.config.id, name: entry.config.name, host: entry.config.host, port: entry.config.port,
       status: entry.status, error: entry.error, model: entry.info.model || '', deviceName: entry.info['device name'] || '',
-      softwareVersion: entry.info['software version'] || '', protocolVersion: entry.info['protocol version'] || '',
+      softwareVersion: entry.info['software version'] || entry.info['firmware version'] || entry.info['software revision'] || '', protocolVersion: entry.info['protocol version'] || '',
       deviceInfo: { ...entry.info }, transport: { ...entry.transport }, slots: Object.values(entry.slots).sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }))
     }));
   }
@@ -123,8 +123,11 @@ class HyperDeckMonitor extends EventEmitter {
   }
 
   onResponse(entry, response) {
-    if (response.code >= 400 && response.code < 600) {
+    const welcome = response.code === 500 && response.header === 'connection info';
+    if (response.code >= 400 && response.code < 600 && !welcome) {
       entry.error = (response.fields.message || response.header).slice(0, 160);
+    } else if (response.code < 400 || welcome) {
+      entry.error = '';
     }
     const f = response.fields;
     if (response.header === 'connection info' || response.header === 'device info') {

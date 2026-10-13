@@ -13,6 +13,7 @@ const mobile = fs.readFileSync('public/mobile-viewer.html', 'utf8');
 const assets = fs.readFileSync('src/static-assets.js', 'utf8');
 const hostHtml = fs.readFileSync('public/index.html', 'utf8');
 const hostApp = fs.readFileSync('public/app.js', 'utf8');
+const styles = fs.readFileSync('public/styles.css', 'utf8');
 
 assert.equal(stable.productName, 'ShowDesk');
 assert.equal(beta.productName, 'ShowDesk BETA');
@@ -46,7 +47,8 @@ assert.match(hostApp, /data-change-action="hyperdeck-name"/, 'Deck names should 
 assert.match(hostApp, /normalizedHyperdeckEndpoint/, 'Duplicate saved endpoints should be normalized and detected consistently');
 assert.match(hostApp, /lcdTimecode/, 'Rack units should foreground the live timecode display');
 assert.match(hostApp, /Media slot information/, 'Additional HyperDeck status should be grouped in expandable sections');
-const styles = fs.readFileSync('public/styles.css', 'utf8');
+assert.match(hostApp, /SOFTWARE VERSION/, 'The deck front panel should show the reported software version clearly');
+assert.match(styles, /\.rackDetails \.hyperdeckFieldList dd\{margin-top:6px;font-size:13px/, 'Expandable HyperDeck details should use readable value text');
 assert.match(styles, /\.hyperdeckPage \.hyperdeckCards\{display:grid;grid-template-columns:minmax\(0,1fr\)/, 'Rack units should stack vertically');
 assert.match(styles, /\.hyperdeckRackUnit\{display:block;overflow:visible\}/, 'The deck display should not draw decorative rack ears');
 assert.match(styles, /\.rackFace\{background:var\(--sd-work\)/, 'The rack should use ShowDesk workspace colors');

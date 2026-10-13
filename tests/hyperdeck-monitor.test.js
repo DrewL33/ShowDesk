@@ -54,6 +54,7 @@ function waitFor(predicate, timeoutMs = 1500) {
     await waitFor(() => monitor.snapshot()[0]?.transport?.status === 'play' && monitor.snapshot()[0]?.slots?.length === 1);
     const deck = monitor.snapshot()[0];
     assert.equal(deck.model, 'HyperDeck Studio HD Plus');
+    assert.equal(deck.error, '', 'The normal connection-info greeting is not an error');
     assert.equal(deck.deviceName, 'Studio A');
     assert.equal(deck.softwareVersion, '9.0');
     assert.equal(deck.transport['display timecode'], '01:02:03:04');
