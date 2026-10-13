@@ -75,6 +75,9 @@ assert.match(hostApp, /function hyperdeckTimecode\(deck\)\{const transport=deck\
 assert.match(hostApp, /hyperdeckPrimaryTimer:"recordingElapsed",hyperdeckSecondaryTimer:"frontDisplayTimecode"/, 'The default readout should show elapsed recording time with front-display timecode beneath it');
 assert.match(hostApp, /settingsHyperdeckPrimaryTimer/, 'Settings should let users select the prominent HyperDeck timer');
 assert.match(hostApp, /settingsHyperdeckSecondaryTimer/, 'Settings should let users select a supporting HyperDeck timer');
+assert.match(hostHtml, /id="settingsHyperdeckPrimaryTimerOptions" class="settingsSelectOptions" role="listbox"/, 'HyperDeck timer choices should use the same custom Settings dropdown as the workspace selector');
+assert.match(hostHtml, /data-hyperdeck-timer="secondary" data-timer-value="none"/, 'The supporting timer dropdown should retain its None option');
+assert.match(hostApp, /case "hyperdeck-primary-timer-menu":toggleHyperdeckTimerMenu\("primary"\)/, 'The main timer dropdown should open through the Settings menu handler');
 assert.match(hostApp, /function formatHyperdeckElapsed\(/, 'ShowDesk should format a record-start elapsed timer separately from deck timecode');
 assert.match(hostApp, /function hyperdeckRecordingTimeRemaining\(slot\)/, 'SSD recording time remaining should be formatted separately from the large front counter');
 assert.match(hostApp, /RECORD TIME LEFT · /, 'The media slot summary should distinguish remaining SSD record capacity');
