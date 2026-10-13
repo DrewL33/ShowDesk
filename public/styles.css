@@ -369,6 +369,9 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .explorerClearButton{position:absolute;right:20px;top:18px;z-index:3;background:#1c3540!important;border:1px solid #5ba4ad!important;color:#d8f2f0!important;padding:9px 14px!important}
 .explorerClearButton[hidden]{display:none!important}
 .explorerDetails{display:flex;align-items:center;gap:12px;padding:8px 4px!important;min-height:0;flex:0 0 auto;font-size:11px;color:var(--sd-muted);border:0!important}
+/* Give the signal map the same layered slate surface used by Attention cards. */
+.explorerMain{background:radial-gradient(ellipse at 50% 0%,#263944 0%,transparent 58%),linear-gradient(155deg,#202f39 0%,#1a2932 48%,#15232b 100%)!important;border:1px solid #3b515e!important;box-shadow:inset 0 1px #ffffff10,0 6px 18px #0003}
+.explorerDiagramScroll{background:transparent!important}
 @media(max-width:650px){.explorerWorkspace{height:calc(100vh - 80px)}.explorerWorkspace .explorerToolbar{flex-wrap:wrap}.explorerWorkspace .signalSearch{max-width:100%;width:100%}}
 
 /* Build075: emphasize the selected route above background wiring. */
