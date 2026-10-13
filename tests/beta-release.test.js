@@ -38,11 +38,14 @@ assert.match(hostHtml, /data-change-action="hyperdeck-enabled"/, 'HyperDeck Moni
 assert.match(hostHtml, /data-settings-tab="hyperdeck"[^>]*>[^<]*<span class="settingsNavGlyph">▣<\/span>HyperDeck Monitor/, 'HyperDeck Monitoring should have its own Settings section');
 assert.match(hostHtml, /id="settingsSectionHyperdeck"[\s\S]*?id="settingsHyperdeckEnabled"/, 'The Settings section should own the HyperDeck Monitoring toggle');
 assert.match(hostHtml, /id="settingsHyperdeckAddresses"/, 'Settings should list only known-good HyperDeck IP addresses');
+assert.match(hostHtml, /data-action="view-hyperdecks"[^>]*>VIEW DECKS/, 'Settings should provide one action to open the HyperDecks monitor');
 assert.match(hostApp, /sections=\["general","hyperdeck","connections"/, 'Settings navigation should show and hide the HyperDeck section');
 assert.match(hostApp, /hyperdeck:"HyperDeck Monitor"/, 'The Settings page title should use the HyperDeck Monitor name');
 assert.match(hostApp, /SHOWDESK_HYPERDECK_ADDRESSES_KEY="showdesk\.hyperdeck-known-addresses\.v1"/, 'Confirmed HyperDeck addresses should persist separately from current monitor devices');
 assert.match(hostApp, /String\(deck\.status\|\|""\)\.toLowerCase\(\)!=="connected"\)continue/, 'Only successfully connected HyperDecks should be added to saved addresses');
 assert.match(hostApp, /data-action="use-saved-hyperdeck"/, 'Saved HyperDeck addresses should prefill the monitor tab');
+assert.match(hostApp, /function forgetSavedHyperdeckAddress\(endpoint\)\{savedHyperdeckAddresses=/, 'Saved HyperDeck addresses should be forgettable while still configured on the monitor tab');
+assert.doesNotMatch(hostApp, /\$\{active\?"VIEW DECK":"USE ADDRESS"\}/, 'Saved address rows should not duplicate the global View Decks action');
 assert.match(hostHtml, /id="hyperdeckBtn"[^>]*>HyperDeck Monitoring/, 'Enabling the feature must expose the matching workspace tab');
 assert.match(hostHtml, /class="hyperdeckPage"[\s\S]*id="hyperdeckHost"/, 'The HyperDeck tab must let users add decks by IP');
 assert.match(hostHtml, /Name \(optional\)/i, 'Deck names must be optional when adding a HyperDeck');
