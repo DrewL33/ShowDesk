@@ -35,6 +35,10 @@ assert.match(runtimeConfig, /"servicePort":47821,"viewerPort":47822/, 'Checked-i
 assert.match(mobile, /src="\/runtime-config\.js"/, 'Mobile Viewer must load the active channel port configuration');
 assert.match(assets, /'\/runtime-config\.js'/, 'The Host must serve the channel configuration to phone Viewers');
 assert.match(hostHtml, /data-change-action="hyperdeck-enabled"/, 'HyperDeck Monitoring must be an optional workspace setting');
+assert.match(hostHtml, /data-settings-tab="hyperdeck"[^>]*>[^<]*<span class="settingsNavGlyph">▣<\/span>HyperDeck Monitor/, 'HyperDeck Monitoring should have its own Settings section');
+assert.match(hostHtml, /id="settingsSectionHyperdeck"[\s\S]*?id="settingsHyperdeckEnabled"/, 'The Settings section should own the HyperDeck Monitoring toggle');
+assert.match(hostApp, /sections=\["general","hyperdeck","connections"/, 'Settings navigation should show and hide the HyperDeck section');
+assert.match(hostApp, /hyperdeck:"HyperDeck Monitor"/, 'The Settings page title should use the HyperDeck Monitor name');
 assert.match(hostHtml, /id="hyperdeckBtn"[^>]*>HyperDeck Monitoring/, 'Enabling the feature must expose the matching workspace tab');
 assert.match(hostHtml, /class="hyperdeckPage"[\s\S]*id="hyperdeckHost"/, 'The HyperDeck tab must let users add decks by IP');
 assert.match(hostHtml, /Name \(optional\)/i, 'Deck names must be optional when adding a HyperDeck');

@@ -744,3 +744,4 @@ body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!importa
 .rackSlotIndicators .miniSlot .slotLed.ready+span em{color:var(--green)}
 @media(max-width:850px){.rackPanel{grid-template-columns:minmax(140px,.75fr) minmax(240px,1.6fr)}.rackSlotIndicators,.rackModelPanel{min-height:60px}}
 @media(max-width:560px){.rackPanel{grid-template-columns:minmax(0,1fr)}}
+.settingsWindow #settingsSectionHyperdeck h3:not(:first-child){margin-top:25px!important;padding-top:20px!important;border-top:1px solid #30414b}

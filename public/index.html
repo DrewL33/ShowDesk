@@ -120,6 +120,7 @@
   <div class="settingsBrand"><span>SHOWDESK</span><h2 id="settingsTitle">Settings</h2></div>
   <nav class="settingsTabs" aria-label="Settings sections">
    <button type="button" data-settings-tab="general"><span class="settingsNavGlyph">⚙</span>General</button>
+   <button type="button" data-settings-tab="hyperdeck"><span class="settingsNavGlyph">▣</span>HyperDeck Monitor</button>
    <button type="button" data-settings-tab="connections"><span class="settingsNavGlyph">⌁</span>Connections</button>
    <button type="button" data-settings-tab="reference"><span class="settingsNavGlyph">▤</span>References</button>
    <button type="button" data-settings-tab="updates"><span class="settingsNavGlyph" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M4 17v3h16v-3"/></svg></span>Updates</button>
@@ -131,14 +132,18 @@
   <div class="settingsSectionBody">
    <section id="settingsSectionGeneral" class="settingsSection">
     <h3>STARTUP</h3>
-    <div class="settingsControlRow"><label for="settingsDefaultWorkspace">Default workspace</label><div class="settingsSelect" id="settingsWorkspaceSelector"><button id="settingsDefaultWorkspace" class="settingsSelectTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="settingsWorkspaceOptions" data-action="workspace-menu"><span id="settingsWorkspaceLabel">Show View</span><span class="settingsSelectChevron" aria-hidden="true"></span></button><div id="settingsWorkspaceOptions" class="settingsSelectOptions" role="listbox" aria-label="Default workspace" hidden><button type="button" role="option" data-workspace="show" aria-selected="true">Show View</button><button type="button" role="option" data-workspace="engineering" aria-selected="false">Inspect</button><button type="button" role="option" data-workspace="signal" aria-selected="false">Signal Explorer</button><button type="button" role="option" data-workspace="hyperdecks" aria-selected="false">HyperDecks</button><button type="button" role="option" data-workspace="last" aria-selected="false">Last used workspace</button></div></div></div>
     <div class="settingsControlRow"><label for="settingsDefaultWorkspace">Default workspace</label><div class="settingsSelect" id="settingsWorkspaceSelector"><button id="settingsDefaultWorkspace" class="settingsSelectTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="settingsWorkspaceOptions" data-action="workspace-menu"><span id="settingsWorkspaceLabel">Show View</span><span class="settingsSelectChevron" aria-hidden="true"></span></button><div id="settingsWorkspaceOptions" class="settingsSelectOptions" role="listbox" aria-label="Default workspace" hidden><button type="button" role="option" data-workspace="show" aria-selected="true">Show View</button><button type="button" role="option" data-workspace="engineering" aria-selected="false">Inspect</button><button type="button" role="option" data-workspace="signal" aria-selected="false">Signal Explorer</button><button type="button" role="option" data-workspace="hyperdecks" aria-selected="false">HyperDeck Monitoring</button><button type="button" role="option" data-workspace="last" aria-selected="false">Last used workspace</button></div></div></div>
-    <h3>OPTIONAL WORKSPACES</h3>
-    <label class="settingsControlRow" for="settingsHyperdeckEnabled"><span>HyperDeck Monitoring</span><input id="settingsHyperdeckEnabled" type="checkbox" data-change-action="hyperdeck-enabled"></label>
     <h3>CONNECTION</h3>
     <label class="settingsControlRow" for="settingsAutoConnect"><span>Auto-connect on launch</span><input id="settingsAutoConnect" type="checkbox" data-change-action="auto-connect"></label>
     <h3>UPDATES</h3>
     <label class="settingsControlRow" for="settingsAutoUpdates"><span>Check for updates on launch</span><input id="settingsAutoUpdates" type="checkbox" data-change-action="auto-updates"></label>
+   </section>
+   <section id="settingsSectionHyperdeck" class="settingsSection" hidden>
+    <h3>WORKSPACE</h3>
+    <p>Enable the HyperDeck Monitoring workspace to add a dedicated tab to ShowDesk.</p>
+    <label class="settingsControlRow" for="settingsHyperdeckEnabled"><span>Show HyperDeck Monitor tab</span><input id="settingsHyperdeckEnabled" type="checkbox" data-change-action="hyperdeck-enabled"></label>
+    <h3>DEVICE SETUP</h3>
+    <p>Add a deck by IP address, rename it, and review its connection from the HyperDeck Monitoring tab. ShowDesk reads status only and does not control playback or recording.</p>
    </section>
    <section id="settingsSectionConnections" class="settingsSection" hidden>
     <div class="settingsSectionHeader"><h3>CURRENT SESSION</h3><b id="settingsConnection">DISCONNECTED</b></div>

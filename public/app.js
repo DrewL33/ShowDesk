@@ -180,8 +180,9 @@ function attemptPreferredAutoConnection(){
 function showDeskStartupWorkspace(){return showDeskPreferences.workspace==="last"?showDeskPreferences.lastWorkspace:showDeskPreferences.workspace}
 function applyShowDeskStartupWorkspace(){const tab=showDeskStartupWorkspace();if(["show","engineering","signal","hyperdecks"].includes(tab))setTab(tab)}
 function showSettingsSection(section){
- for(const name of ["general","connections","reference","updates","about"]){const el=$("settingsSection"+name[0].toUpperCase()+name.slice(1));if(el)el.hidden=section!==name;}
- document.querySelectorAll("[data-settings-tab]").forEach(b=>{b.classList.toggle("on",b.dataset.settingsTab===section);b.setAttribute("aria-current",b.dataset.settingsTab===section?"page":"false")});if($("settingsPageTitle"))$("settingsPageTitle").textContent=section[0].toUpperCase()+section.slice(1);
+ const sections=["general","hyperdeck","connections","reference","updates","about"],titles={general:"General",hyperdeck:"HyperDeck Monitor",connections:"Connections",reference:"References",updates:"Updates",about:"About"};
+ for(const name of sections){const el=$("settingsSection"+name[0].toUpperCase()+name.slice(1));if(el)el.hidden=section!==name;}
+ document.querySelectorAll("[data-settings-tab]").forEach(b=>{b.classList.toggle("on",b.dataset.settingsTab===section);b.setAttribute("aria-current",b.dataset.settingsTab===section?"page":"false")});if($("settingsPageTitle"))$("settingsPageTitle").textContent=titles[section]||"Settings";
 }
 function viewerInputChanged(){
  const ip=$("viewerHostIp").value.trim();
