@@ -36,7 +36,21 @@ let hostReferenceAttention = { attached: false, name: '', categories: [] };
 const clients = new Set();
 const viewerClients = new Set();
 const hyperDeckMonitor = new HyperDeckMonitor();
-hyperDeckMonitor.on('state', data => broadcast({ type: 'hyperdecks', data }));
+let hostHyperdeckMonitoringEnabled = false;
+function viewerHyperdeckSnapshot() {
+  const allowed = ['id', 'name', 'status', 'model', 'deviceName', 'softwareVersion', 'protocolVersion', 'deviceInfo', 'transport', 'slots'];
+  return hyperDeckMonitor.snapshot().map(deck => Object.fromEntries(allowed.filter(key => deck[key] !== undefined).map(key => [key, deck[key]])));
+}
+function broadcastHyperdeckState(data = hyperDeckMonitor.snapshot()) {
+  broadcast({ type: 'hyperdecks', data });
+  broadcastViewers({ type: 'hyperdecks', data: viewerHyperdeckSnapshot() });
+}
+function broadcastHyperdeckAvailability() {
+  const message = { type: 'hyperdeckAvailability', enabled: hostHyperdeckMonitoringEnabled };
+  broadcast(message);
+  broadcastViewers(message);
+}
+hyperDeckMonitor.on('state', data => broadcastHyperdeckState(data));
 let viewerUpstream = null;
 let viewerUpstreamGeneration = 0;
 const stateBroadcast = createLatestStateCoalescer(({ instance, state }) => {
@@ -235,6 +249,7 @@ async function connectViewerHost(host) {
       let msg; try { msg = JSON.parse(raw.toString()); } catch { return; }
       if (msg.type === 'snapshot') { broadcast({ type: 'connection', status: 'viewer-connected', data: msg.data }); if (!settled) { settled = true; clearTimeout(timer); resolve({ status: 'connected', data: msg.data }); } return; }
       if (msg.type === 'state') { broadcast(msg); return; }
+      if (msg.type === 'hyperdecks' || msg.type === 'hyperdeckAvailability') { broadcast(msg); return; }
       if (msg.type === 'connection') { broadcast(msg); if (!settled && msg.status === 'waiting') { settled = true; clearTimeout(timer); resolve({ status: 'waiting', reason: msg.reason || 'Host is waiting for an ATEM.' }); } }
     });
     ws.on('error', error => { if (!settled && isCurrent()) { settled = true; clearTimeout(timer); viewerUpstream = null; reject(new Error(`Unable to reach ShowDesk Host at ${target}: ${error.message || error}`)); } });
@@ -257,6 +272,7 @@ const wss = new WebSocketServer({ server, path: '/ws' });
 wss.on('connection', (ws) => {
   clients.add(ws);
   ws.send(JSON.stringify({ type: 'hyperdecks', data: hyperDeckMonitor.snapshot() }));
+  ws.send(JSON.stringify({ type: 'hyperdeckAvailability', enabled: hostHyperdeckMonitoringEnabled }));
   ws.on('close', () => clients.delete(ws));
   ws.on('message', async raw => {
     let msg;
@@ -269,7 +285,13 @@ wss.on('connection', (ws) => {
         return reply(true, { published: true });
       }
       if (msg.type === 'connect') return reply(true, await connectAtem(msg.ip));
-      if (msg.type === 'configureHyperdecks') return reply(true, { devices: hyperDeckMonitor.configure(msg.devices || []) });
+      if (msg.type === 'configureHyperdecks') {
+        hostHyperdeckMonitoringEnabled = msg.enabled === true;
+        broadcastHyperdeckAvailability();
+        const devices = hyperDeckMonitor.configure(hostHyperdeckMonitoringEnabled ? (msg.devices || []) : []);
+        broadcastHyperdeckState();
+        return reply(true, { devices });
+      }
       if (msg.type === 'connectViewerHost') return reply(true, await connectViewerHost(msg.host));
       if (msg.type === 'disconnectViewerHost') return reply(true, await disconnectViewerHost());
       if (msg.type === 'disconnect') { await disconnectAtem(); return reply(true, { disconnected: true }); }
@@ -305,6 +327,8 @@ const viewerWss = new WebSocketServer({ server: viewerServer, path: '/viewer' })
 viewerWss.on('connection', ws => {
   viewerClients.add(ws);
   broadcastViewerCount();
+  ws.send(JSON.stringify({ type: 'hyperdeckAvailability', enabled: hostHyperdeckMonitoringEnabled }));
+  ws.send(JSON.stringify({ type: 'hyperdecks', data: viewerHyperdeckSnapshot() }));
   const snapshot = viewerSnapshot();
   if (snapshot) ws.send(JSON.stringify(snapshot));
   else ws.send(JSON.stringify({ type: 'connection', status: 'waiting', reason: 'Host is not connected to an ATEM' }));

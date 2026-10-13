@@ -8,6 +8,7 @@
   const healthSubscribers = new Set();
   const viewerCountSubscribers = new Set();
   const hyperdeckSubscribers = new Set();
+  const hyperdeckAvailabilitySubscribers = new Set();
 
   function isNativeTauri() {
     return !!window.__TAURI_INTERNALS__;
@@ -60,6 +61,7 @@
         if (msg.type === 'health') healthSubscribers.forEach(fn => fn(msg));
         if (msg.type === 'viewerCount') viewerCountSubscribers.forEach(fn => fn(msg.count));
         if (msg.type === 'hyperdecks') hyperdeckSubscribers.forEach(fn => fn(msg.data || []));
+        if (msg.type === 'hyperdeckAvailability') hyperdeckAvailabilitySubscribers.forEach(fn => fn(msg.enabled === true));
       });
       socket.addEventListener('close', () => {
         socket = null;
@@ -107,6 +109,8 @@
         } else if (msg.type === 'state') subscribers.forEach(fn => fn(msg.data));
         else if (msg.type === 'connection') { connectionSubscribers.forEach(fn => fn(msg)); if (!settled && msg.status === 'waiting') { settled=true; clearTimeout(timer); socket=viewer; resolve({status:'waiting',reason:msg.reason}); } }
         else if (msg.type === 'health') healthSubscribers.forEach(fn => fn(msg));
+        else if (msg.type === 'hyperdecks') hyperdeckSubscribers.forEach(fn => fn(msg.data || []));
+        else if (msg.type === 'hyperdeckAvailability') hyperdeckAvailabilitySubscribers.forEach(fn => fn(msg.enabled === true));
       });
       viewer.addEventListener('close', () => {
         if (socket === viewer) socket = null;
@@ -118,8 +122,9 @@
 
   window.ATEM_TRANSPORT = {
     connect(ip) { return request('connect', { ip }); },
-    configureHyperdecks(devices) { return request('configureHyperdecks', { devices }); },
+    configureHyperdecks(devices, enabled = Array.isArray(devices) && devices.length > 0) { return request('configureHyperdecks', { devices, enabled }); },
     subscribeHyperdecks(callback) { hyperdeckSubscribers.add(callback); return () => hyperdeckSubscribers.delete(callback); },
+    subscribeHyperdeckAvailability(callback) { hyperdeckAvailabilitySubscribers.add(callback); return () => hyperdeckAvailabilitySubscribers.delete(callback); },
     publishReferenceAttention(data) { return request('referenceAttention', { data }); },
     connectViewer(host) { return connectViewer(host); },
     subscribe(callback) {

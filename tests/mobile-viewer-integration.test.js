@@ -46,12 +46,6 @@ function waitForViewer(port, child) {
     check();
   });
 }
-function firstMessage(ws) {
-  return new Promise((resolve, reject) => {
-    ws.once('message', raw => resolve(JSON.parse(raw.toString())));
-    ws.once('error', reject);
-  });
-}
 function nextReply(ws, id) {
   return new Promise((resolve, reject) => {
     const onMessage = raw => { let message; try { message = JSON.parse(raw.toString()); } catch { return; } if (message.replyTo !== id) return; ws.off('message', onMessage); resolve(message); };
@@ -100,18 +94,46 @@ function nextMessageOfType(ws, type) {
     assert.equal(publishReply.replyTo, 'reference-test', 'Host reference attention publish must receive an acknowledgement');
 
     const ws = new WebSocket(`ws://127.0.0.1:${viewerPort}/viewer`);
-    const greetingPromise = firstMessage(ws);
+    const greetingPromise = nextMessageOfType(ws, 'connection');
     const attentionPromise = nextMessageOfType(ws, 'referenceAttention');
+    const availabilityPromise = nextMessageOfType(ws, 'hyperdeckAvailability');
+    const decksPromise = nextMessageOfType(ws, 'hyperdecks');
     await new Promise((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject); });
     const greeting = await greetingPromise;
-    assert.equal(greeting.type, 'connection');
     assert.equal(greeting.status, 'waiting', 'Viewer socket must report that the Host is waiting when no ATEM is connected');
     const attention = await attentionPromise;
     assert.equal(attention.data.name, 'Show file', 'Viewer must receive the latest Host reference summary');
     assert.equal(attention.data.categories[0].details[0].message, 'Expected Camera · Actual Laptop', 'Reference attention details must be relayed');
+    assert.deepEqual(await availabilityPromise, { type: 'hyperdeckAvailability', enabled: false }, 'Viewer must receive the Host HyperDeck availability state');
+    assert.deepEqual((await decksPromise).data, [], 'Viewer must receive an initial HyperDeck snapshot');
+
+    const enabledPromise = nextMessageOfType(ws, 'hyperdeckAvailability');
+    const statePromise = nextMessageOfType(ws, 'hyperdecks');
+    const configureReply = nextReply(control, 'hyperdeck-viewer-config');
+    control.send(JSON.stringify({ id: 'hyperdeck-viewer-config', type: 'configureHyperdecks', enabled: true, devices: [{ id: 'deck-a', name: 'Studio A', host: '192.168.10.75', port: 9993 }] }));
+    assert.equal((await configureReply).ok, true, 'Host must accept its local HyperDeck configuration');
+    assert.deepEqual(await enabledPromise, { type: 'hyperdeckAvailability', enabled: true }, 'Viewer must learn that the Host has enabled HyperDeck monitoring');
+    const relayedDecks = await statePromise;
+    assert.equal(relayedDecks.data[0].id, 'deck-a', 'Viewer must receive configured HyperDeck status');
+    assert.equal(relayedDecks.data[0].name, 'Studio A');
+    assert.equal('host' in relayedDecks.data[0], false, 'Viewer status must not expose HyperDeck subnet addresses');
+    assert.equal('port' in relayedDecks.data[0], false, 'Viewer status must not expose direct HyperDeck connection details');
+
+    const disabledPromise = nextMessageOfType(ws, 'hyperdeckAvailability');
+    const clearedStatePromise = nextMessageOfType(ws, 'hyperdecks');
+    const disableReply = nextReply(control, 'hyperdeck-viewer-disable');
+    control.send(JSON.stringify({ id: 'hyperdeck-viewer-disable', type: 'configureHyperdecks', enabled: false, devices: [] }));
+    assert.equal((await disableReply).ok, true);
+    assert.deepEqual(await disabledPromise, { type: 'hyperdeckAvailability', enabled: false });
+    assert.deepEqual((await clearedStatePromise).data, [], 'Disabling Host monitoring must clear the Viewer snapshot');
     const unexpectedReply = new Promise(resolve => {
-      ws.once('message', () => resolve(true));
-      setTimeout(() => resolve(false), 100);
+      const onMessage = raw => {
+        let message; try { message = JSON.parse(raw.toString()); } catch { return; }
+        if (message.replyTo !== 'mobile-read-only-check') return;
+        ws.off('message', onMessage); resolve(true);
+      };
+      ws.on('message', onMessage);
+      setTimeout(() => { ws.off('message', onMessage); resolve(false); }, 100);
     });
     ws.send(JSON.stringify({ id: 'mobile-read-only-check', type: 'disconnect' }));
     assert.equal(await unexpectedReply, false, 'Read-only Viewer socket must ignore command messages');
