@@ -25,6 +25,7 @@ function waitFor(predicate, timeoutMs = 1500) {
 
   const commands = [];
   let fakeSocket;
+  let transportStatus = 'record';
   const fakeDeck = net.createServer(socket => {
     fakeSocket = socket;
     let infoResponded = false;
@@ -48,7 +49,8 @@ function waitFor(predicate, timeoutMs = 1500) {
       if (transportCommands > transportInfoCount) {
         transportInfoCount = transportCommands;
         const clipTimecode = transportInfoCount === 1 ? '00:00:00:01' : '00:00:00:02';
-        socket.write(`208 transport info:\r\nstatus: record\r\ntimecode: ${clipTimecode}\r\ndisplay timecode: 14:25:02;23\r\nclip id: 12\r\n\r\n`);
+        const displayTimecode = `14:25:02;${String(22 + transportInfoCount).padStart(2, '0')}`;
+        socket.write(`208 transport info:\r\nstatus: ${transportStatus}\r\ntimecode: ${clipTimecode}\r\ndisplay timecode: ${displayTimecode}\r\nclip id: 12\r\n\r\n`);
       }
       if (infoResponded && commands.includes('notify: display timecode: true') && !timecodeNotified) {
         timecodeNotified = true;
@@ -72,16 +74,18 @@ function waitFor(predicate, timeoutMs = 1500) {
     assert.equal(deck.deviceName, 'Studio A');
     assert.equal(deck.softwareVersion, '9.0');
     assert.equal(deck.slots[0]['volume name'], 'SHOW DRIVE');
-    await waitFor(() => monitor.snapshot()[0]?.transport?.['display timecode'] === '01:02:03:05');
-    assert.equal(monitor.snapshot()[0].transport['display timecode'], '01:02:03:05', 'An asynchronous frame update must replace the initial transport timecode');
+    await waitFor(() => monitor.snapshot()[0]?.transport?.['display timecode'] === '14:25:02;24');
+    assert.equal(monitor.snapshot()[0].transport['display timecode'], '14:25:02;24', 'A fresh transport response must replace the display timecode');
     assert.equal(monitor.snapshot()[0].error, '', 'Asynchronous timecode updates are normal status, not connection errors');
     await waitFor(() => monitor.snapshot()[0]?.transport?.timecode === '00:00:00:02');
-    assert(commands.filter(command => command === 'transport info').length > 1, 'Recording mode should refresh clip timecode with read-only transport info requests');
+    assert(commands.filter(command => command === 'transport info').length > 1, 'A connected deck should receive periodic read-only transport info requests');
     assert.notEqual(monitor.snapshot()[0].transport.timecode, monitor.snapshot()[0].transport['display timecode'], 'Clip and front-panel display timecode remain distinct');
-    assert(monitor.entries.get('deck1').transportPoll, 'Recording should enable periodic transport refresh');
+    assert(monitor.entries.get('deck1').transportPoll, 'A connected deck should periodically refresh its front-panel display timecode');
+    transportStatus = 'preview';
     fakeSocket.write('508 transport info:\r\nstatus: preview\r\ntimecode: 00:00:00:02\r\n\r\n');
     await waitFor(() => monitor.snapshot()[0]?.transport?.status === 'preview');
-    assert.equal(monitor.entries.get('deck1').transportPoll, null, 'Leaving record mode should stop periodic transport refresh');
+    assert(monitor.entries.get('deck1').transportPoll, 'Display timecode polling should continue in preview mode');
+    await waitFor(() => monitor.snapshot()[0]?.transport?.['display timecode'] === '14:25:02;25');
     const sent = commands;
     assert.deepEqual([...new Set(sent)].sort(), ['device info', 'notify: device info: true', 'notify: display timecode: true', 'notify: slot: true', 'notify: transport: true', 'slot info', 'transport info'].sort());
     assert(!sent.some(command => /^(play|stop|record|jog|shuttle|goto|preview|remote)$/.test(command)));

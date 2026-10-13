@@ -166,11 +166,10 @@ class HyperDeckMonitor extends EventEmitter {
   }
 
   syncTransportPolling(entry) {
-    const recording = String(entry.transport.status || '').toLowerCase() === 'record';
-    if (recording && entry.socket?.writable && !entry.transportPoll) {
+    if (entry.socket?.writable && !entry.transportPoll) {
       entry.transportPoll = setInterval(() => this.send(entry, 'transport info'), this.transportPollIntervalMs);
       entry.transportPoll.unref?.();
-    } else if (!recording && entry.transportPoll) {
+    } else if (!entry.socket?.writable && entry.transportPoll) {
       clearInterval(entry.transportPoll);
       entry.transportPoll = null;
     }
