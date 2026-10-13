@@ -48,8 +48,9 @@ assert.match(hostApp, /hyperdeckMonitoring\?hyperdeckConfigs:\[\]/, 'Deck connec
 assert.match(hostApp, /hyperdeckRackUnit/, 'Each deck should render as its own rack unit');
 assert.match(hostApp, /nextHyperdeckName/, 'New decks should receive the next available HyperDeck number automatically');
 assert.match(hostApp, /data-change-action="hyperdeck-name"/, 'Deck names should be editable after adding');
-assert.match(hostApp, /handle\.draggable=true/, 'Each deck should expose a drag handle for reordering');
+assert.match(hostApp, /handle\.dataset\.dragHyperdeck=id/, 'Each deck should expose a pointer drag handle for reordering');
 assert.match(hostApp, /function reorderHyperdecks\(/, 'Deck order changes should be saved through the shared config list');
+assert.match(hostApp, /document\.addEventListener\("pointermove"/, 'The dragged deck should follow pointer movement in the app webview');
 assert.match(hostApp, /requestAnimationFrame\(\(\)=>\{card\.style\.transition="transform 220ms/, 'Reordered decks should animate into their new positions');
 assert.match(hostApp, /normalizedHyperdeckEndpoint/, 'Duplicate saved endpoints should be normalized and detected consistently');
 assert.match(hostApp, /lcdTimecode/, 'Rack units should foreground the live timecode display');
