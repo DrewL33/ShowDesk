@@ -76,7 +76,9 @@ assert.match(hostApp, /activeSlotId=t\["slot id"\]/, 'Live Status should use the
 assert.match(hostApp, /MEDIA SLOT <b>\$\{escapeShowDeskText\(activeSlotId\)\}<\/b>/, 'Live Status should show the slot ID instead of a count of reported slots');
 assert.match(hostApp, /Media slot information/, 'Additional HyperDeck status should be grouped in expandable sections');
 assert.match(hostApp, /deck\.softwareVersion\?`<span>SOFTWARE VERSION/, 'Show the software version only when the device reports it');
-assert.match(hostApp, /hyperdeckFieldList\(t,\["status","display timecode","speed","clip id","video format"\]\)/, 'Transport details should omit values already visible on the front display');
+assert.match(hostApp, /hyperdeckFieldList\(t,\["status","speed","clip id","video format"\]\)/, 'Transport details should show both raw timecode fields for comparison');
+assert.match(hostApp, /Front display timecode/, 'Transport details should identify the exact front-panel timecode field');
+assert.match(hostApp, /Clip \/ timeline timecode/, 'Transport details should distinguish clip or timeline position from front-panel timecode');
 assert.match(hostApp, /rawHost=\$\("hyperdeckHost"\)\.value\.trim\(\),port=9993/, 'New HyperDeck connections should use the standard fixed port');
 assert.match(styles, /\.rackDetails \.hyperdeckFieldList dd\{margin-top:6px;font-size:13px/, 'Expandable HyperDeck details should use readable value text');
 assert.match(styles, /\.rackSlotIndicators \.miniSlot\{padding:0;border:0/, 'Media slot indicators should stay compact without a redundant divider');
