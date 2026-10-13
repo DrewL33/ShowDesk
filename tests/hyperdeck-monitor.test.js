@@ -24,9 +24,12 @@ function waitFor(predicate, timeoutMs = 1500) {
   assert.throws(() => cleanConfig({ id: 'deck', name: 'Deck', host: '192.168.1.2', port: 0 }), /Port/);
 
   const commands = [];
+  let fakeSocket;
   const fakeDeck = net.createServer(socket => {
+    fakeSocket = socket;
     let infoResponded = false;
     let timecodeNotified = false;
+    let transportInfoCount = 0;
     socket.write('500 connection info:\r\nprotocol version: 1.8\r\nmodel: HyperDeck Studio HD Plus\r\n\r\n');
     let buffer = '';
     socket.on('data', chunk => {
@@ -39,8 +42,13 @@ function waitFor(predicate, timeoutMs = 1500) {
       if (commands.includes('device info') && !infoResponded) {
         infoResponded = true;
         socket.write('204 device info:\r\nmodel: HyperDeck Studio HD Plus\r\ndevice name: Studio A\r\nsoftware version: 9.0\r\n\r\n');
-        socket.write('208 transport info:\r\nstatus: play\r\ndisplay timecode: 01:02:03:04\r\nclip id: 12\r\n\r\n');
         socket.write('202 slot info:\r\nslot id: 1\r\nslot name: SDI\r\nstatus: mounted\r\nvolume name: SHOW DRIVE\r\nrecording time available: 3600\r\n\r\n');
+      }
+      const transportCommands = commands.filter(command => command === 'transport info').length;
+      if (transportCommands > transportInfoCount) {
+        transportInfoCount = transportCommands;
+        const clipTimecode = transportInfoCount === 1 ? '00:00:00:01' : '00:00:00:02';
+        socket.write(`208 transport info:\r\nstatus: record\r\ntimecode: ${clipTimecode}\r\ndisplay timecode: 14:25:02;23\r\nclip id: 12\r\n\r\n`);
       }
       if (infoResponded && commands.includes('notify: display timecode: true') && !timecodeNotified) {
         timecodeNotified = true;
@@ -49,7 +57,7 @@ function waitFor(predicate, timeoutMs = 1500) {
     });
   });
   await new Promise(resolve => fakeDeck.listen(0, '127.0.0.1', resolve));
-  const monitor = new HyperDeckMonitor();
+  const monitor = new HyperDeckMonitor({ transportPollIntervalMs: 25 });
   try {
     assert.equal(cleanConfig({ id: 'deck-default', host: '127.0.0.1', port: fakeDeck.address().port }).name, 'HyperDeck');
     assert.throws(() => monitor.configure([
@@ -57,7 +65,7 @@ function waitFor(predicate, timeoutMs = 1500) {
       { id: 'deck-b', name: 'HyperDeck 2', host: '127.0.0.1', port: fakeDeck.address().port }
     ]), /endpoint can only be configured once/);
     monitor.configure([{ id: 'deck1', name: 'Studio A', host: '127.0.0.1', port: fakeDeck.address().port }]);
-    await waitFor(() => monitor.snapshot()[0]?.transport?.status === 'play' && monitor.snapshot()[0]?.slots?.length === 1);
+    await waitFor(() => monitor.snapshot()[0]?.transport?.status === 'record' && monitor.snapshot()[0]?.slots?.length === 1);
     const deck = monitor.snapshot()[0];
     assert.equal(deck.model, 'HyperDeck Studio HD Plus');
     assert.equal(deck.error, '', 'The normal connection-info greeting is not an error');
@@ -67,8 +75,15 @@ function waitFor(predicate, timeoutMs = 1500) {
     await waitFor(() => monitor.snapshot()[0]?.transport?.['display timecode'] === '01:02:03:05');
     assert.equal(monitor.snapshot()[0].transport['display timecode'], '01:02:03:05', 'An asynchronous frame update must replace the initial transport timecode');
     assert.equal(monitor.snapshot()[0].error, '', 'Asynchronous timecode updates are normal status, not connection errors');
+    await waitFor(() => monitor.snapshot()[0]?.transport?.timecode === '00:00:00:02');
+    assert(commands.filter(command => command === 'transport info').length > 1, 'Recording mode should refresh clip timecode with read-only transport info requests');
+    assert.notEqual(monitor.snapshot()[0].transport.timecode, monitor.snapshot()[0].transport['display timecode'], 'Clip and front-panel display timecode remain distinct');
+    assert(monitor.entries.get('deck1').transportPoll, 'Recording should enable periodic transport refresh');
+    fakeSocket.write('508 transport info:\r\nstatus: preview\r\ntimecode: 00:00:00:02\r\n\r\n');
+    await waitFor(() => monitor.snapshot()[0]?.transport?.status === 'preview');
+    assert.equal(monitor.entries.get('deck1').transportPoll, null, 'Leaving record mode should stop periodic transport refresh');
     const sent = commands;
-    assert.deepEqual(sent.sort(), ['device info', 'notify: device info: true', 'notify: display timecode: true', 'notify: slot: true', 'notify: transport: true', 'slot info', 'transport info'].sort());
+    assert.deepEqual([...new Set(sent)].sort(), ['device info', 'notify: device info: true', 'notify: display timecode: true', 'notify: slot: true', 'notify: transport: true', 'slot info', 'transport info'].sort());
     assert(!sent.some(command => /^(play|stop|record|jog|shuttle|goto|preview|remote)$/.test(command)));
     const commandCount = commands.length;
     monitor.configure([{ id: 'deck1', name: 'Studio A - renamed', host: '127.0.0.1', port: fakeDeck.address().port }]);

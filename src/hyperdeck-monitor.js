@@ -35,10 +35,11 @@ function parseResponseBlock(lines) {
 }
 
 class HyperDeckMonitor extends EventEmitter {
-  constructor({ connect = net.createConnection, reconnectMinMs = 2000 } = {}) {
+  constructor({ connect = net.createConnection, reconnectMinMs = 2000, transportPollIntervalMs = 1000 } = {}) {
     super();
     this.connect = connect;
     this.reconnectMinMs = reconnectMinMs;
+    this.transportPollIntervalMs = transportPollIntervalMs;
     this.entries = new Map();
   }
 
@@ -57,7 +58,7 @@ class HyperDeckMonitor extends EventEmitter {
         continue;
       }
       if (existing) this.remove(config.id);
-      const entry = { config, socket: null, retry: null, retryMs: this.reconnectMinMs, buffer: '', lines: [], info: {}, transport: {}, slots: {}, status: 'connecting', error: '' };
+      const entry = { config, socket: null, retry: null, retryMs: this.reconnectMinMs, transportPoll: null, buffer: '', lines: [], info: {}, transport: {}, slots: {}, status: 'connecting', error: '' };
       this.entries.set(config.id, entry);
       this.open(entry);
     }
@@ -71,6 +72,7 @@ class HyperDeckMonitor extends EventEmitter {
     this.entries.delete(id);
     clearTimeout(entry.retry);
     clearTimeout(entry.connectTimer);
+    clearInterval(entry.transportPoll);
     entry.socket?.destroy();
     this.publish();
   }
@@ -99,6 +101,7 @@ class HyperDeckMonitor extends EventEmitter {
     socket.on('close', () => {
       if (entry.socket !== socket) return;
       clearTimeout(entry.connectTimer); entry.connectTimer = null;
+      clearInterval(entry.transportPoll); entry.transportPoll = null;
       entry.socket = null; entry.status = 'disconnected'; this.publish();
       if (this.entries.has(entry.config.id)) {
         entry.retry = setTimeout(() => this.open(entry), entry.retryMs);
@@ -143,6 +146,7 @@ class HyperDeckMonitor extends EventEmitter {
       const id = f['slot id'] || f['slot name'] || String(Object.keys(entry.slots).length + 1);
       entry.slots[id] = { ...entry.slots[id], ...f, id };
     }
+    this.syncTransportPolling(entry);
     this.publish();
     if (response.code === 500 && response.header === 'connection info') {
       this.send(entry, 'notify: transport: true');
@@ -159,6 +163,17 @@ class HyperDeckMonitor extends EventEmitter {
     // This allowlist keeps the monitor read-only: no transport or recording commands.
     if (!['notify: transport: true', 'notify: slot: true', 'notify: device info: true', 'notify: display timecode: true', 'device info', 'transport info', 'slot info'].includes(command)) return;
     if (entry.socket?.writable) entry.socket.write(`${command}\r\n`);
+  }
+
+  syncTransportPolling(entry) {
+    const recording = String(entry.transport.status || '').toLowerCase() === 'record';
+    if (recording && entry.socket?.writable && !entry.transportPoll) {
+      entry.transportPoll = setInterval(() => this.send(entry, 'transport info'), this.transportPollIntervalMs);
+      entry.transportPoll.unref?.();
+    } else if (!recording && entry.transportPoll) {
+      clearInterval(entry.transportPoll);
+      entry.transportPoll = null;
+    }
   }
 
   close() {
