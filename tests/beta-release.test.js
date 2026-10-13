@@ -71,7 +71,7 @@ assert.match(hostApp, /document\.addEventListener\("pointermove"/, 'The dragged 
 assert.match(hostApp, /requestAnimationFrame\(\(\)=>\{card\.style\.transition="transform 220ms/, 'Reordered decks should animate into their new positions');
 assert.match(hostApp, /normalizedHyperdeckEndpoint/, 'Duplicate saved endpoints should be normalized and detected consistently');
 assert.match(hostApp, /lcdTimecode/, 'Rack units should foreground the live timecode display');
-assert.match(hostApp, /function hyperdeckTimecode\(deck\)\{const transport=deck\.transport\|\|\{\};return transport\["display timecode"\]\|\|/, 'The main counter should mirror the HyperDeck front display counter');
+assert.match(hostApp, /function hyperdeckTimecode\(deck\)\{const transport=deck\.transport\|\|\{\};return deck\.frontDisplayTimecode\|\|transport\["display timecode"\]\|\|/, 'The main counter should mirror the held HyperDeck front display counter');
 assert.match(hostApp, /<small>FRONT DISPLAY TIME<\/small>/, 'The main counter label should identify the front display source');
 assert.match(hostApp, /function hyperdeckRecordingTimeRemaining\(slot\)/, 'SSD recording time remaining should be formatted separately from the large front counter');
 assert.match(hostApp, /RECORD TIME LEFT · /, 'The media slot summary should distinguish remaining SSD record capacity');

@@ -58,7 +58,7 @@ class HyperDeckMonitor extends EventEmitter {
         continue;
       }
       if (existing) this.remove(config.id);
-      const entry = { config, socket: null, retry: null, retryMs: this.reconnectMinMs, transportPoll: null, slotPoll: null, buffer: '', lines: [], info: {}, transport: {}, slots: {}, status: 'connecting', error: '' };
+      const entry = { config, socket: null, retry: null, retryMs: this.reconnectMinMs, transportPoll: null, slotPoll: null, buffer: '', lines: [], info: {}, transport: {}, frontDisplayTimecode: '', displayTimecodeNotifications: false, slots: {}, status: 'connecting', error: '' };
       this.entries.set(config.id, entry);
       this.open(entry);
     }
@@ -83,7 +83,7 @@ class HyperDeckMonitor extends EventEmitter {
       id: entry.config.id, name: entry.config.name, host: entry.config.host, port: entry.config.port,
       status: entry.status, error: entry.error, model: entry.info.model || '', deviceName: entry.info['device name'] || '',
       softwareVersion: entry.info['software version'] || entry.info['firmware version'] || entry.info['software revision'] || '', protocolVersion: entry.info['protocol version'] || '',
-      deviceInfo: { ...entry.info }, transport: { ...entry.transport }, slots: Object.values(entry.slots).sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }))
+      deviceInfo: { ...entry.info }, transport: { ...entry.transport }, frontDisplayTimecode: entry.frontDisplayTimecode, slots: Object.values(entry.slots).sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }))
     }));
   }
 
@@ -104,6 +104,7 @@ class HyperDeckMonitor extends EventEmitter {
       clearTimeout(entry.connectTimer); entry.connectTimer = null;
       clearInterval(entry.transportPoll); entry.transportPoll = null;
       clearInterval(entry.slotPoll); entry.slotPoll = null;
+      entry.displayTimecodeNotifications = false;
       entry.socket = null; entry.status = 'disconnected'; this.publish();
       if (this.entries.has(entry.config.id)) {
         entry.retry = setTimeout(() => this.open(entry), entry.retryMs);
@@ -140,7 +141,27 @@ class HyperDeckMonitor extends EventEmitter {
       entry.info = { ...entry.info, ...f };
       if (entry.info.model || entry.info['device name']) entry.status = 'connected';
     } else if (response.header === 'transport info') {
-      entry.transport = { ...entry.transport, ...f };
+      const wasRecording = String(entry.transport.status || '').toLowerCase() === 'record';
+      const nextStatus = String(f.status || entry.transport.status || '').toLowerCase();
+      const isRecording = nextStatus === 'record';
+      const transportFields = { ...f };
+      if (isRecording && f['display timecode']) entry.frontDisplayTimecode = f['display timecode'];
+      else if (!entry.frontDisplayTimecode && f['display timecode']) entry.frontDisplayTimecode = f['display timecode'];
+      if (entry.frontDisplayTimecode && !isRecording) transportFields['display timecode'] = entry.frontDisplayTimecode;
+      entry.transport = { ...entry.transport, ...transportFields };
+      if (isRecording && !entry.displayTimecodeNotifications) {
+        this.send(entry, 'notify: display timecode: true');
+        entry.displayTimecodeNotifications = true;
+      } else if (!isRecording && wasRecording && entry.displayTimecodeNotifications) {
+        this.send(entry, 'notify: display timecode: false');
+        entry.displayTimecodeNotifications = false;
+      }
+    } else if (response.header === 'display timecode') {
+      const timecode = f['display timecode'] || f.timecode || f.message || '';
+      if (String(entry.transport.status || '').toLowerCase() === 'record' && timecode) {
+        entry.frontDisplayTimecode = timecode;
+        entry.transport['display timecode'] = timecode;
+      }
     } else if (response.header === 'slot info') {
       const id = f['slot id'] || f['slot name'] || String(Object.keys(entry.slots).length + 1);
       entry.slots[id] = { ...entry.slots[id], ...f, id };
@@ -150,6 +171,7 @@ class HyperDeckMonitor extends EventEmitter {
     if (response.code === 500 && response.header === 'connection info') {
       this.send(entry, 'notify: slot: true');
       this.send(entry, 'notify: device info: true');
+      this.send(entry, 'notify: transport: true');
       this.send(entry, 'device info');
       this.send(entry, 'transport info');
       this.send(entry, 'slot info');
@@ -158,7 +180,7 @@ class HyperDeckMonitor extends EventEmitter {
 
   send(entry, command) {
     // This allowlist keeps the monitor read-only: no transport or recording commands.
-    if (!['notify: slot: true', 'notify: device info: true', 'device info', 'transport info', 'slot info'].includes(command)) return;
+    if (!['notify: slot: true', 'notify: device info: true', 'notify: transport: true', 'notify: display timecode: true', 'notify: display timecode: false', 'device info', 'transport info', 'slot info'].includes(command)) return;
     if (entry.socket?.writable) entry.socket.write(`${command}\r\n`);
   }
 
