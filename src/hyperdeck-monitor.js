@@ -139,9 +139,6 @@ class HyperDeckMonitor extends EventEmitter {
       if (entry.info.model || entry.info['device name']) entry.status = 'connected';
     } else if (response.header === 'transport info') {
       entry.transport = { ...entry.transport, ...f };
-    } else if (response.header === 'display timecode') {
-      const timecode = f['display timecode'] || f.timecode || f.message;
-      if (timecode) entry.transport = { ...entry.transport, 'display timecode': timecode };
     } else if (response.header === 'slot info') {
       const id = f['slot id'] || f['slot name'] || String(Object.keys(entry.slots).length + 1);
       entry.slots[id] = { ...entry.slots[id], ...f, id };
@@ -149,10 +146,8 @@ class HyperDeckMonitor extends EventEmitter {
     this.syncTransportPolling(entry);
     this.publish();
     if (response.code === 500 && response.header === 'connection info') {
-      this.send(entry, 'notify: transport: true');
       this.send(entry, 'notify: slot: true');
       this.send(entry, 'notify: device info: true');
-      this.send(entry, 'notify: display timecode: true');
       this.send(entry, 'device info');
       this.send(entry, 'transport info');
       this.send(entry, 'slot info');
@@ -161,7 +156,7 @@ class HyperDeckMonitor extends EventEmitter {
 
   send(entry, command) {
     // This allowlist keeps the monitor read-only: no transport or recording commands.
-    if (!['notify: transport: true', 'notify: slot: true', 'notify: device info: true', 'notify: display timecode: true', 'device info', 'transport info', 'slot info'].includes(command)) return;
+    if (!['notify: slot: true', 'notify: device info: true', 'device info', 'transport info', 'slot info'].includes(command)) return;
     if (entry.socket?.writable) entry.socket.write(`${command}\r\n`);
   }
 

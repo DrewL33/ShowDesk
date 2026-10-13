@@ -29,7 +29,6 @@ function waitFor(predicate, timeoutMs = 1500) {
   const fakeDeck = net.createServer(socket => {
     fakeSocket = socket;
     let infoResponded = false;
-    let timecodeNotified = false;
     let transportInfoCount = 0;
     socket.write('500 connection info:\r\nprotocol version: 1.8\r\nmodel: HyperDeck Studio HD Plus\r\n\r\n');
     let buffer = '';
@@ -51,10 +50,6 @@ function waitFor(predicate, timeoutMs = 1500) {
         const clipTimecode = transportInfoCount === 1 ? '00:00:00:01' : '00:00:00:02';
         const displayTimecode = `14:25:02;${String(22 + transportInfoCount).padStart(2, '0')}`;
         socket.write(`208 transport info:\r\nstatus: ${transportStatus}\r\ntimecode: ${clipTimecode}\r\ndisplay timecode: ${displayTimecode}\r\nclip id: 12\r\n\r\n`);
-      }
-      if (infoResponded && commands.includes('notify: display timecode: true') && !timecodeNotified) {
-        timecodeNotified = true;
-        socket.write('503 display timecode: 01:02:03:05\r\n\r\n');
       }
     });
   });
@@ -87,7 +82,8 @@ function waitFor(predicate, timeoutMs = 1500) {
     assert(monitor.entries.get('deck1').transportPoll, 'Display timecode polling should continue in preview mode');
     await waitFor(() => monitor.snapshot()[0]?.transport?.['display timecode'] === '14:25:02;25');
     const sent = commands;
-    assert.deepEqual([...new Set(sent)].sort(), ['device info', 'notify: device info: true', 'notify: display timecode: true', 'notify: slot: true', 'notify: transport: true', 'slot info', 'transport info'].sort());
+    assert.deepEqual([...new Set(sent)].sort(), ['device info', 'notify: device info: true', 'notify: slot: true', 'slot info', 'transport info'].sort());
+    assert(!sent.includes('notify: transport: true'), 'The monitor should use one polled transport source so stale async updates cannot replace fresh values');
     assert(!sent.some(command => /^(play|stop|record|jog|shuttle|goto|preview|remote)$/.test(command)));
     const commandCount = commands.length;
     monitor.configure([{ id: 'deck1', name: 'Studio A - renamed', host: '127.0.0.1', port: fakeDeck.address().port }]);

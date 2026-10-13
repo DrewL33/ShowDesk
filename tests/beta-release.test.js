@@ -71,12 +71,16 @@ assert.match(hostApp, /document\.addEventListener\("pointermove"/, 'The dragged 
 assert.match(hostApp, /requestAnimationFrame\(\(\)=>\{card\.style\.transition="transform 220ms/, 'Reordered decks should animate into their new positions');
 assert.match(hostApp, /normalizedHyperdeckEndpoint/, 'Duplicate saved endpoints should be normalized and detected consistently');
 assert.match(hostApp, /lcdTimecode/, 'Rack units should foreground the live timecode display');
+assert.match(hostApp, /function hyperdeckTimecode\(deck\)\{const transport=deck\.transport\|\|\{\};return transport\.timecode\|\|/, 'The main counter should consistently show the transport clip or timeline position, which stops with transport');
+assert.match(hostApp, /<small>CLIP \/ TIMELINE TIMECODE<\/small>/, 'The main counter label should accurately describe its transport timecode source');
 assert.match(hostApp, /SLOT \$\{escapeShowDeskText\(slot\.id\|\|"—"\)\}<\/b><em>\$\{escapeShowDeskText\(slot\.status\|\|"UNKNOWN"\)\}/, 'Media indicators should label the slot ID and state clearly');
 assert.match(hostApp, /activeSlotId=t\["slot id"\]/, 'Live Status should use the active slot ID reported by the transport');
 assert.match(hostApp, /MEDIA SLOT <b>\$\{escapeShowDeskText\(activeSlotId\)\}<\/b>/, 'Live Status should show the slot ID instead of a count of reported slots');
 assert.match(hostApp, /Media slot information/, 'Additional HyperDeck status should be grouped in expandable sections');
 assert.match(hostApp, /deck\.softwareVersion\?`<span>SOFTWARE VERSION/, 'Show the software version only when the device reports it');
-assert.match(hostApp, /hyperdeckFieldList\(t,\["status","speed","clip id","video format"\]\)/, 'Transport details should show both raw timecode fields for comparison');
+assert.match(hostApp, /hyperdeckFieldList\(t,\["status","speed","clip id","video format"\],deck\.id\)/, 'Transport detail values should be tagged for live updates');
+assert.match(hostApp, /data-hyperdeck-field="\$\{escapeShowDeskText\(key\)\}"/, 'Live transport detail values should identify their protocol field');
+assert.match(hostApp, /for\(const node of fields\)if\(node\.dataset\.hyperdeckId===String\(deck\.id\)\)/, 'The fast render path should refresh raw transport details as well as the LCD timecode');
 assert.match(hostApp, /Front display timecode/, 'Transport details should identify the exact front-panel timecode field');
 assert.match(hostApp, /Clip \/ timeline timecode/, 'Transport details should distinguish clip or timeline position from front-panel timecode');
 assert.match(hostApp, /rawHost=\$\("hyperdeckHost"\)\.value\.trim\(\),port=9993/, 'New HyperDeck connections should use the standard fixed port');
