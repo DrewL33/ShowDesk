@@ -753,6 +753,16 @@ body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!importa
 .settingsWindow .settingsHyperdeckViewAll{min-height:36px;margin-top:8px;padding:0 14px;font-size:10px;font-weight:800}
 .settingsWindow .settingsHyperdeckList>p{margin:0;padding:14px;background:var(--sd-work);border:1px solid var(--sd-line);color:var(--sd-muted);font-size:12px}
 .settingsWindow .settingsHyperdeckRow{min-width:0;padding:12px;background:var(--sd-work);border:1px solid var(--sd-line)}
+.rackStaticControls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(42px,auto));gap:7px 8px;align-items:stretch}
+.rackStaticControls span{min-width:0;min-height:42px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:3px 2px;background:linear-gradient(180deg,#344752,#263740);border:1px solid #4a606b;border-radius:2px;box-shadow:0 2px 3px #0005,inset 0 1px #ffffff12;color:#e0e8ec}
+.rackStaticControls span b{font-size:16px;line-height:1;font-weight:800}
+.rackStaticControls span small{color:#aab9c0;font-size:7px;font-weight:800;line-height:1;letter-spacing:.04em}
+.rackStaticControls span.isRecording{background:linear-gradient(180deg,#612b31,#3c2026);border-color:#945057;color:#ffb9b5;box-shadow:0 0 8px #f0443b22,inset 0 1px #ffffff12}
+.rackStaticControls span.isRecording small{color:#ffaaa4}
+.rackStaticControls span.isPlaying{background:linear-gradient(180deg,#315642,#203d30);border-color:#4a8966;color:#a9f0bf;box-shadow:0 0 8px #45d78022,inset 0 1px #ffffff12}
+.rackStaticControls span.isPlaying small{color:#a9e6bb}
+.rackStaticControls span.isStopped{background:linear-gradient(180deg,#315562,#223d47);border-color:#4a8291;color:#9de7ef;box-shadow:0 0 8px #4ccddd22,inset 0 1px #ffffff12}
+.rackStaticControls span.isStopped small{color:#a7dce1}
 .settingsWindow .settingsHyperdeckRow>div:first-child{min-width:0}
 .settingsWindow .settingsHyperdeckRow b{color:var(--sd-text);font-size:12px}
 .settingsWindow .settingsHyperdeckRow span{color:var(--sd-muted);font-size:11px}
