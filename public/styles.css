@@ -718,6 +718,7 @@ body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!importa
 .rackLcd{background:radial-gradient(ellipse at 50% 0,#17333a,#0b151a 78%);border-color:#4c7075;box-shadow:inset 0 0 18px #0008,0 0 0 1px #79c5a51a}
 .lcdTop,.lcdBottom,.lcdMain small{color:#9ab2ad}
 .lcdTimecode{color:#effff2;text-shadow:0 0 10px #74da8c55}
+.lcdTimecodeGroup{gap:5px}.lcdSecondaryTimerGroup{display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-top:2px}.lcdSecondaryTimerGroup[hidden]{display:none}.lcdSecondaryTimer{color:#a9c0c2;font-size:clamp(12px,1.25vw,17px);line-height:1.1;letter-spacing:.025em;font-variant-numeric:tabular-nums}
 .miniSlot{border-bottom-color:#3c525d}
 .miniSlot>span,.noSlotStatus{color:#afbdc4}
 .miniSlot b,.rackModelPanel b{color:#f1f5f6}

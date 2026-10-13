@@ -143,6 +143,10 @@
     <h3>WORKSPACE</h3>
     <p id="hyperdeckSettingsIntro">Enable the HyperDeck Monitoring workspace to add a dedicated tab to ShowDesk.</p>
     <label class="settingsControlRow" for="settingsHyperdeckEnabled"><span>Show HyperDeck Monitor tab</span><input id="settingsHyperdeckEnabled" type="checkbox" data-change-action="hyperdeck-enabled"></label>
+    <h3>FRONT PANEL READOUT</h3>
+    <p>Choose which timer is most prominent on each deck. Recording elapsed time is measured by ShowDesk from the moment recording is detected and holds when recording stops.</p>
+    <label class="settingsControlRow" for="settingsHyperdeckPrimaryTimer"><span>Main timer</span><select id="settingsHyperdeckPrimaryTimer" data-change-action="hyperdeck-primary-timer"><option value="recordingElapsed">Recording elapsed</option><option value="frontDisplayTimecode">Front display timecode</option><option value="clipTimecode">Clip / timeline timecode</option><option value="recordingRemaining">SSD record time remaining</option></select></label>
+    <label class="settingsControlRow" for="settingsHyperdeckSecondaryTimer"><span>Smaller timer</span><select id="settingsHyperdeckSecondaryTimer" data-change-action="hyperdeck-secondary-timer"><option value="frontDisplayTimecode">Front display timecode</option><option value="recordingElapsed">Recording elapsed</option><option value="clipTimecode">Clip / timeline timecode</option><option value="recordingRemaining">SSD record time remaining</option><option value="none">None</option></select></label>
     <p id="hyperdeckViewerSettingsNotice" hidden>Viewer mode receives read-only status from the ShowDesk Host. No HyperDeck IP address is needed on this computer.</p>
     <div id="hyperdeckHostSettings">
      <h3>DEVICE SETUP</h3>

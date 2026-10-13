@@ -58,7 +58,7 @@ class HyperDeckMonitor extends EventEmitter {
         continue;
       }
       if (existing) this.remove(config.id);
-      const entry = { config, socket: null, retry: null, retryMs: this.reconnectMinMs, transportPoll: null, slotPoll: null, buffer: '', lines: [], info: {}, transport: {}, frontDisplayTimecode: '', displayTimecodeNotifications: false, slots: {}, status: 'connecting', error: '' };
+      const entry = { config, socket: null, retry: null, retryMs: this.reconnectMinMs, transportPoll: null, slotPoll: null, buffer: '', lines: [], info: {}, transport: {}, frontDisplayTimecode: '', recordingElapsedMs: 0, recordingStartedAt: null, displayTimecodeNotifications: false, slots: {}, status: 'connecting', error: '' };
       this.entries.set(config.id, entry);
       this.open(entry);
     }
@@ -83,7 +83,7 @@ class HyperDeckMonitor extends EventEmitter {
       id: entry.config.id, name: entry.config.name, host: entry.config.host, port: entry.config.port,
       status: entry.status, error: entry.error, model: entry.info.model || '', deviceName: entry.info['device name'] || '',
       softwareVersion: entry.info['software version'] || entry.info['firmware version'] || entry.info['software revision'] || '', protocolVersion: entry.info['protocol version'] || '',
-      deviceInfo: { ...entry.info }, transport: { ...entry.transport }, frontDisplayTimecode: entry.frontDisplayTimecode, slots: Object.values(entry.slots).sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }))
+      deviceInfo: { ...entry.info }, transport: { ...entry.transport }, frontDisplayTimecode: entry.frontDisplayTimecode, recordingElapsedMs: entry.recordingElapsedMs + (entry.recordingStartedAt === null ? 0 : Math.max(0, Date.now() - entry.recordingStartedAt)), slots: Object.values(entry.slots).sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }))
     }));
   }
 
@@ -105,6 +105,7 @@ class HyperDeckMonitor extends EventEmitter {
       clearInterval(entry.transportPoll); entry.transportPoll = null;
       clearInterval(entry.slotPoll); entry.slotPoll = null;
       entry.displayTimecodeNotifications = false;
+      if (entry.recordingStartedAt !== null) { entry.recordingElapsedMs += Math.max(0, Date.now() - entry.recordingStartedAt); entry.recordingStartedAt = null; }
       entry.socket = null; entry.status = 'disconnected'; this.publish();
       if (this.entries.has(entry.config.id)) {
         entry.retry = setTimeout(() => this.open(entry), entry.retryMs);
@@ -144,6 +145,10 @@ class HyperDeckMonitor extends EventEmitter {
       const wasRecording = String(entry.transport.status || '').toLowerCase() === 'record';
       const nextStatus = String(f.status || entry.transport.status || '').toLowerCase();
       const isRecording = nextStatus === 'record';
+      const now = Date.now();
+      if (isRecording && !wasRecording) { entry.recordingElapsedMs = 0; entry.recordingStartedAt = now; }
+      else if (isRecording && entry.recordingStartedAt === null) entry.recordingStartedAt = now;
+      else if (!isRecording && entry.recordingStartedAt !== null) { entry.recordingElapsedMs += Math.max(0, now - entry.recordingStartedAt); entry.recordingStartedAt = null; }
       const transportFields = { ...f };
       if (isRecording && f['display timecode']) entry.frontDisplayTimecode = f['display timecode'];
       else if (!entry.frontDisplayTimecode && f['display timecode']) entry.frontDisplayTimecode = f['display timecode'];

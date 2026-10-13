@@ -75,6 +75,7 @@ function waitFor(predicate, timeoutMs = 1500) {
     monitor.configure([{ id: 'deck1', name: 'Studio A', host: '127.0.0.1', port: fakeDeck.address().port }]);
     await waitFor(() => monitor.snapshot()[0]?.transport?.status === 'record' && monitor.snapshot()[0]?.slots?.length === 1);
     const deck = monitor.snapshot()[0];
+    assert(deck.recordingElapsedMs < 250, 'The recording elapsed timer starts near zero when recording is first detected');
     assert.equal(deck.model, 'HyperDeck Studio HD Plus');
     assert.equal(deck.error, '', 'The normal connection-info greeting is not an error');
     assert.equal(deck.deviceName, 'Studio A');
@@ -85,6 +86,7 @@ function waitFor(predicate, timeoutMs = 1500) {
     assert.notEqual(monitor.snapshot()[0].slots[0]['recording time available'], '3600', 'The SSD recording-time countdown should refresh during recording');
     assert.equal(monitor.snapshot()[0].error, '', 'Asynchronous timecode updates are normal status, not connection errors');
     await waitFor(() => monitor.snapshot()[0]?.transport?.timecode === '00:00:00:02');
+    await waitFor(() => monitor.snapshot()[0]?.recordingElapsedMs >= 25);
     assert(commands.filter(command => command === 'transport info').length > 1, 'A connected deck should receive periodic read-only transport info requests');
     assert.notEqual(monitor.snapshot()[0].transport.timecode, monitor.snapshot()[0].transport['display timecode'], 'Clip and front-panel display timecode remain distinct');
     assert(monitor.entries.get('deck1').transportPoll, 'A connected deck should periodically refresh transport state');
@@ -94,6 +96,7 @@ function waitFor(predicate, timeoutMs = 1500) {
     transportStatus = 'preview';
     fakeSocket.write('508 transport info:\r\nstatus: preview\r\ntimecode: 00:00:00:02\r\ndisplay timecode: 14:25:02;46\r\n\r\n');
     await waitFor(() => monitor.snapshot()[0]?.transport?.status === 'preview');
+    const stoppedRecordingElapsedMs = monitor.snapshot()[0].recordingElapsedMs;
     assert.equal(monitor.snapshot()[0].frontDisplayTimecode, '14:25:02;45', 'The counter should hold the last recording frame when recording stops');
     assert.equal(monitor.snapshot()[0].transport['display timecode'], '14:25:02;45', 'Expanded transport information should hold the same frozen recording value');
     assert.equal(monitor.entries.get('deck1').displayTimecodeNotifications, false, 'Frame notifications should be disabled when recording stops');
@@ -101,6 +104,7 @@ function waitFor(predicate, timeoutMs = 1500) {
     assert.equal(monitor.entries.get('deck1').slotPoll, null, 'SSD time-remaining polling should stop when the deck is no longer recording');
     fakeSocket.write('508 display timecode:\r\ntimecode: 14:25:03;00\r\n\r\n');
     await new Promise(resolve => setTimeout(resolve, 60));
+    assert.equal(monitor.snapshot()[0].recordingElapsedMs, stoppedRecordingElapsedMs, 'Recording elapsed holds its value when recording stops');
     assert.equal(monitor.snapshot()[0].frontDisplayTimecode, '14:25:02;45', 'A linked deck timecode must not move this stopped deck counter');
     const sent = commands;
     assert.deepEqual([...new Set(sent)].sort(), ['device info', 'notify: device info: true', 'notify: display timecode: false', 'notify: display timecode: true', 'notify: slot: true', 'notify: transport: true', 'slot info', 'transport info'].sort());

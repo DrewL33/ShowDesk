@@ -38,7 +38,7 @@ const viewerClients = new Set();
 const hyperDeckMonitor = new HyperDeckMonitor();
 let hostHyperdeckMonitoringEnabled = false;
 function viewerHyperdeckSnapshot() {
-  const allowed = ['id', 'name', 'status', 'model', 'deviceName', 'softwareVersion', 'protocolVersion', 'deviceInfo', 'transport', 'frontDisplayTimecode', 'slots'];
+  const allowed = ['id', 'name', 'status', 'model', 'deviceName', 'softwareVersion', 'protocolVersion', 'deviceInfo', 'transport', 'frontDisplayTimecode', 'recordingElapsedMs', 'slots'];
   return hyperDeckMonitor.snapshot().map(deck => Object.fromEntries(allowed.filter(key => deck[key] !== undefined).map(key => [key, deck[key]])));
 }
 function broadcastHyperdeckState(data = hyperDeckMonitor.snapshot()) {

@@ -70,9 +70,12 @@ assert.match(hostApp, /function reorderHyperdecks\(/, 'Deck order changes should
 assert.match(hostApp, /document\.addEventListener\("pointermove"/, 'The dragged deck should follow pointer movement in the app webview');
 assert.match(hostApp, /requestAnimationFrame\(\(\)=>\{card\.style\.transition="transform 220ms/, 'Reordered decks should animate into their new positions');
 assert.match(hostApp, /normalizedHyperdeckEndpoint/, 'Duplicate saved endpoints should be normalized and detected consistently');
-assert.match(hostApp, /lcdTimecode/, 'Rack units should foreground the live timecode display');
+assert.match(hostApp, /lcdPrimaryTimer/, 'Rack units should foreground the user-selected timer');
 assert.match(hostApp, /function hyperdeckTimecode\(deck\)\{const transport=deck\.transport\|\|\{\};return deck\.frontDisplayTimecode\|\|transport\["display timecode"\]\|\|/, 'The main counter should mirror the held HyperDeck front display counter');
-assert.match(hostApp, /<small>FRONT DISPLAY TIME<\/small>/, 'The main counter label should identify the front display source');
+assert.match(hostApp, /hyperdeckPrimaryTimer:"recordingElapsed",hyperdeckSecondaryTimer:"frontDisplayTimecode"/, 'The default readout should show elapsed recording time with front-display timecode beneath it');
+assert.match(hostApp, /settingsHyperdeckPrimaryTimer/, 'Settings should let users select the prominent HyperDeck timer');
+assert.match(hostApp, /settingsHyperdeckSecondaryTimer/, 'Settings should let users select a supporting HyperDeck timer');
+assert.match(hostApp, /function formatHyperdeckElapsed\(/, 'ShowDesk should format a record-start elapsed timer separately from deck timecode');
 assert.match(hostApp, /function hyperdeckRecordingTimeRemaining\(slot\)/, 'SSD recording time remaining should be formatted separately from the large front counter');
 assert.match(hostApp, /RECORD TIME LEFT · /, 'The media slot summary should distinguish remaining SSD record capacity');
 assert.match(hostApp, /SLOT \$\{escapeShowDeskText\(slot\.id\|\|"—"\)\}<\/b><em>\$\{escapeShowDeskText\(slot\.status\|\|"UNKNOWN"\)\}/, 'Media indicators should label the slot ID and state clearly');
@@ -82,7 +85,7 @@ assert.match(hostApp, /Media slot information/, 'Additional HyperDeck status sho
 assert.match(hostApp, /deck\.softwareVersion\?`<span>SOFTWARE VERSION/, 'Show the software version only when the device reports it');
 assert.match(hostApp, /hyperdeckFieldList\(t,\["status","speed","clip id","video format"\],deck\.id\)/, 'Transport detail values should be tagged for live updates');
 assert.match(hostApp, /data-hyperdeck-field="\$\{escapeShowDeskText\(key\)\}"/, 'Live transport detail values should identify their protocol field');
-assert.match(hostApp, /for\(const node of fields\)if\(node\.dataset\.hyperdeckId===String\(deck\.id\)\)/, 'The fast render path should refresh raw transport details as well as the LCD timecode');
+assert.match(hostApp, /for\(const node of fields\)if\(node\.dataset\.hyperdeckId===String\(deck\.id\)\)/, 'The fast render path should refresh raw transport details');
 assert.match(hostApp, /Front display timecode/, 'Transport details should identify the exact front-panel timecode field');
 assert.match(hostApp, /Clip \/ timeline timecode/, 'Transport details should distinguish clip or timeline position from front-panel timecode');
 assert.match(hostApp, /rawHost=\$\("hyperdeckHost"\)\.value\.trim\(\),port=9993/, 'New HyperDeck connections should use the standard fixed port');
