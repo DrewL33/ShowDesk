@@ -472,6 +472,10 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .settingsWindow .settingsTabs button{display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;border:1px solid transparent;border-radius:5px;background:transparent;text-align:left;color:#b8c9d2;font-size:12px;font-weight:600;letter-spacing:0;text-transform:none;cursor:pointer}
 .settingsWindow .settingsTabs button.on{background:#294250;border-color:#405c6d;color:#fff}
 .settingsWindow .settingsTabs button:hover:not(.on){background:#1b303c}
+.settingsGuideList{display:grid;gap:8px;margin:0 0 24px}
+.settingsGuideList article{padding:12px 14px;background:#1b2b35;border:1px solid #344752;border-left:3px solid #4d8ee8;border-radius:4px}
+.settingsGuideList article b{color:#eaf2f6;font-size:12px}
+.settingsGuideList article p{margin:5px 0 0;color:#aab9c1;font-size:11px;line-height:1.5}
 .settingsWindow .settingsNavGlyph{display:inline-flex;align-items:center;justify-content:center;width:16px;font-size:16px;font-weight:400}
 .settingsWindow .settingsMain{min-width:0;min-height:0;overflow:hidden;display:flex;flex-direction:column}
 .settingsWindow .settingsPageHead{height:72px;min-height:72px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid #30414b}
@@ -575,7 +579,9 @@ html body{padding-left:0!important}
 .workspaceTabGroup{display:flex;align-items:center;border-radius:10px;overflow:hidden}
 .workspaceTabGroup[hidden]{display:none!important}
 .workspaceTabGroup .floatingWorkspaceTab{border-radius:10px 0 0 10px}
-.workspaceUndockButton{height:40px;padding:0 9px;border:0;border-left:1px solid #ffffff12;background:transparent;color:#9aa8b1;font-size:15px;font-weight:800;cursor:pointer}
+.workspaceUndockButton{height:40px;padding:0 10px;border:0;border-left:1px solid #ffffff12;background:transparent;color:#a9bac4;display:flex;align-items:center;gap:5px;font-size:9px;font-weight:800;letter-spacing:.06em;cursor:pointer;white-space:nowrap}
+.workspaceUndockButton svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.workspaceUndockButton:focus-visible{outline:2px solid #68a9f2;outline-offset:-3px}
 .workspaceUndockButton:hover{color:#fff;background:#ffffff0d}
 .undockedWorkspaceControls{grid-column:2;display:flex;align-items:center;justify-content:center;gap:18px;min-width:0}
 .undockedWorkspaceControls[hidden]{display:none!important}

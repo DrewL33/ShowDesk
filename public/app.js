@@ -238,7 +238,7 @@ function attemptPreferredAutoConnection(){
 function showDeskStartupWorkspace(){return showDeskPreferences.workspace==="last"?showDeskPreferences.lastWorkspace:showDeskPreferences.workspace}
 function applyShowDeskStartupWorkspace(){const tab=undockedWorkspace||showDeskStartupWorkspace();if(["show","engineering","signal","hyperdecks"].includes(tab))setTab(tab)}
 function showSettingsSection(section){
- const sections=["general","hyperdeck","connections","reference","updates","about"],titles={general:"General",hyperdeck:"HyperDeck Monitor",connections:"Connections",reference:"References",updates:"Updates",about:"About"};
+ const sections=["general","guide","hyperdeck","connections","reference","updates","about"],titles={general:"General",guide:"Feature Guide",hyperdeck:"HyperDeck Monitor",connections:"Connections",reference:"References",updates:"Updates",about:"About"};
  for(const name of sections){const el=$("settingsSection"+name[0].toUpperCase()+name.slice(1));if(el)el.hidden=section!==name;}
  document.querySelectorAll("[data-settings-tab]").forEach(b=>{b.classList.toggle("on",b.dataset.settingsTab===section);b.setAttribute("aria-current",b.dataset.settingsTab===section?"page":"false")});if($("settingsPageTitle"))$("settingsPageTitle").textContent=titles[section]||"Settings";
 }

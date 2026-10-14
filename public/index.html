@@ -37,10 +37,10 @@
  </div>
 </div></div>
 <header class="workspaceTopBar"><nav class="floatingWorkspaceTabs" aria-label="Workspaces">
-<div class="workspaceTabGroup"><button id="showBtn" class="floatingWorkspaceTab on" type="button" data-action="tab-show">Show View</button><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="show" aria-label="Open Show View in a new window" title="Open Show View in a new window">↗</button></div>
-<div class="workspaceTabGroup"><button id="signalBtn" class="floatingWorkspaceTab" type="button" data-action="tab-signal">Signal Explorer</button><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="signal" aria-label="Open Signal Explorer in a new window" title="Open Signal Explorer in a new window">↗</button></div>
-<div class="workspaceTabGroup"><button id="engBtn" class="floatingWorkspaceTab" type="button" data-action="tab-inspect">Inspect</button><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="engineering" aria-label="Open Inspect in a new window" title="Open Inspect in a new window">↗</button></div>
-<div class="workspaceTabGroup" id="hyperdeckTabGroup" hidden><button id="hyperdeckBtn" class="floatingWorkspaceTab" type="button" data-action="tab-hyperdecks">HyperDeck Monitoring</button><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="hyperdecks" aria-label="Open HyperDeck Monitoring in a new window" title="Open HyperDeck Monitoring in a new window">↗</button></div>
+<div class="workspaceTabGroup"><button id="showBtn" class="floatingWorkspaceTab on" type="button" data-action="tab-show">Show View</button><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="show" aria-label="Open Show View in a separate window" title="Open Show View in a separate window"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 3h6v6M17 3l-8 8"/><path d="M14 11v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>OPEN</span></button></div>
+<div class="workspaceTabGroup"><button id="signalBtn" class="floatingWorkspaceTab" type="button" data-action="tab-signal">Signal Explorer</button><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="signal" aria-label="Open Signal Explorer in a separate window" title="Open Signal Explorer in a separate window"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 3h6v6M17 3l-8 8"/><path d="M14 11v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>OPEN</span></button></div>
+<div class="workspaceTabGroup"><button id="engBtn" class="floatingWorkspaceTab" type="button" data-action="tab-inspect">Inspect</button><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="engineering" aria-label="Open Inspect in a separate window" title="Open Inspect in a separate window"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 3h6v6M17 3l-8 8"/><path d="M14 11v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>OPEN</span></button></div>
+<div class="workspaceTabGroup" id="hyperdeckTabGroup" hidden><button id="hyperdeckBtn" class="floatingWorkspaceTab" type="button" data-action="tab-hyperdecks">HyperDeck Monitoring</button><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="hyperdecks" aria-label="Open HyperDeck Monitoring in a separate window" title="Open HyperDeck Monitoring in a separate window"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 3h6v6M17 3l-8 8"/><path d="M14 11v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>OPEN</span></button></div>
 </nav><div id="undockedWorkspaceControls" class="undockedWorkspaceControls" hidden><strong id="undockedWorkspaceTitle"></strong><button class="tinyAction" type="button" data-action="redock-workspace">↙ RETURN TO MAIN WINDOW</button></div>
 <div class="desktopStatus"><div id="modelLabel"></div><span id="viewerCount" class="viewerCount" hidden></span><button id="referenceStatus" class="referenceStatus" hidden data-action="tab-inspect">● Referencing <span id="referenceName"></span></button><div id="connectionFlag" class="connectionFlag" hidden><span class="connectionDot"></span><span id="connectionFlagText">HOST • CONNECTED</span></div><button id="disconnectBtn" class="disconnectBtn" hidden data-action="disconnect">DISCONNECT</button></div></header><div class="wrap tab-show" id="app">
 
@@ -121,6 +121,7 @@
   <div class="settingsBrand"><span>SHOWDESK</span><h2 id="settingsTitle">Settings</h2></div>
   <nav class="settingsTabs" aria-label="Settings sections">
    <button type="button" data-settings-tab="general"><span class="settingsNavGlyph">⚙</span>General</button>
+   <button type="button" data-settings-tab="guide"><span class="settingsNavGlyph">▤</span>Feature Guide</button>
    <button type="button" data-settings-tab="hyperdeck"><span class="settingsNavGlyph">▣</span>HyperDeck Monitor</button>
    <button type="button" data-settings-tab="connections"><span class="settingsNavGlyph">⌁</span>Connections</button>
    <button type="button" data-settings-tab="reference"><span class="settingsNavGlyph">▤</span>References</button>
@@ -138,6 +139,19 @@
     <label class="settingsControlRow" for="settingsAutoConnect"><span>Auto-connect on launch</span><input id="settingsAutoConnect" type="checkbox" data-change-action="auto-connect"></label>
     <h3>UPDATES</h3>
     <label class="settingsControlRow" for="settingsAutoUpdates"><span>Check for updates on launch</span><input id="settingsAutoUpdates" type="checkbox" data-change-action="auto-updates"></label>
+   </section>
+   <section id="settingsSectionGuide" class="settingsSection" hidden>
+    <h3>WORKSPACES</h3>
+    <div class="settingsGuideList">
+     <article><b>Show View</b><p>Keep the live and preview sources, active inputs, and recent changes in view during a show.</p></article>
+     <article><b>Signal Explorer</b><p>Search the routing map, then hover or select a source, M/E, or destination to trace its live signal path.</p></article>
+     <article><b>Inspect</b><p>Review input inventory, routing, keyers, diagnostics, and expected-versus-actual reference checks.</p></article>
+     <article><b>HyperDeck Monitoring</b><p>Enable its tab here, then add network-enabled decks by IP on the Host. Viewer windows receive read-only status from the Host.</p></article>
+    </div>
+    <h3>SEPARATE WINDOWS</h3>
+    <p>Use the <b>OPEN</b> control beside any workspace tab to place that workspace in its own window, then move it to another monitor. Use “Return to Main Window” in that window to bring it back.</p>
+    <h3>CONNECTION MODES</h3>
+    <p><b>Host</b> connects directly to the ATEM and shares read-only status. <b>Viewer</b> connects to a ShowDesk Host and does not need direct access to the ATEM or HyperDeck network.</p>
    </section>
    <section id="settingsSectionHyperdeck" class="settingsSection" hidden>
     <h3>WORKSPACE</h3>

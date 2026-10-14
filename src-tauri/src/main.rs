@@ -25,6 +25,14 @@ fn workspace_title(workspace: &str) -> Option<&'static str> {
     }
 }
 
+fn close_detached_workspace_windows(app: &AppHandle) {
+    for (label, window) in app.webview_windows() {
+        if label.starts_with("workspace-") {
+            let _ = window.close();
+        }
+    }
+}
+
 #[tauri::command]
 fn open_workspace_window(app: AppHandle, window: tauri::WebviewWindow, workspace: String, connection_mode: Option<String>, connection_host: Option<String>) -> Result<(), String> {
     if window.label() != "main" { return Err("Only the main ShowDesk window can open another workspace window.".to_string()); }
@@ -365,7 +373,14 @@ fn main() {
         .expect("error while building ShowDesk");
 
     app.run(|app_handle, event| {
-        if matches!(event, tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }) {
+        if let tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::CloseRequested { .. }, .. } = &event {
+            if label == "main" {
+                close_detached_workspace_windows(app_handle);
+                app_handle.exit(0);
+            }
+        }
+        if matches!(&event, tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }) {
+            close_detached_workspace_windows(app_handle);
             stop_atem_service(app_handle);
         }
     });
