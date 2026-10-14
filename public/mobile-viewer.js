@@ -33,7 +33,7 @@
     let url;
     try { url = new URL(`ws://${target}`); } catch { throw new Error('Enter a valid host IP address, optionally followed by a port.'); }
     if (!url.hostname || url.username || url.password || url.pathname !== '/') throw new Error('Enter a valid host IP address, optionally followed by a port.');
-    if (!url.port) url.port = '47822';
+    if (!url.port) url.port = String(window.SHOWDESK_CONFIG?.viewerPort || 47822);
     url.pathname = '/viewer';
     return url.toString();
   }

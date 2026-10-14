@@ -24,7 +24,7 @@ assert.match(html, /id="referenceAttention"/,'Inspect must show Host reference a
 assert.doesNotMatch(html, /INPUT INVENTORY|AUX ROUTING/,'Inspect must focus on diagnostics rather than duplicate inventory and routing lists');
 assert.match(html, /READ ONLY/,'Mobile viewer must clearly indicate read-only access');
 assert.match(js, /url\.pathname\s*=\s*'\/viewer'/,'Mobile viewer must connect directly to the read-only Viewer socket');
-assert.match(js, /if\s*\(!url\.port\)\s*url\.port\s*=\s*'47822'/,'Mobile viewer must use the standard Host viewer port by default');
+assert.match(js, /if\s*\(!url\.port\)\s*url\.port\s*=\s*String\(window\.SHOWDESK_CONFIG\?\.viewerPort\s*\|\|\s*47822\)/,'Mobile viewer must use the current build channel Host port by default');
 assert.match(js, /message\.type === 'snapshot'/,'Mobile viewer must render the initial Host snapshot');
 assert.match(js, /message\.type === 'state'/,'Mobile viewer must render live Host state updates');
 assert.match(js, /setTimeout\(\(\) => socketConnect\(value, true\), 2000\)/,'Mobile viewer must reconnect after an established socket drops');
