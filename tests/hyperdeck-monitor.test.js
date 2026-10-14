@@ -103,7 +103,7 @@ function waitFor(predicate, timeoutMs = 1500) {
     assert.equal(monitor.snapshot()[0].transport['display timecode'], '14:25:02;45', 'Expanded transport information should hold the same frozen recording value');
     assert.equal(monitor.entries.get('deck1').displayTimecodeNotifications, false, 'Frame notifications should be disabled when recording stops');
     assert(monitor.entries.get('deck1').transportPoll, 'Transport-state polling should continue in preview mode');
-    assert.equal(monitor.entries.get('deck1').slotPoll, null, 'SSD time-remaining polling should stop when the deck is no longer recording');
+    assert(monitor.entries.get('deck1').slotPoll, 'SSD time-remaining polling should continue even if a deck reports preview instead of record');
     fakeSocket.write('508 display timecode:\r\ntimecode: 14:25:03;00\r\n\r\n');
     await new Promise(resolve => setTimeout(resolve, 60));
     assert.equal(monitor.snapshot()[0].recordingElapsedMs, stoppedRecordingElapsedMs, 'Recording elapsed holds its value when recording stops');

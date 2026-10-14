@@ -204,10 +204,15 @@ class HyperDeckMonitor extends EventEmitter {
       clearInterval(entry.transportPoll);
       entry.transportPoll = null;
     }
-    if (entry.socket?.writable && String(entry.transport.status || '').toLowerCase() === 'record' && !entry.slotPoll) {
+    // Slot capacity can change while recording even when some HyperDeck
+    // models report a transport state other than `record` (for example,
+    // linked decks or preview-oriented states). Keep the read-only slot
+    // query running for every connected deck so the SSD time-left value does
+    // not depend on the transport status being reported consistently.
+    if (entry.socket?.writable && !entry.slotPoll) {
       entry.slotPoll = setInterval(() => this.send(entry, 'slot info'), this.transportPollIntervalMs);
       entry.slotPoll.unref?.();
-    } else if (String(entry.transport.status || '').toLowerCase() !== 'record' && entry.slotPoll) {
+    } else if (!entry.socket?.writable && entry.slotPoll) {
       clearInterval(entry.slotPoll);
       entry.slotPoll = null;
     }
