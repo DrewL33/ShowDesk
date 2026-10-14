@@ -52,12 +52,12 @@ function nextReply(ws, id) {
     ws.on('message', onMessage); ws.once('error', reject);
   });
 }
-function nextMessageOfType(ws, type) {
+function nextMessageOfType(ws, type, predicate = () => true) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => { ws.off('message', onMessage); reject(new Error(`Timed out waiting for ${type}`)); }, 2000);
     const onMessage = raw => {
       let message; try { message = JSON.parse(raw.toString()); } catch { return; }
-      if (message.type !== type) return;
+      if (message.type !== type || !predicate(message)) return;
       clearTimeout(timer); ws.off('message', onMessage); resolve(message);
     };
     ws.on('message', onMessage);
@@ -120,7 +120,7 @@ function nextMessageOfType(ws, type) {
     assert.equal('port' in relayedDecks.data[0], false, 'Viewer status must not expose direct HyperDeck connection details');
 
     const disabledPromise = nextMessageOfType(ws, 'hyperdeckAvailability');
-    const clearedStatePromise = nextMessageOfType(ws, 'hyperdecks');
+    const clearedStatePromise = nextMessageOfType(ws, 'hyperdecks', message => Array.isArray(message.data) && message.data.length === 0);
     const disableReply = nextReply(control, 'hyperdeck-viewer-disable');
     control.send(JSON.stringify({ id: 'hyperdeck-viewer-disable', type: 'configureHyperdecks', enabled: false, devices: [] }));
     assert.equal((await disableReply).ok, true);

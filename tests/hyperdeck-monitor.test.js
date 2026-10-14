@@ -60,7 +60,7 @@ function waitFor(predicate, timeoutMs = 1500) {
       const slotCommands = commands.filter(command => command === 'slot info').length;
       if (slotCommands > slotInfoCount) {
         slotInfoCount = slotCommands;
-        socket.write(`202 slot info:\r\nslot id: 1\r\nslot name: SDI\r\nstatus: mounted\r\nvolume name: SHOW DRIVE\r\nrecording time available: ${3600 - slotInfoCount}\r\n\r\n`);
+        socket.write(`202 slot info:\r\nslot id: 1\r\nslot name: SDI\r\nstatus: mounted\r\nvolume name: SHOW DRIVE\r\nrecording time: ${3600 - slotInfoCount}\r\n\r\n`);
       }
     });
   });
@@ -81,6 +81,8 @@ function waitFor(predicate, timeoutMs = 1500) {
     assert.equal(deck.deviceName, 'Studio A');
     assert.equal(deck.softwareVersion, '9.0');
     assert.equal(deck.slots[0]['volume name'], 'SHOW DRIVE');
+    assert(Number(deck.slots[0]['recording time available']) < 3600, 'Blackmagic recording time must be normalized for the monitor display');
+    assert.equal(deck.slots[0]['recording time'], undefined, 'The raw protocol field should not duplicate the normalized slot value');
     await waitFor(() => monitor.snapshot()[0]?.frontDisplayTimecode === '14:25:02;37');
     assert.match(monitor.snapshot()[0].transport['display timecode'], /^14:25:02;\d+$/, 'The recording counter should match the current front display timecode');
     assert.notEqual(monitor.snapshot()[0].slots[0]['recording time available'], '3600', 'The SSD recording-time countdown should refresh during recording');

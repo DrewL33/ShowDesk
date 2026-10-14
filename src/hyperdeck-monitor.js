@@ -169,7 +169,14 @@ class HyperDeckMonitor extends EventEmitter {
       }
     } else if (response.header === 'slot info') {
       const id = f['slot id'] || f['slot name'] || String(Object.keys(entry.slots).length + 1);
-      entry.slots[id] = { ...entry.slots[id], ...f, id };
+      const slot = { ...entry.slots[id], ...f, id };
+      // Blackmagic's protocol names this value "recording time"; keep the
+      // normalized API key used by ShowDesk's monitor UI for older clients.
+      if (slot['recording time'] !== undefined && slot['recording time available'] === undefined) {
+        slot['recording time available'] = slot['recording time'];
+      }
+      delete slot['recording time'];
+      entry.slots[id] = slot;
     }
     this.syncTransportPolling(entry);
     this.publish();
