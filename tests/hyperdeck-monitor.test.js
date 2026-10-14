@@ -108,6 +108,13 @@ function waitFor(predicate, timeoutMs = 1500) {
     await new Promise(resolve => setTimeout(resolve, 60));
     assert.equal(monitor.snapshot()[0].recordingElapsedMs, stoppedRecordingElapsedMs, 'Recording elapsed holds its value when recording stops');
     assert.equal(monitor.snapshot()[0].frontDisplayTimecode, '14:25:02;45', 'A linked deck timecode must not move this stopped deck counter');
+    const entry = monitor.entries.get('deck1');
+    monitor.onResponse(entry, { code: 202, header: 'slot info', fields: { 'slot id': '1', status: 'empty', 'recording time': '3600' } });
+    assert.deepEqual(monitor.snapshot()[0].slots, [], 'Empty slots should be removed, including their stale SSD time remaining');
+    monitor.onResponse(entry, { code: 202, header: 'slot info', fields: { 'slot id': 'none', status: 'unknown' } });
+    assert.deepEqual(monitor.snapshot()[0].slots, [], 'A missing slot ID must not create a phantom unknown slot');
+    monitor.onResponse(entry, { code: 202, header: 'slot info', fields: { 'slot id': '3', status: 'unknown' } });
+    assert.deepEqual(monitor.snapshot()[0].slots, [], 'Slots without a recognized media status should remain hidden');
     const sent = commands;
     assert.deepEqual([...new Set(sent)].sort(), ['device info', 'notify: device info: true', 'notify: display timecode: false', 'notify: display timecode: true', 'notify: slot: true', 'notify: transport: true', 'slot info', 'transport info'].sort());
     assert(!sent.some(command => /^(play|stop|record|jog|shuttle|goto|preview|remote)$/.test(command)));

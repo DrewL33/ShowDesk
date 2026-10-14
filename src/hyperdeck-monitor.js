@@ -83,7 +83,7 @@ class HyperDeckMonitor extends EventEmitter {
       id: entry.config.id, name: entry.config.name, host: entry.config.host, port: entry.config.port,
       status: entry.status, error: entry.error, model: entry.info.model || '', deviceName: entry.info['device name'] || '',
       softwareVersion: entry.info['software version'] || entry.info['firmware version'] || entry.info['software revision'] || '', protocolVersion: entry.info['protocol version'] || '',
-      deviceInfo: { ...entry.info }, transport: { ...entry.transport }, frontDisplayTimecode: entry.frontDisplayTimecode, recordingElapsedMs: entry.recordingElapsedMs + (entry.recordingStartedAt === null ? 0 : Math.max(0, Date.now() - entry.recordingStartedAt)), slots: Object.values(entry.slots).sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }))
+      deviceInfo: { ...entry.info }, transport: { ...entry.transport }, frontDisplayTimecode: entry.frontDisplayTimecode, recordingElapsedMs: entry.recordingElapsedMs + (entry.recordingStartedAt === null ? 0 : Math.max(0, Date.now() - entry.recordingStartedAt)), slots: Object.values(entry.slots).filter(slot => String(slot.id || '').trim().toLowerCase() !== 'none' && !['empty', 'unknown'].includes(String(slot.status || '').trim().toLowerCase()) && String(slot.status || '').trim() !== '').sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }))
     }));
   }
 
@@ -168,15 +168,21 @@ class HyperDeckMonitor extends EventEmitter {
         entry.transport['display timecode'] = timecode;
       }
     } else if (response.header === 'slot info') {
-      const id = f['slot id'] || f['slot name'] || String(Object.keys(entry.slots).length + 1);
-      const slot = { ...entry.slots[id], ...f, id };
-      // Blackmagic's protocol names this value "recording time"; keep the
-      // normalized API key used by ShowDesk's monitor UI for older clients.
-      if (slot['recording time'] !== undefined && slot['recording time available'] === undefined) {
-        slot['recording time available'] = slot['recording time'];
+      const id = f['slot id'] || f['slot name'] || '';
+      if (id && id.toLowerCase() !== 'none') {
+        if (String(f.status || '').toLowerCase() === 'empty') {
+          delete entry.slots[id];
+        } else {
+          const slot = { ...entry.slots[id], ...f, id };
+          // Blackmagic's protocol names this value "recording time"; keep the
+          // normalized API key used by ShowDesk's monitor UI for older clients.
+          if (slot['recording time'] !== undefined && slot['recording time available'] === undefined) {
+            slot['recording time available'] = slot['recording time'];
+          }
+          delete slot['recording time'];
+          entry.slots[id] = slot;
+        }
       }
-      delete slot['recording time'];
-      entry.slots[id] = slot;
     }
     this.syncTransportPolling(entry);
     this.publish();

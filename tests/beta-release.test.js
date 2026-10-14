@@ -80,7 +80,7 @@ assert.match(hostHtml, /id="settingsHyperdeckPrimaryTimerOptions" class="setting
 assert.match(hostHtml, /data-hyperdeck-timer="secondary" data-timer-value="none"/, 'The supporting timer dropdown should retain its None option');
 assert.match(hostApp, /case "hyperdeck-primary-timer-menu":toggleHyperdeckTimerMenu\("primary"\)/, 'The main timer dropdown should open through the Settings menu handler');
 assert.match(hostApp, /function formatHyperdeckElapsed\(/, 'ShowDesk should format a record-start elapsed timer separately from deck timecode');
-assert.match(hostApp, /function hyperdeckRecordingTimeRemaining\(slot\)/, 'SSD recording time remaining should be formatted separately from the large front counter');
+assert.match(hostApp, /function hyperdeckRecordingTimeRemaining\(slot,deck=null/, 'SSD recording time remaining should be formatted separately from the large front counter');
 assert.match(hostApp, /slot\?\.\["recording time available"\]\?\?slot\?\.\["recording time"\]/, 'The readout must support both normalized and raw Blackmagic slot-time fields');
 assert.match(hostApp, /RECORD TIME LEFT · /, 'The media slot summary should distinguish remaining SSD record capacity');
 assert.match(hostApp, /SLOT \$\{escapeShowDeskText\(slot\.id\|\|"—"\)\}<\/b><em>\$\{escapeShowDeskText\(slot\.status\|\|"UNKNOWN"\)\}/, 'Media indicators should label the slot ID and state clearly');
@@ -103,11 +103,18 @@ assert.match(styles, /\.rackFace\{background:var\(--sd-work\)/, 'The rack should
 const timerStart = hostApp.indexOf('function hyperdeckRecordingTimeSeconds(');
 const timerEnd = hostApp.indexOf('function updateHyperdeckTimecodes(', timerStart);
 assert.ok(timerStart >= 0 && timerEnd > timerStart, 'HyperDeck SSD time formatting helpers should remain available');
-const hyperdeckUi = vm.runInNewContext(`const hyperdeckClipTimecodeSamples=new Map();\n${hostApp.slice(timerStart, timerEnd)}\n({hyperdeckRecordingTimeSeconds,hyperdeckRecordingTimeRemaining,hyperdeckTimerValue,hyperdeckTimecodeRate,hyperdeckTimecodeToFrames,hyperdeckFramesToTimecode,observeHyperdeckClipTimecodes})`);
+const hyperdeckUi = vm.runInNewContext(`const hyperdeckClipTimecodeSamples=new Map();const hyperdeckRecordingTimeSamples=new Map();\n${hostApp.slice(timerStart, timerEnd)}\n({hyperdeckRecordingTimeSeconds,hyperdeckRecordingTimeRemaining,hyperdeckTimerValue,hyperdeckTimecodeRate,hyperdeckTimecodeToFrames,hyperdeckFramesToTimecode,observeHyperdeckClipTimecodes,observeHyperdeckRecordingTimes,visibleHyperdeckSlots,hyperdeckTimerSlots})`);
 assert.equal(hyperdeckUi.hyperdeckTimerValue({ transport: { 'slot id': 2 }, slots: [{ id: '2', 'recording time': '25337' }] }, 'recordingRemaining'), '07:02:17', 'The timer should display the raw Blackmagic field relayed by an older Host');
 assert.equal(hyperdeckUi.hyperdeckTimerValue({ transport: { 'slot id': 2 }, slots: [{ id: '2', 'recording time available': '25337' }] }, 'recordingRemaining'), '07:02:17', 'The timer should display the normalized field from a current Host');
 assert.equal(hyperdeckUi.hyperdeckRecordingTimeRemaining({ 'recording time': '25337' }), 'RECORD TIME LEFT · 07:02:17', 'The compact media slot summary should accept the raw protocol field');
 assert.equal(hyperdeckUi.hyperdeckTimerValue({ transport: { 'slot id': 2 }, slots: [{ id: '2', 'recording time': '0' }] }, 'recordingRemaining'), '00:00:00', 'Zero available recording time is valid and should not become a missing-value dash');
+const ssdDeck = { id: 'ssd-test', status: 'connected', transport: { status: 'record', 'slot id': '2' }, slots: [{ id: '1', status: 'empty', 'recording time available': '999' }, { id: 'none', status: 'unknown' }, { id: '2', status: 'mounted', 'recording time available': '120' }] };
+hyperdeckUi.observeHyperdeckRecordingTimes([ssdDeck], 1000);
+assert.equal(hyperdeckUi.hyperdeckTimerValue(ssdDeck, 'recordingRemaining', 3500), '00:01:57', 'SSD remaining time should count down between device polls while recording');
+ssdDeck.transport.status = 'preview';
+hyperdeckUi.observeHyperdeckRecordingTimes([ssdDeck], 3500);
+assert.equal(hyperdeckUi.hyperdeckTimerValue(ssdDeck, 'recordingRemaining', 9500), '00:01:57', 'SSD remaining time should hold when recording stops');
+assert.deepEqual(hyperdeckUi.visibleHyperdeckSlots(ssdDeck).map(slot => slot.id), ['2'], 'Empty and unidentified media slots should not be shown');
 assert.equal(hyperdeckUi.hyperdeckTimecodeRate({ transport: { 'video format': '1080i5994' } }), 29.97, 'Interlaced 59.94 video uses 29.97 timecode frames per second');
 assert.equal(hyperdeckUi.hyperdeckFramesToTimecode(1800, 29.97, ';'), '00:01:00;02', 'Drop-frame labels must skip the first two frame numbers at each non-tenth minute');
 assert.equal(hyperdeckUi.hyperdeckTimecodeToFrames('00:01:00;02', 29.97), 1800, 'Drop-frame labels should round-trip to elapsed frame counts');
@@ -117,5 +124,8 @@ assert.equal(hyperdeckUi.hyperdeckTimerValue(clipDeck, 'clipTimecode', 1100), '0
 clipDeck.transport = { ...clipDeck.transport, timecode: '00:00:10;03', status: 'preview', speed: '0' };
 hyperdeckUi.observeHyperdeckClipTimecodes([clipDeck], 1100);
 assert.equal(hyperdeckUi.hyperdeckTimerValue(clipDeck, 'clipTimecode', 2100), '00:00:10;03', 'Clip timecode should hold when the transport is not moving');
+clipDeck.status = 'disconnected';
+hyperdeckUi.observeHyperdeckClipTimecodes([clipDeck], 2100);
+assert.equal(hyperdeckUi.hyperdeckTimerValue(clipDeck, 'clipTimecode', 3100), '00:00:10;03', 'Clip timecode should not continue advancing while the HyperDeck is disconnected');
 
 console.log('ShowDesk stable and beta release channels are isolated.');
