@@ -239,3 +239,7 @@ assert.match(app,/downstream\.has\(e\.from\)&&downstream\.has\(e\.to\)/,'Downstr
 assert.match(app,/const startTime=performance\.now\(\),duration=180/,'Signal Explorer zoom must animate smoothly');
 assert.match(app,/logicalX\*scale\+left-focalX/,'Zoom must preserve its cursor-centered focal point');
 assert.match(styles,/\.workspaceTopBar\{position:sticky;top:0;z-index:45/,'Workspace tabs must remain visible during page scrolling');
+assert.match(app,/const hyperdeckOpenDetails=new Map\(\)/,'HyperDeck detail state must survive live card refreshes');
+assert.match(app,/hyperdeckOpenDetails\.set\(card\.dataset\.hyperdeckCard,\[\.\.\.card\.querySelectorAll\("\.rackDetails details"\)\]\.map\(detail=>detail\.open\)\)/,'HyperDeck refresh must capture each deck’s expanded sections');
+assert.match(app,/data-hyperdeck-card="\$\{escapeShowDeskText\(deck\.id\)\}"/,'HyperDeck cards must have stable identities for detail-state restoration');
+assert.match(app,/hyperdeckOpenDetails\.get\(card\.dataset\.hyperdeckCard\)/,'HyperDeck refresh must restore expanded sections by deck identity');
