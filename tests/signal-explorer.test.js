@@ -11,7 +11,25 @@ const context={
  liveEngineering:null,
  explorerEscape:value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))
 };
-const explorer=vm.runInNewContext(app.slice(start,end)+'\n({explorerBuildGraph,explorerReach,explorerDraw})',context);
+const explorer=vm.runInNewContext(app.slice(start,end)+'\n({explorerBuildGraph,explorerReach,explorerTrace,explorerDraw})',context);
+
+const traceGraph={edges:[
+ {id:'source-a',from:'source-a',to:'bus-a'},
+ {id:'bus-a',from:'bus-a',to:'selected'},
+ {id:'selected-pgm',from:'selected',to:'processor'},
+ {id:'processor-output',from:'processor',to:'output'},
+ {id:'branch',from:'source-b',to:'other-bus'},
+ {id:'cross-branch',from:'bus-a',to:'processor'}
+],adjacency:{outgoing:new Map(),incoming:new Map()}};
+for(const edge of traceGraph.edges){
+ if(!traceGraph.adjacency.outgoing.has(edge.from))traceGraph.adjacency.outgoing.set(edge.from,new Set());
+ traceGraph.adjacency.outgoing.get(edge.from).add(edge.to);
+ if(!traceGraph.adjacency.incoming.has(edge.to))traceGraph.adjacency.incoming.set(edge.to,new Set());
+ traceGraph.adjacency.incoming.get(edge.to).add(edge.from);
+}
+const trace=explorer.explorerTrace(traceGraph,'selected');
+assert.deepEqual([...trace.nodes].sort(),['bus-a','output','processor','selected','source-a'].sort(),'A selected node should trace its connected upstream and downstream signal path');
+assert.deepEqual([...trace.edges].sort(),['bus-a','processor-output','selected-pgm','source-a'].sort(),'A trace should exclude neighboring and cross-branch edges');
 
 const inputs=Array.from({length:110},(_,i)=>({id:i+1,name:'Input '+(i+1)}));
 const mixEffects=Array.from({length:4},(_,i)=>({
@@ -29,6 +47,7 @@ const elapsed=performance.now()-began;
 const nodeIds=new Set(graph.nodes.map(node=>node.id));
 assert.ok(graph.nodes.length>150&&graph.edges.length>70,'Representative ATEM state should produce a substantial graph');
 assert.ok(graph.edges.every(edge=>nodeIds.has(edge.from)&&nodeIds.has(edge.to)),'Every route should connect existing graph nodes');
+assert.equal(new Set(graph.edges.map(edge=>edge.id)).size,graph.edges.length,'Every route should have a unique trace identity');
 assert.ok(explorer.explorerReach(graph,graph.nodes[0].id).size>0,'Indexed traversal should include its starting node');
 assert.ok(graph.edges.every(edge=>!explorer.explorerReach(graph,edge.to).has(edge.from)),'Cycle filtering should keep the overview graph acyclic');
 assert.match(svg,/aria-label="Live ATEM signal overview"/,'Signal Explorer should still produce its accessible SVG');

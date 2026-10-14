@@ -227,14 +227,12 @@ assert.match(app,/function referenceCategoryStatus\(category\)/,'Reference categ
 assert.match(app,/function renderReferenceAttention\(\)/,'Attention must summarize reference categories');
 assert.match(app,/unknown\?"unverified"/,'Unavailable routes must not be reported as matching');
 
-assert.match(app,/active=isOutput\?new Set\(\[\.\.\.upstream,\.\.\.downstream\]\):explorerReach\(graph,id,false\)/,'Output inspections trace both directions without expanding unrelated source inspections');
+assert.match(app,/function explorerTrace\(graph,id\)/,'Every inspected node must trace connected signal paths in both directions');
 assert.match(app,/explorerReach\(\{edges,adjacency\},to,false\)\.has\(from\)/,'Explorer must reject inferred circular graph edges');
 assert.match(app,/routingChanged=routing!==explorerRouteState/,'Signal explorer must update when live routing changes');
 
-assert.match(app,/const isOutput=node\.type==="destination"\|\|node\.type==="internal"/,'Destination and internal output inspections must trace both directions');
-assert.match(app,/new Set\(\[\.\.\.upstream,\.\.\.downstream\]\)/,'Output inspections must include upstream feeds and downstream consumers');
-assert.match(app,/upstream\.has\(e\.from\)&&upstream\.has\(e\.to\)/,'Upstream edges must remain highlighted');
-assert.match(app,/downstream\.has\(e\.from\)&&downstream\.has\(e\.to\)/,'Downstream edges must remain highlighted');
+assert.match(app,/const nodes=new Set\(\[\.\.\.upstream,\.\.\.downstream\]\)/,'Signal traces must include connected upstream and downstream nodes');
+assert.match(app,/\(upstream\.has\(e\.from\)&&upstream\.has\(e\.to\)\)\|\|/,'Only edges along the upstream or downstream trace may highlight');
 
 assert.match(app,/const startTime=performance\.now\(\),duration=180/,'Signal Explorer zoom must animate smoothly');
 assert.match(app,/logicalX\*scale\+left-focalX/,'Zoom must preserve its cursor-centered focal point');

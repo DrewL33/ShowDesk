@@ -751,22 +751,25 @@ function explorerReach(graph,id,reverse=false){
  for(let cursor=0;cursor<queue.length;cursor++){const current=queue[cursor];for(const e of graph.edges){const from=reverse?e.to:e.from,to=reverse?e.from:e.to;if(from===current&&!seen.has(to)){seen.add(to);queue.push(to)}}}
  return seen;
 }
+function explorerTrace(graph,id){
+ const upstream=explorerReach(graph,id,true),downstream=explorerReach(graph,id,false);
+ const nodes=new Set([...upstream,...downstream]);
+ const edges=new Set(graph.edges.filter(e=>
+  (upstream.has(e.from)&&upstream.has(e.to))||
+  (downstream.has(e.from)&&downstream.has(e.to))
+ ).map(e=>e.id));
+ return {nodes,edges};
+}
 function explorerHighlight(){
  const graph=explorerGraph,svg=document.querySelector("#explorerCanvas .signalOverview");if(!graph||!svg)return;
  const id=explorerHover||explorerPinned,node=graph.nodes.find(n=>n.id===id);
  let active=null,activeEdges=null;
  if(node){
-  // An output inspection includes its exact upstream feed and any actual
-  // downstream consumers, without highlighting sibling output branches.
-  const upstream=explorerReach(graph,id,true);
-  const downstream=explorerReach(graph,id,false);
-  const isOutput=node.type==="destination"||node.type==="internal";
-  active=isOutput?new Set([...upstream,...downstream]):explorerReach(graph,id,false);
-  activeEdges=new Set(graph.edges.filter(e=>{
-   if(!isOutput)return active.has(e.from)&&active.has(e.to);
-   return (upstream.has(e.from)&&upstream.has(e.to))||
-          (downstream.has(e.from)&&downstream.has(e.to));
-  }).map(e=>e.id));
+  // Trace only edges wholly on paths into or out of the inspected node.
+  // Keeping the two directions separate prevents a cross-edge between an
+  // upstream and downstream branch from looking like part of the trace.
+  const trace=explorerTrace(graph,id);
+  active=trace.nodes;activeEdges=trace.edges;
  }
  svg.classList.toggle("is-filtered",!!active);
  const linked=new Set(graph.edges.flatMap(e=>[e.from,e.to]));
