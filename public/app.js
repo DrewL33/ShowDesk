@@ -437,7 +437,10 @@ function checkUpdatesFromSettings(){closeShowDeskSettings();checkForShowDeskUpda
 function setTab(tab){if(!["show","signal","engineering","hyperdecks"].includes(tab)||(tab==="hyperdecks"&&!showDeskPreferences.hyperdeckMonitoring))return;showDeskPreferences.lastWorkspace=tab;saveShowDeskPreferences();toast((tab==="engineering"?"INSPECT":tab==="hyperdecks"?"HYPERDECK MONITORING":tab.toUpperCase())+" view");
  $("app").className="wrap tab-"+tab;
  $("showBtn").classList.toggle("on",tab==="show");$("signalBtn").classList.toggle("on",tab==="signal");$("engBtn").classList.toggle("on",tab==="engineering");$("hyperdeckBtn")?.classList.toggle("on",tab==="hyperdecks");
+ if(tab==="show")render();
+ if(tab==="engineering")render();
  if(tab==="signal"){renderPaths();requestAnimationFrame(explorerInitializeViewport)}
+ if(tab==="hyperdecks")renderHyperdeckCards();
 }
 function recordEvent(kind,msg,data={}){const e={iso:new Date().toISOString(),t:new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}),kind,msg,data};sessionEvents.unshift(e);if(sessionEvents.length>500)sessionEvents.length=500;logs=sessionEvents;lastChangeText=msg;return e}
 function addLog(kind,msg){recordEvent(kind,msg);renderLog()}
@@ -1036,11 +1039,12 @@ function renderTransitionStatus(){
  }
 }
 function render(){
+ const app=$("app"),showActive=app?.classList.contains("tab-show"),inspectActive=app?.classList.contains("tab-engineering"),signalActive=app?.classList.contains("tab-signal");
  const activeMe=selectedME(),displayPgm=activeMe?.pgm||pgm,displayPvw=activeMe?.pvw||pvw;
- if($("pgm"))$("pgm").textContent=displayPgm;if($("pvw"))$("pvw").textContent=displayPvw;
- const meSelector=$("meSelector");if(meSelector)meSelector.innerHTML=(liveEngineering.mixEffects||[]).map(me=>`<button class="tinyAction meSelectBtn ${me.index===selectedMeIndex?"on":""}" data-action="select-me" data-index="${Number(me.index)||1}">M/E ${me.index}</button>`).join("");
+ if(showActive){if($("pgm"))$("pgm").textContent=displayPgm;if($("pvw"))$("pvw").textContent=displayPvw;const meSelector=$("meSelector");if(meSelector)meSelector.innerHTML=(liveEngineering.mixEffects||[]).map(me=>`<button class="tinyAction meSelectBtn ${me.index===selectedMeIndex?"on":""}" data-action="select-me" data-index="${Number(me.index)||1}">M/E ${me.index}</button>`).join("");renderShowKeyers()}
  renderTransitionStatus();
 
+ if(showActive){
  let total=Object.keys(actual).filter(n=>actual[n]!=="UNUSED").length;
  const changed=Object.keys(actual).filter(n=>window.routeHistory[n]&&window.routeHistory[n].from!==actual[n]);
  const mismatches=getMismatches(), mismatchNames=new Set(mismatches.filter(x=>x.type==="ROUTE").map(x=>x.name));
@@ -1058,10 +1062,11 @@ function render(){
  $("healthTitle").textContent=mismatches.length?"REFERENCE MISMATCH":changed.length?"ROUTING CHANGES":"SYSTEM READY";
  $("healthDetail").textContent=mismatches.length?`${mismatches.length} live state item${mismatches.length===1?" differs":"s differ"} from the attached reference`:changed.length?`${changed.length} destination route${changed.length>1?"s have":" has"} changed during this session`:`${total} destinations currently routed`;
  if($("routeMetric")) $("routeMetric").textContent=mismatches.length?`${mismatches.length} MISMATCH${mismatches.length===1?"":"ES"}`:`${total} ACTIVE`; if($("routeMetric")) $("routeMetric").className=mismatches.length?"bad":"ok";
- if($("engIssues")) $("engIssues").textContent=`${mismatches.length} mismatch${mismatches.length===1?"":"es"}`;
  if($("attention")) $("attention").innerHTML=renderReferenceAttention()+(lastChangeText!=="—"?`<div class="attentionItem"><b>LAST CHANGE</b><span>${escapeShowDeskText(lastChangeText)}</span></div>`:"");
  if($("lastChange"))$("lastChange").textContent=lastChangeText;
- renderInputs();renderActiveSources();
+ renderActiveSources();renderLog();updateReferenceUI();
+ }
+ if(inspectActive){if($("engIssues"))$("engIssues").textContent=`${getMismatches().length} mismatch${getMismatches().length===1?"":"es"}`;renderInputs();renderEngineering();
  const ig=$("inputGrid");
  if(ig){
    const cards=[...ig.children];
@@ -1077,18 +1082,18 @@ function render(){
      ig.appendChild(more);
      if($("inputCountLabel"))$("inputCountLabel").textContent=`${visibleLimit} / ${cards.length} inputs shown`;
    }else if($("inputCountLabel"))$("inputCountLabel").textContent=`${cards.length} inputs shown`;
- }
- renderPaths();renderEngineering();renderLog();updateReferenceUI()
+ }}
+ if(signalActive)renderPaths();
 }
 setInterval(()=>{let s=Math.floor((Date.now()-pgmSince)/1000),q=Math.floor((Date.now()-pvwSince)/1000);if($("pgmTime"))$("pgmTime").textContent=`LIVE ${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;if($("pvwTime"))$("pvwTime").textContent=`READY ${String(Math.floor(q/60)).padStart(2,"0")}:${String(q%60).padStart(2,"0")}`;if($("clock"))$("clock").textContent=new Date().toLocaleTimeString()},1000);
 
 function formatVideoMode(mode){
  const modes={0:["525i59.94","59.94i"],1:["625i50","50i"],2:["525i59.94 16:9","59.94i"],3:["625i50 16:9","50i"],4:["720p50","50 fps"],5:["720p59.94","59.94 fps"],6:["1080i50","50i"],7:["1080i59.94","59.94i"],8:["1080p23.98","23.98 fps"],9:["1080p24","24 fps"],10:["1080p25","25 fps"],11:["1080p29.97","29.97 fps"],12:["1080p50","50 fps"],13:["1080p59.94","59.94 fps"],14:["2160p23.98","23.98 fps"],15:["2160p24","24 fps"],16:["2160p25","25 fps"],17:["2160p29.97","29.97 fps"],18:["2160p50","50 fps"],19:["2160p59.94","59.94 fps"],20:["4320p23.98","23.98 fps"],21:["4320p24","24 fps"],22:["4320p25","25 fps"],23:["4320p29.97","29.97 fps"],24:["4320p50","50 fps"],25:["4320p59.94","59.94 fps"],26:["1080p30","30 fps"],27:["1080p60","60 fps"]};return modes[Number(mode)]||[mode??"—","—"];
 }
+function renderShowKeyers(){const mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],keys=[];mes.forEach(me=>(me.upstreamKeyers||[]).forEach(k=>keys.push({...k,label:`USK ${k.index} · M/E ${me.index}`})));dsks.forEach(k=>keys.push({...k,label:`DSK ${k.index}`}));if($("showKeyers")){const ftbs=mes.map(me=>({index:me.index,state:me.ftb?(me.ftb.inTransition?"TRANSITION":me.ftb.isFullyBlack?"BLACK":"OFF"):"—"}));$("showKeyers").innerHTML=keys.map(k=>`<div class="key ${k.onAir?"on":""}">${k.label} • ${k.onAir?"ON AIR":"OFF"}</div>`).join("")+ftbs.map(f=>`<div class="key ${f.state==="BLACK"||f.state==="TRANSITION"?"on ftbLive":""} ${f.state==="TRANSITION"?"ftbTransition":""}">FTB · M/E ${f.index} • ${f.state}</div>`).join("")}}
 function renderEngineering(){
  const e=liveEngineering,inputs=e.inputs||[],mes=e.mixEffects||[],dsks=e.downstreamKeyers||[];
  const keys=[];mes.forEach(me=>(me.upstreamKeyers||[]).forEach(k=>keys.push({...k,label:`USK ${k.index} · M/E ${me.index}`})));dsks.forEach(k=>keys.push({...k,label:`DSK ${k.index}`}));
- if($("showKeyers")){const ftbs=mes.map(me=>({index:me.index,state:me.ftb?(me.ftb.inTransition?"TRANSITION":me.ftb.isFullyBlack?"BLACK":"OFF"):"—"}));$("showKeyers").innerHTML=keys.map(k=>`<div class="key ${k.onAir?"on":""}">${k.label} • ${k.onAir?"ON AIR":"OFF"}</div>`).join("")+ftbs.map(f=>`<div class="key ${f.state==="BLACK"||f.state==="TRANSITION"?"on ftbLive":""} ${f.state==="TRANSITION"?"ftbTransition":""}">FTB · M/E ${f.index} • ${f.state}</div>`).join("")}
  const selected=selectedME();
  if($("pgmContext"))$("pgmContext").textContent=selected?`M/E ${selected.index} • PROGRAM`:"—";
  if($("pvwContext"))$("pvwContext").textContent=selected?`M/E ${selected.index} • PREVIEW`:"—";
@@ -1099,6 +1104,7 @@ function renderEngineering(){
  if($("diagnostics")){const vm=formatVideoMode(e.videoMode),activeFtb=mes.filter(me=>me.ftb&&(me.ftb.isFullyBlack||me.ftb.inTransition)).map(me=>`M/E ${me.index}`).join(", ")||"NONE";$("diagnostics").innerHTML=`<div class="metric"><span>LINK</span><b class="ok">CONNECTED</b></div><div class="metric"><span>VIDEO MODE</span><b>${vm[0]}</b></div><div class="metric"><span>FRAME RATE</span><b>${vm[1]}</b></div><div class="metric"><span>MODEL</span><b>${e.productIdentifier||connectedDevice?.name||"—"}</b></div><div class="metric"><span>M/E BLOCKS</span><b>${mes.length}</b></div><div class="metric"><span>SOURCES REPORTED</span><b>${inputs.length}</b></div><div class="metric"><span>ROUTING DESTINATIONS</span><b>${(e.routing||[]).length}</b></div><div class="metric ${activeFtb!=="NONE"?"ftbLive":""}"><span>FTB ACTIVE</span><b>${activeFtb}</b></div><div class="metric"><span>REFERENCE</span><b id="diagReference">${baselineState.attached?baselineState.name:"NONE"}</b></div>`}
 }
 function applyAtemStateUpdate(patch={}){
+  let routeStateChanged=false;
    if(Array.isArray(patch.inputs)) liveEngineering.inputs=patch.inputs;
    if(Array.isArray(patch.mixEffects)){
      const nextMeState=new Map(),displayMixEffects=[];
@@ -1127,12 +1133,12 @@ function applyAtemStateUpdate(patch={}){
     const prev={...actual};
     Object.keys(actual).forEach(k=>delete actual[k]);
     Object.assign(actual,next);
-    Object.keys(next).forEach(name=>{if(prev[name]!==undefined&&prev[name]!==next[name]) recordEvent("ROUTE",`${name}: ${prev[name]} → ${next[name]}`,{destination:name,from:prev[name],to:next[name]});});
+    Object.keys(next).forEach(name=>{if(prev[name]!==undefined&&prev[name]!==next[name]){routeStateChanged=true;recordEvent("ROUTE",`${name}: ${prev[name]} → ${next[name]}`,{destination:name,from:prev[name],to:next[name]});}});
   }
   if(Array.isArray(patch.inputs)&&connectedDevice) connectedDevice.inputs=patch.inputs.length;
   render();
   const root=document.querySelector(".signalPage"),transitionActive=(liveEngineering.mixEffects||[]).some(me=>me.transition?.inTransition);
-  if(root&&!transitionActive){root.classList.remove("routePulse");void root.offsetWidth;root.classList.add("routePulse");}
+  if(routeStateChanged&&root&&!transitionActive){root.classList.remove("routePulse");void root.offsetWidth;root.classList.add("routePulse");}
 }
 window.ATEM_OPS=Object.assign(window.ATEM_OPS||{},{applyStateUpdate:applyAtemStateUpdate});
 
@@ -1283,4 +1289,4 @@ document.addEventListener("mouseover",event=>{
 document.addEventListener("mouseout",event=>{
  const node=event.target.closest?.("[data-signal-node]");if(node&&!node.contains(event.relatedTarget))explorerInspect(null);
 });
-document.addEventListener("DOMContentLoaded",()=>{const close=$("updateCloseBtn");if(close)close.onclick=closeUpdateModal;syncHyperdeckTab();syncHyperdeckTimerMenus();if($("settingsHyperdeckEnabled"))$("settingsHyperdeckEnabled").checked=showDeskPreferences.hyperdeckMonitoring===true;renderSavedHyperdeckAddresses();renderHyperdeckCards();const transport=window.ATEM_TRANSPORT;if(transport?.subscribeHyperdecks)hyperdeckSubscription=transport.subscribeHyperdecks(data=>{hyperdeckStates=Array.isArray(data)?data:[];for(const deck of hyperdeckStates)hyperdeckClockReceipts.set(String(deck.id),Date.now());if(activeConnectionMode!=="viewer")rememberConnectedHyperdecks(hyperdeckStates);renderHyperdeckCards();syncHyperdeckTab()});transport?.subscribeHyperdeckAvailability?.(enabled=>{remoteHyperdeckMonitoringEnabled=enabled;syncHyperdeckTab();renderHyperdeckCards()});setInterval(()=>renderHyperdeckReadouts(hyperdeckStates),100);if(tauriInvoke()){ensureUpdateProgressListener().then(()=>{if(showDeskPreferences.automaticUpdateChecks)setTimeout(()=>checkForShowDeskUpdate(false),1200)}).catch(console.error)}setTimeout(attemptPreferredAutoConnection,1800)});
+document.addEventListener("DOMContentLoaded",()=>{const close=$("updateCloseBtn");if(close)close.onclick=closeUpdateModal;syncHyperdeckTab();syncHyperdeckTimerMenus();if($("settingsHyperdeckEnabled"))$("settingsHyperdeckEnabled").checked=showDeskPreferences.hyperdeckMonitoring===true;renderSavedHyperdeckAddresses();renderHyperdeckCards();const transport=window.ATEM_TRANSPORT;if(transport?.subscribeHyperdecks)hyperdeckSubscription=transport.subscribeHyperdecks(data=>{hyperdeckStates=Array.isArray(data)?data:[];for(const deck of hyperdeckStates)hyperdeckClockReceipts.set(String(deck.id),Date.now());if(activeConnectionMode!=="viewer")rememberConnectedHyperdecks(hyperdeckStates);renderHyperdeckCards();syncHyperdeckTab()});transport?.subscribeHyperdeckAvailability?.(enabled=>{remoteHyperdeckMonitoringEnabled=enabled;syncHyperdeckTab();renderHyperdeckCards()});setInterval(()=>{if($("app")?.classList.contains("tab-hyperdecks"))renderHyperdeckReadouts(hyperdeckStates)},100);if(tauriInvoke()){ensureUpdateProgressListener().then(()=>{if(showDeskPreferences.automaticUpdateChecks)setTimeout(()=>checkForShowDeskUpdate(false),1200)}).catch(console.error)}setTimeout(attemptPreferredAutoConnection,1800)});
