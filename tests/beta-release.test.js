@@ -30,10 +30,12 @@ assert.match(rust, /fn redock_workspace[\s\S]*?showdesk-redock-workspace/, 'Deta
 assert.match(rust, /CloseRequested[\s\S]*?label == "main"[\s\S]*?close_detached_workspace_windows[\s\S]*?app_handle\.exit\(0\)/, 'Closing the main window must close detached workspaces and quit ShowDesk');
 assert.ok(defaultCapability.windows.includes('workspace-*'), 'Detached windows must receive the app event capability');
 assert.match(hostHtml, /data-undock-workspace="signal"/, 'Signal Explorer must have an accessible undock control');
-assert.match(hostHtml, /data-undock-workspace="signal"[^>]*aria-label="Open Signal Explorer in a separate window"[^>]*>[\s\S]*?<svg[\s\S]*?<span>OPEN<\/span>/, 'Undock actions must clearly identify opening the associated workspace in another window');
+assert.match(hostHtml, /data-undock-workspace="signal"[^>]*aria-label="Open Signal Explorer in a separate window"[^>]*>[\s\S]*?<svg[\s\S]*?<span>OPEN IN WINDOW<\/span>/, 'Undock actions must clearly identify opening the associated workspace in another window');
+assert.doesNotMatch(hostHtml.match(/<nav class="floatingWorkspaceTabs"[\s\S]*?<\/nav>/)?.[0]||"", /undock-workspace/, 'Undock actions should live on workspace pages rather than in the tab strip');
 assert.match(hostHtml, /data-action="redock-workspace"/, 'Detached windows must provide a return-to-main action');
-assert.match(hostHtml, /data-settings-tab="guide"[^>]*>[^<]*<span class="settingsNavGlyph">▤<\/span>Feature Guide/, 'Settings must provide a Feature Guide section');
-assert.match(hostHtml, /id="settingsSectionGuide"[\s\S]*?Signal Explorer[\s\S]*?HyperDeck Monitoring[\s\S]*?SEPARATE WINDOWS/, 'The Feature Guide must explain the main workspaces and detached windows');
+assert.match(hostHtml, /data-settings-tab="guide"[^>]*>[\s\S]*?<span class="settingsNavGlyph" aria-hidden="true"><svg[\s\S]*?Feature Guide/, 'Settings must provide a Feature Guide section with its own icon');
+assert.match(hostHtml, /id="settingsSectionGuide"[\s\S]*?Signal Explorer[\s\S]*?HyperDeck Monitoring[\s\S]*?OPEN IN WINDOW[\s\S]*?upper-right corner/, 'The Feature Guide must explain the main workspaces and the updated detached-window control');
+assert.match(hostHtml, /data-settings-tab="guide"[^>]*>[\s\S]*?circle cx="12"[\s\S]*?Feature Guide/, 'Feature Guide must use an icon distinct from References');
 assert.match(hostApp, /guide:"Feature Guide"/, 'The Settings section heading must use Feature Guide');
 assert.match(hostApp, /invoke\("open_workspace_window"/,'Workspace controls must call the native window command');
 assert.match(hostApp, /function initializeUndockedWorkspace\(/, 'New windows must initialize directly into the selected workspace');

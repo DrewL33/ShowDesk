@@ -37,14 +37,15 @@
  </div>
 </div></div>
 <header class="workspaceTopBar"><nav class="floatingWorkspaceTabs" aria-label="Workspaces">
-<div class="workspaceTabGroup"><button id="showBtn" class="floatingWorkspaceTab on" type="button" data-action="tab-show">Show View</button><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="show" aria-label="Open Show View in a separate window" title="Open Show View in a separate window"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 3h6v6M17 3l-8 8"/><path d="M14 11v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>OPEN</span></button></div>
-<div class="workspaceTabGroup"><button id="signalBtn" class="floatingWorkspaceTab" type="button" data-action="tab-signal">Signal Explorer</button><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="signal" aria-label="Open Signal Explorer in a separate window" title="Open Signal Explorer in a separate window"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 3h6v6M17 3l-8 8"/><path d="M14 11v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>OPEN</span></button></div>
-<div class="workspaceTabGroup"><button id="engBtn" class="floatingWorkspaceTab" type="button" data-action="tab-inspect">Inspect</button><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="engineering" aria-label="Open Inspect in a separate window" title="Open Inspect in a separate window"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 3h6v6M17 3l-8 8"/><path d="M14 11v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>OPEN</span></button></div>
-<div class="workspaceTabGroup" id="hyperdeckTabGroup" hidden><button id="hyperdeckBtn" class="floatingWorkspaceTab" type="button" data-action="tab-hyperdecks">HyperDeck Monitoring</button><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="hyperdecks" aria-label="Open HyperDeck Monitoring in a separate window" title="Open HyperDeck Monitoring in a separate window"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 3h6v6M17 3l-8 8"/><path d="M14 11v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>OPEN</span></button></div>
+<button id="showBtn" class="floatingWorkspaceTab on" type="button" data-action="tab-show">Show View</button>
+<button id="signalBtn" class="floatingWorkspaceTab" type="button" data-action="tab-signal">Signal Explorer</button>
+<button id="engBtn" class="floatingWorkspaceTab" type="button" data-action="tab-inspect">Inspect</button>
+<button id="hyperdeckBtn" class="floatingWorkspaceTab" type="button" data-action="tab-hyperdecks" hidden>HyperDeck Monitoring</button>
 </nav><div id="undockedWorkspaceControls" class="undockedWorkspaceControls" hidden><strong id="undockedWorkspaceTitle"></strong><button class="tinyAction" type="button" data-action="redock-workspace">↙ RETURN TO MAIN WINDOW</button></div>
 <div class="desktopStatus"><div id="modelLabel"></div><span id="viewerCount" class="viewerCount" hidden></span><button id="referenceStatus" class="referenceStatus" hidden data-action="tab-inspect">● Referencing <span id="referenceName"></span></button><div id="connectionFlag" class="connectionFlag" hidden><span class="connectionDot"></span><span id="connectionFlagText">HOST • CONNECTED</span></div><button id="disconnectBtn" class="disconnectBtn" hidden data-action="disconnect">DISCONNECT</button></div></header><div class="wrap tab-show" id="app">
 
 <section class="showContent">
+ <div class="workspacePageActionRow"><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="show" aria-label="Open Show View in a separate window" title="Open Show View in a separate window"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 3h6v6M17 3l-8 8"/><path d="M14 11v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>OPEN IN WINDOW</span></button></div>
  <div class="health" id="health"><div class="dot"></div><div><b id="healthTitle">SYSTEM READY</b><div class="detail" id="healthDetail">Critical routes match the active profile</div></div><div class="spacer"></div><span id="clock"></span></div>
  <div class="showPrimary">
   <div class="panel"><div class="head"><h2>LIVE SWITCHING</h2><span class="sub">selected M/E · read only</span></div><div class="meSelector" id="meSelector"></div>
@@ -61,13 +62,14 @@
 </section>
 
 <section class="signalPage"><div class="signalWorkspace explorerWorkspace">
- <div class="signalWorkspaceHead"><div><h2>SIGNAL EXPLORER</h2><p>Live ATEM signal overview · hover to trace in either direction; click to pin.</p></div></div>
+ <div class="signalWorkspaceHead"><div><h2>SIGNAL EXPLORER</h2><p>Live ATEM signal overview · hover to trace in either direction; click to pin.</p></div><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="signal" aria-label="Open Signal Explorer in a separate window" title="Open Signal Explorer in a separate window"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 3h6v6M17 3l-8 8"/><path d="M14 11v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>OPEN IN WINDOW</span></button></div>
  <div class="explorerToolbar"><input id="signalSearch" class="destinationSearch signalSearch" type="search" placeholder="Find a source or destination…" data-input-action="signal-search"><span class="overviewLiveLabel">● LIVE OVERVIEW</span><label class="explorerDimToggle"><input id="explorerDimUnlinked" type="checkbox" checked data-change-action="explorer-highlight"> DIM UNLINKED</label><div class="explorerTraceControls"><details class="explorerLegend"><summary>LINE LEGEND</summary><div class="explorerLegendPopup"><div><i class="legendStroke program"></i><span>Program — red</span></div><div><i class="legendStroke preview"></i><span>Preview — blue</span></div><div><i class="legendStroke assigned"></i><span>Assigned / not confirmed on-air — yellow dashed</span></div><div><i class="legendStroke routing"></i><span>Other routing — slate</span></div></div></details><button id="explorerClearButton" type="button" class="tinyAction explorerClearButton" data-action="clear-trace" hidden>✕ CLEAR TRACE</button></div><button class="tinyAction" type="button" data-action="zoom-out">−</button><button class="tinyAction" type="button" data-action="zoom-fit">FIT</button><button class="tinyAction" type="button" data-action="zoom-in">+</button></div>
  <div class="explorerLayout"><main class="explorerMain"><div id="explorerCanvas"></div></main></div>
  <div id="explorerDetails" class="explorerDetails">Hover any node to inspect its signal path.</div>
  </div></section>
 
 <section class="eng">
+ <div class="workspacePageActionRow"><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="engineering" aria-label="Open Inspect in a separate window" title="Open Inspect in a separate window"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 3h6v6M17 3l-8 8"/><path d="M14 11v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>OPEN IN WINDOW</span></button></div>
  <div class="health" id="engHealth"><div class="dot"></div><div><b>INSPECT WORKSPACE</b><div class="detail">Surface exceptions and changes first; use raw state to trace the cause.</div></div><div class="spacer"></div><span id="engIssues">0 issues</span></div>
 
  <div class="panel inspectInputsPanel"><div class="head"><h2>INPUT INVENTORY</h2><span class="sub" id="inputCountLabel">available sources</span></div><div class="inputCompact" id="inputGrid"></div></div>
@@ -91,7 +93,7 @@
   <div class="panel"><div class="head"><h2>KEYER INSPECTOR</h2><span class="sub">state + assignment</span></div>
    <div class="inspect" id="keyerInspector"></div></div><div class="panel"><div class="head"><h2>DIAGNOSTICS</h2><span class="sub">switcher + route health</span></div><div class="diag" id="diagnostics"></div></div><div class="panel" style="margin-top:10px"><div class="head"><h2>ATEM DEBUG</h2><span class="sub">read-only state exposed to ShowDesk</span><button class="tinyAction" data-action="toggle-debug">SHOW / HIDE</button></div><pre id="atemDebug" hidden style="max-height:360px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#080c0f;border:1px solid var(--line);border-radius:7px;padding:12px;font-size:9px;line-height:1.5"></pre></div></section>
 <section class="hyperdeckPage" aria-label="HyperDeck monitor">
-  <div class="signalWorkspaceHead"><div><h2>HYPERDECK MONITORING</h2><p>Read-only deck, transport, timecode, and media-slot status.</p></div></div>
+  <div class="signalWorkspaceHead"><div><h2>HYPERDECK MONITORING</h2><p>Read-only deck, transport, timecode, and media-slot status.</p></div><button id="hyperdeckUndockButton" class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="hyperdecks" aria-label="Open HyperDeck Monitoring in a separate window" title="Open HyperDeck Monitoring in a separate window"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 3h6v6M17 3l-8 8"/><path d="M14 11v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg><span>OPEN IN WINDOW</span></button></div>
   <p id="hyperdeckViewerNotice" class="hyperdeckViewerNotice" hidden>Read-only status is relayed by the ShowDesk Host. This Viewer does not connect directly to HyperDecks.</p>
   <div class="panel hyperdeckSetupPanel"><div class="head"><div><h2>CONNECT A HYPERDECK</h2><p>Enter the deck’s IP address to start monitoring.</p></div><span class="sub">HyperDeck Ethernet protocol · TCP 9993</span></div>
    <div class="hyperdeckForm"><label class="hyperdeckAddressField">HYPERDECK IP ADDRESS<input id="hyperdeckHost" inputmode="decimal" placeholder="192.168.1.50" aria-describedby="hyperdeckSettingsStatus" data-enter-action="add-hyperdeck"></label><label>NAME (OPTIONAL)<input id="hyperdeckName" maxlength="64" placeholder="HyperDeck" data-enter-action="add-hyperdeck"></label><button class="tinyAction primaryAction" type="button" data-action="add-hyperdeck"><span aria-hidden="true">＋</span> ADD HYPERDECK</button></div>
@@ -121,7 +123,7 @@
   <div class="settingsBrand"><span>SHOWDESK</span><h2 id="settingsTitle">Settings</h2></div>
   <nav class="settingsTabs" aria-label="Settings sections">
    <button type="button" data-settings-tab="general"><span class="settingsNavGlyph">⚙</span>General</button>
-   <button type="button" data-settings-tab="guide"><span class="settingsNavGlyph">▤</span>Feature Guide</button>
+   <button type="button" data-settings-tab="guide"><span class="settingsNavGlyph" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.7 9a2.4 2.4 0 1 1 4.1 1.7c-1.2 1.1-1.8 1.5-1.8 3"/><path d="M12 17h.01"/></svg></span>Feature Guide</button>
    <button type="button" data-settings-tab="hyperdeck"><span class="settingsNavGlyph">▣</span>HyperDeck Monitor</button>
    <button type="button" data-settings-tab="connections"><span class="settingsNavGlyph">⌁</span>Connections</button>
    <button type="button" data-settings-tab="reference"><span class="settingsNavGlyph">▤</span>References</button>
@@ -149,7 +151,7 @@
      <article><b>HyperDeck Monitoring</b><p>Enable its tab here, then add network-enabled decks by IP on the Host. Viewer windows receive read-only status from the Host.</p></article>
     </div>
     <h3>SEPARATE WINDOWS</h3>
-    <p>Use the <b>OPEN</b> control beside any workspace tab to place that workspace in its own window, then move it to another monitor. Use “Return to Main Window” in that window to bring it back.</p>
+    <p>Use the <b>OPEN IN WINDOW</b> control in the upper-right corner of the workspace you want to separate, then move that window to another monitor. Use “Return to Main Window” in the detached window to bring it back.</p>
     <h3>CONNECTION MODES</h3>
     <p><b>Host</b> connects directly to the ATEM and shares read-only status. <b>Viewer</b> connects to a ShowDesk Host and does not need direct access to the ATEM or HyperDeck network.</p>
    </section>

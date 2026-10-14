@@ -576,20 +576,21 @@ html body{padding-left:0!important}
 .floatingWorkspaceTabs{grid-column:2;display:flex;gap:4px;border:1px solid var(--line);border-radius:14px;background:var(--panel2);padding:4px}
 .floatingWorkspaceTab{border:0;border-radius:10px;background:transparent;color:var(--muted);padding:12px 18px;font-size:12px;font-weight:650;white-space:nowrap}
 .floatingWorkspaceTab.on{background:var(--blue);color:white}
-.workspaceTabGroup{display:flex;align-items:center;border-radius:10px;overflow:hidden}
-.workspaceTabGroup[hidden]{display:none!important}
-.workspaceTabGroup .floatingWorkspaceTab{border-radius:10px 0 0 10px}
-.workspaceUndockButton{height:40px;padding:0 10px;border:0;border-left:1px solid #ffffff12;background:transparent;color:#a9bac4;display:flex;align-items:center;gap:5px;font-size:9px;font-weight:800;letter-spacing:.06em;cursor:pointer;white-space:nowrap}
+.workspacePageActionRow{display:flex;justify-content:flex-end;margin:0 0 8px}
+.workspaceUndockButton{height:32px;padding:0 10px;border:1px solid var(--line2);border-radius:5px;background:var(--panel2);color:#a9bac4;display:flex;align-items:center;gap:6px;font-size:9px;font-weight:800;letter-spacing:.06em;cursor:pointer;white-space:nowrap}
 .workspaceUndockButton svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .workspaceUndockButton:focus-visible{outline:2px solid #68a9f2;outline-offset:-3px}
 .workspaceUndockButton:hover{color:#fff;background:#ffffff0d}
+.workspaceUndockButton[hidden]{display:none!important}
+.signalWorkspaceHead>.workspaceUndockButton{margin-left:auto;flex:none}
 .undockedWorkspaceControls{grid-column:2;display:flex;align-items:center;justify-content:center;gap:18px;min-width:0}
 .undockedWorkspaceControls[hidden]{display:none!important}
 .undockedWorkspaceControls strong{color:#e7edf1;font-size:13px;font-weight:800;letter-spacing:.04em}
 html.undockedWorkspace .floatingWorkspaceTabs{display:none}
 html.undockedWorkspace .workspaceTopBar{grid-template-columns:1fr auto 1fr}
 html.undockedWorkspace #app.wrap{padding:20px 24px 32px}
-@media(max-width:1050px){.undockedWorkspaceControls{grid-column:1;grid-row:1;justify-self:center}.workspaceUndockButton{height:36px;padding:0 7px}}
+@media(max-width:1050px){.undockedWorkspaceControls{grid-column:1;grid-row:1;justify-self:center}}
+@media(max-width:620px){.signalWorkspaceHead>.workspaceUndockButton{margin:10px 0 0 auto}.workspaceUndockButton{height:30px;padding:0 8px}}
 .workspaceTopBar .desktopStatus{grid-column:3;grid-row:1;padding:0!important;min-height:0!important;background:transparent!important;justify-content:flex-end!important;min-width:0}
 .workspaceTopBar .desktopStatus #modelLabel{display:none!important}
 body .wrap{margin:0 auto!important;width:100%!important;max-width:none!important;padding:12px 20px 28px!important}
