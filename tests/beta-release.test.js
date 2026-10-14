@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const vm = require('node:vm');
 
 const stable = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
 const beta = JSON.parse(fs.readFileSync('src-tauri/tauri.beta.conf.json', 'utf8'));
@@ -80,6 +81,7 @@ assert.match(hostHtml, /data-hyperdeck-timer="secondary" data-timer-value="none"
 assert.match(hostApp, /case "hyperdeck-primary-timer-menu":toggleHyperdeckTimerMenu\("primary"\)/, 'The main timer dropdown should open through the Settings menu handler');
 assert.match(hostApp, /function formatHyperdeckElapsed\(/, 'ShowDesk should format a record-start elapsed timer separately from deck timecode');
 assert.match(hostApp, /function hyperdeckRecordingTimeRemaining\(slot\)/, 'SSD recording time remaining should be formatted separately from the large front counter');
+assert.match(hostApp, /slot\?\.\["recording time available"\]\?\?slot\?\.\["recording time"\]/, 'The readout must support both normalized and raw Blackmagic slot-time fields');
 assert.match(hostApp, /RECORD TIME LEFT · /, 'The media slot summary should distinguish remaining SSD record capacity');
 assert.match(hostApp, /SLOT \$\{escapeShowDeskText\(slot\.id\|\|"—"\)\}<\/b><em>\$\{escapeShowDeskText\(slot\.status\|\|"UNKNOWN"\)\}/, 'Media indicators should label the slot ID and state clearly');
 assert.match(hostApp, /activeSlotId=t\["slot id"\]/, 'Live Status should use the active slot ID reported by the transport');
@@ -97,5 +99,14 @@ assert.match(styles, /\.rackSlotIndicators \.miniSlot\{padding:0;border:0/, 'Med
 assert.match(styles, /\.hyperdeckPage \.hyperdeckCards\{display:grid;grid-template-columns:minmax\(0,1fr\)/, 'Rack units should stack vertically');
 assert.match(styles, /\.hyperdeckRackUnit\{display:block;overflow:visible\}/, 'The deck display should not draw decorative rack ears');
 assert.match(styles, /\.rackFace\{background:var\(--sd-work\)/, 'The rack should use ShowDesk workspace colors');
+
+const timerStart = hostApp.indexOf('function hyperdeckRecordingTimeSeconds(');
+const timerEnd = hostApp.indexOf('function updateHyperdeckTimecodes(', timerStart);
+assert.ok(timerStart >= 0 && timerEnd > timerStart, 'HyperDeck SSD time formatting helpers should remain available');
+const hyperdeckUi = vm.runInNewContext(`${hostApp.slice(timerStart, timerEnd)}\n({hyperdeckRecordingTimeSeconds,hyperdeckRecordingTimeRemaining,hyperdeckTimerValue})`);
+assert.equal(hyperdeckUi.hyperdeckTimerValue({ transport: { 'slot id': 2 }, slots: [{ id: '2', 'recording time': '25337' }] }, 'recordingRemaining'), '07:02:17', 'The timer should display the raw Blackmagic field relayed by an older Host');
+assert.equal(hyperdeckUi.hyperdeckTimerValue({ transport: { 'slot id': 2 }, slots: [{ id: '2', 'recording time available': '25337' }] }, 'recordingRemaining'), '07:02:17', 'The timer should display the normalized field from a current Host');
+assert.equal(hyperdeckUi.hyperdeckRecordingTimeRemaining({ 'recording time': '25337' }), 'RECORD TIME LEFT · 07:02:17', 'The compact media slot summary should accept the raw protocol field');
+assert.equal(hyperdeckUi.hyperdeckTimerValue({ transport: { 'slot id': 2 }, slots: [{ id: '2', 'recording time': '0' }] }, 'recordingRemaining'), '00:00:00', 'Zero available recording time is valid and should not become a missing-value dash');
 
 console.log('ShowDesk stable and beta release channels are isolated.');
