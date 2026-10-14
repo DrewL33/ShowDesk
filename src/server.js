@@ -271,6 +271,13 @@ const server = http.createServer((req, res) => {
 const wss = new WebSocketServer({ server, path: '/ws' });
 wss.on('connection', (ws) => {
   clients.add(ws);
+  if (hasConnected && lastState) {
+    const normalized = normalizeState(lastState);
+    if (normalized) {
+      ws.send(JSON.stringify({ type: 'connection', status: 'host-connected', ip: currentIp, data: { ...discovery(lastState), ...normalized } }));
+      ws.send(JSON.stringify({ type: 'state', data: normalized }));
+    }
+  }
   ws.send(JSON.stringify({ type: 'hyperdecks', data: hyperDeckMonitor.snapshot() }));
   ws.send(JSON.stringify({ type: 'hyperdeckAvailability', enabled: hostHyperdeckMonitoringEnabled }));
   ws.on('close', () => clients.delete(ws));

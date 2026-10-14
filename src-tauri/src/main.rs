@@ -4,6 +4,7 @@ use std::fs::{self, OpenOptions};
 use std::net::{SocketAddr, TcpStream};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use tauri::menu::{MenuBuilder, SubmenuBuilder};
 use tauri::{AppHandle, Emitter, Manager};
@@ -12,6 +13,49 @@ use tauri_plugin_updater::UpdaterExt;
 
 struct AtemService(Mutex<Option<Child>>);
 struct UpdaterBusy(Mutex<bool>);
+static WORKSPACE_WINDOW_ID: AtomicU64 = AtomicU64::new(1);
+
+fn workspace_title(workspace: &str) -> Option<&'static str> {
+    match workspace {
+        "show" => Some("Show View"),
+        "signal" => Some("Signal Explorer"),
+        "engineering" => Some("Inspect"),
+        "hyperdecks" => Some("HyperDeck Monitoring"),
+        _ => None,
+    }
+}
+
+#[tauri::command]
+fn open_workspace_window(app: AppHandle, window: tauri::WebviewWindow, workspace: String, connection_mode: Option<String>, connection_host: Option<String>) -> Result<(), String> {
+    if window.label() != "main" { return Err("Only the main ShowDesk window can open another workspace window.".to_string()); }
+    let title = workspace_title(&workspace).ok_or_else(|| "Unknown ShowDesk workspace.".to_string())?;
+    let prefix = format!("workspace-{workspace}-");
+    if let Some(existing) = app.webview_windows().into_iter().find(|(label, _)| label.starts_with(&prefix)).map(|(_, window)| window) {
+        existing.show().map_err(|e| format!("Unable to show the existing workspace window: {e}"))?;
+        existing.set_focus().map_err(|e| format!("Unable to focus the existing workspace window: {e}"))?;
+        return Ok(());
+    }
+    let label = format!("{prefix}{}", WORKSPACE_WINDOW_ID.fetch_add(1, Ordering::Relaxed));
+    let context = serde_json::json!({ "workspace": workspace, "connectionMode": connection_mode, "connectionHost": connection_host });
+    let workspace_script = format!("window.SHOWDESK_UNDOCKED_CONTEXT = {};", serde_json::to_string(&context).map_err(|e| e.to_string())?);
+    tauri::WebviewWindowBuilder::new(&app, label, tauri::WebviewUrl::App("index.html".into()))
+        .title(format!("ShowDesk — {title}"))
+        .inner_size(1440.0, 900.0)
+        .min_inner_size(1024.0, 700.0)
+        .resizable(true)
+        .initialization_script(&workspace_script)
+        .build()
+        .map(|_| ())
+        .map_err(|e| format!("Unable to open {title} in a new window: {e}"))
+}
+
+#[tauri::command]
+fn redock_workspace(app: AppHandle, window: tauri::WebviewWindow, workspace: String) -> Result<(), String> {
+    if !window.label().starts_with("workspace-") { return Err("This window does not have a detached workspace to return.".to_string()); }
+    if workspace_title(&workspace).is_none() { return Err("Unknown ShowDesk workspace.".to_string()); }
+    app.emit_to("main", "showdesk-redock-workspace", workspace).map_err(|e| e.to_string())?;
+    window.close().map_err(|e| format!("Unable to return this workspace to the main window: {e}"))
+}
 
 fn showdesk_ports() -> (&'static str, &'static str) {
     if option_env!("SHOWDESK_CHANNEL") == Some("beta") {
@@ -270,7 +314,7 @@ fn main() {
         .plugin(tauri_plugin_process::init())
         .manage(AtemService(Mutex::new(None)))
         .manage(UpdaterBusy(Mutex::new(false)))
-        .invoke_handler(tauri::generate_handler![ensure_atem_service, save_log_report, check_for_update, install_update, open_showdesk_repository])
+        .invoke_handler(tauri::generate_handler![ensure_atem_service, save_log_report, check_for_update, install_update, open_showdesk_repository, open_workspace_window, redock_workspace])
         .setup(|app| {
             // Start eagerly, but do not prevent the UI from opening if the
             // service fails. The frontend retries through ensure_atem_service

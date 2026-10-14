@@ -121,6 +121,7 @@
   }
 
   window.ATEM_TRANSPORT = {
+    attach() { return ensureSocket(); },
     connect(ip) { return request('connect', { ip }); },
     configureHyperdecks(devices, enabled = Array.isArray(devices) && devices.length > 0) { return request('configureHyperdecks', { devices, enabled }); },
     subscribeHyperdecks(callback) { hyperdeckSubscribers.add(callback); return () => hyperdeckSubscribers.delete(callback); },

@@ -15,6 +15,8 @@ const assets = fs.readFileSync('src/static-assets.js', 'utf8');
 const hostHtml = fs.readFileSync('public/index.html', 'utf8');
 const hostApp = fs.readFileSync('public/app.js', 'utf8');
 const styles = fs.readFileSync('public/styles.css', 'utf8');
+const hyperdeckServer = fs.readFileSync('src/server.js', 'utf8');
+const defaultCapability = JSON.parse(fs.readFileSync('src-tauri/capabilities/default.json', 'utf8'));
 
 assert.equal(stable.productName, 'ShowDesk');
 assert.equal(beta.productName, 'ShowDesk BETA');
@@ -23,6 +25,16 @@ assert.equal(beta.bundle.macOS.signingIdentity, '-', 'Beta macOS apps must have 
 assert.ok(stable.plugins.updater.endpoints[0].includes('showdesk-stable-latest'));
 assert.ok(beta.plugins.updater.endpoints[0].includes('showdesk-beta-latest'));
 assert.match(betaWorkflow, /branches:\s*\[beta\]/, 'Beta workflow must follow the beta branch');
+assert.match(rust, /fn open_workspace_window[\s\S]*?WebviewWindowBuilder::new/, 'Tauri must open detached workspaces as native windows');
+assert.match(rust, /fn redock_workspace[\s\S]*?showdesk-redock-workspace/, 'Detached workspaces must be able to return to the main window');
+assert.ok(defaultCapability.windows.includes('workspace-*'), 'Detached windows must receive the app event capability');
+assert.match(hostHtml, /data-undock-workspace="signal"/, 'Signal Explorer must have an accessible undock control');
+assert.match(hostHtml, /data-action="redock-workspace"/, 'Detached windows must provide a return-to-main action');
+assert.match(hostApp, /invoke\("open_workspace_window"/,'Workspace controls must call the native window command');
+assert.match(hostApp, /function initializeUndockedWorkspace\(/, 'New windows must initialize directly into the selected workspace');
+assert.match(hostApp, /function adoptSharedHostConnection\(/, 'Detached Host windows must attach to the existing ATEM session');
+assert.match(hyperdeckServer, /status: 'host-connected'/, 'The local service must send the current Host snapshot to newly opened windows');
+assert.match(styles, /html\.undockedWorkspace \.floatingWorkspaceTabs\{display:none\}/, 'Detached workspaces must use a single-workspace window header');
 assert.match(betaWorkflow, /1\.1\.0-beta\.\$\{GITHUB_RUN_NUMBER\}/, 'Every Beta build must get an increasing updater version');
 assert.match(betaWorkflow, /SHOWDESK_CHANNEL:\s*beta/, 'Beta build must compile the beta runtime channel');
 assert.match(betaWorkflow, /name: Build isolated Beta application\n\s+shell: bash/, 'Cross-platform Beta build must use the shell syntax expected by its environment variables');

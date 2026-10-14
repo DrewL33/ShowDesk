@@ -37,11 +37,11 @@
  </div>
 </div></div>
 <header class="workspaceTopBar"><nav class="floatingWorkspaceTabs" aria-label="Workspaces">
-<button id="showBtn" class="floatingWorkspaceTab on" type="button" data-action="tab-show">Show View</button>
-<button id="signalBtn" class="floatingWorkspaceTab" type="button" data-action="tab-signal">Signal Explorer</button>
-<button id="engBtn" class="floatingWorkspaceTab" type="button" data-action="tab-inspect">Inspect</button>
-<button id="hyperdeckBtn" class="floatingWorkspaceTab" type="button" data-action="tab-hyperdecks" hidden>HyperDeck Monitoring</button>
-</nav>
+<div class="workspaceTabGroup"><button id="showBtn" class="floatingWorkspaceTab on" type="button" data-action="tab-show">Show View</button><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="show" aria-label="Open Show View in a new window" title="Open Show View in a new window">↗</button></div>
+<div class="workspaceTabGroup"><button id="signalBtn" class="floatingWorkspaceTab" type="button" data-action="tab-signal">Signal Explorer</button><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="signal" aria-label="Open Signal Explorer in a new window" title="Open Signal Explorer in a new window">↗</button></div>
+<div class="workspaceTabGroup"><button id="engBtn" class="floatingWorkspaceTab" type="button" data-action="tab-inspect">Inspect</button><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="engineering" aria-label="Open Inspect in a new window" title="Open Inspect in a new window">↗</button></div>
+<div class="workspaceTabGroup" id="hyperdeckTabGroup" hidden><button id="hyperdeckBtn" class="floatingWorkspaceTab" type="button" data-action="tab-hyperdecks">HyperDeck Monitoring</button><button class="workspaceUndockButton" type="button" data-action="undock-workspace" data-undock-workspace="hyperdecks" aria-label="Open HyperDeck Monitoring in a new window" title="Open HyperDeck Monitoring in a new window">↗</button></div>
+</nav><div id="undockedWorkspaceControls" class="undockedWorkspaceControls" hidden><strong id="undockedWorkspaceTitle"></strong><button class="tinyAction" type="button" data-action="redock-workspace">↙ RETURN TO MAIN WINDOW</button></div>
 <div class="desktopStatus"><div id="modelLabel"></div><span id="viewerCount" class="viewerCount" hidden></span><button id="referenceStatus" class="referenceStatus" hidden data-action="tab-inspect">● Referencing <span id="referenceName"></span></button><div id="connectionFlag" class="connectionFlag" hidden><span class="connectionDot"></span><span id="connectionFlagText">HOST • CONNECTED</span></div><button id="disconnectBtn" class="disconnectBtn" hidden data-action="disconnect">DISCONNECT</button></div></header><div class="wrap tab-show" id="app">
 
 <section class="showContent">

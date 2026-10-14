@@ -572,6 +572,18 @@ html body{padding-left:0!important}
 .floatingWorkspaceTabs{grid-column:2;display:flex;gap:4px;border:1px solid var(--line);border-radius:14px;background:var(--panel2);padding:4px}
 .floatingWorkspaceTab{border:0;border-radius:10px;background:transparent;color:var(--muted);padding:12px 18px;font-size:12px;font-weight:650;white-space:nowrap}
 .floatingWorkspaceTab.on{background:var(--blue);color:white}
+.workspaceTabGroup{display:flex;align-items:center;border-radius:10px;overflow:hidden}
+.workspaceTabGroup[hidden]{display:none!important}
+.workspaceTabGroup .floatingWorkspaceTab{border-radius:10px 0 0 10px}
+.workspaceUndockButton{height:40px;padding:0 9px;border:0;border-left:1px solid #ffffff12;background:transparent;color:#9aa8b1;font-size:15px;font-weight:800;cursor:pointer}
+.workspaceUndockButton:hover{color:#fff;background:#ffffff0d}
+.undockedWorkspaceControls{grid-column:2;display:flex;align-items:center;justify-content:center;gap:18px;min-width:0}
+.undockedWorkspaceControls[hidden]{display:none!important}
+.undockedWorkspaceControls strong{color:#e7edf1;font-size:13px;font-weight:800;letter-spacing:.04em}
+html.undockedWorkspace .floatingWorkspaceTabs{display:none}
+html.undockedWorkspace .workspaceTopBar{grid-template-columns:1fr auto 1fr}
+html.undockedWorkspace #app.wrap{padding:20px 24px 32px}
+@media(max-width:1050px){.undockedWorkspaceControls{grid-column:1;grid-row:1;justify-self:center}.workspaceUndockButton{height:36px;padding:0 7px}}
 .workspaceTopBar .desktopStatus{grid-column:3;grid-row:1;padding:0!important;min-height:0!important;background:transparent!important;justify-content:flex-end!important;min-width:0}
 .workspaceTopBar .desktopStatus #modelLabel{display:none!important}
 body .wrap{margin:0 auto!important;width:100%!important;max-width:none!important;padding:12px 20px 28px!important}
