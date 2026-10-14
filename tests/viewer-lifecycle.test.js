@@ -57,8 +57,8 @@ assert.match(app,/const gap=i=>\(\{min:columns\[i\]\+W\+8/,'Routing must use gap
 assert.match(app,/const y=TOP-18\+row\*ROW\+offset/,'Routing must consider available row gutters');
 assert.match(app,/const W=184,H=36,ROW=78,top=72/,'Build079 must provide more breathing room between nodes');
 assert.match(app,/const occupied=lanes\.get\("occupied"\)/,'Routing must reserve occupied wire segments');
-assert.match(app,/current\.h!==prior\.h/,'Routing must separate horizontal and vertical overlaps');
-assert.match(app,/Math\.abs\(current\.axis-prior\.axis\)<spacing/,'Routing must enforce spacing between parallel paths');
+assert.match(app,/trackBins\.get\(current\.h\?"h":"v"\)/,'Routing must score only nearby horizontal or vertical tracks');
+assert.match(app,/Math\.abs\(current\.axis-prior\.axis\)>=spacing\)continue/,'Routing must enforce spacing between parallel paths');
 assert.match(app,/bounds\.nodeBottom\+22\+lane\*spacing/,'Lower canvas must remain an optional routing candidate');
 assert.match(app,/data-signal-halo/,'Crossings must have narrow visual separation');
 assert.match(styles,/\.overviewEdgeHalo\{fill:none/,'Crossing separation must have explicit styling');
@@ -228,8 +228,8 @@ assert.match(app,/function renderReferenceAttention\(\)/,'Attention must summari
 assert.match(app,/unknown\?"unverified"/,'Unavailable routes must not be reported as matching');
 
 assert.match(app,/active=isOutput\?new Set\(\[\.\.\.upstream,\.\.\.downstream\]\):explorerReach\(graph,id,false\)/,'Output inspections trace both directions without expanding unrelated source inspections');
-assert.match(app,/explorerReach\(\{edges\},to,false\)\.has\(from\)/,'Explorer must reject inferred circular graph edges');
-assert.match(app,/routing!==explorerRouteState\|\|!canvas\.querySelector/,'Signal explorer must redraw when live routing changes');
+assert.match(app,/explorerReach\(\{edges,adjacency\},to,false\)\.has\(from\)/,'Explorer must reject inferred circular graph edges');
+assert.match(app,/routingChanged=routing!==explorerRouteState/,'Signal explorer must update when live routing changes');
 
 assert.match(app,/const isOutput=node\.type==="destination"\|\|node\.type==="internal"/,'Destination and internal output inspections must trace both directions');
 assert.match(app,/new Set\(\[\.\.\.upstream,\.\.\.downstream\]\)/,'Output inspections must include upstream feeds and downstream consumers');

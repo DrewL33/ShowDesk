@@ -743,8 +743,9 @@ function explorerWheel(event){
  event.preventDefault();explorerZoom(event.deltaY<0?1:-1,event.clientX,event.clientY);
 }
 function explorerReach(graph,id,reverse=false){
- const seen=new Set([id]),queue=[id];
- while(queue.length){const current=queue.shift();for(const e of graph.edges){const from=reverse?e.to:e.from,to=reverse?e.from:e.to;if(from===current&&!seen.has(to)){seen.add(to);queue.push(to)}}}
+ const seen=new Set([id]),queue=[id],adjacency=graph.adjacency;
+ if(adjacency){for(let cursor=0;cursor<queue.length;cursor++)for(const next of adjacency[reverse?"incoming":"outgoing"].get(queue[cursor])||[])if(!seen.has(next)){seen.add(next);queue.push(next)}return seen}
+ for(let cursor=0;cursor<queue.length;cursor++){const current=queue[cursor];for(const e of graph.edges){const from=reverse?e.to:e.from,to=reverse?e.from:e.to;if(from===current&&!seen.has(to)){seen.add(to);queue.push(to)}}}
  return seen;
 }
 function explorerHighlight(){
@@ -779,6 +780,7 @@ function explorerHighlight(){
 function explorerBuildGraph(){
  const inputs=liveEngineering.inputs||[],mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
  const nodes=[],edges=[],byId=new Map(),edgeIds=new Set();
+ const adjacency={outgoing:new Map(),incoming:new Map()};
  const add=(id,label,type,group)=>{if(!byId.has(id)){const n={id,label,type,group};byId.set(id,n);nodes.push(n)}return id};
  const internal=new Map();
  // Blackmagic's internal M/E Program/Preview source IDs are stable; labels are user-editable.
@@ -798,8 +800,10 @@ function explorerBuildGraph(){
   if(from===to||edgeIds.has(id))return;
   // ATEM cross-M/E selections can be legitimate, but a graph cycle is not
   // proof of a live feedback path. Suppress circular inferred connections.
-  if(explorerReach({edges},to,false).has(from))return;
+  if(explorerReach({edges,adjacency},to,false).has(from))return;
   edgeIds.add(id);edges.push({id,from,to,kind});
+  if(!adjacency.outgoing.has(from))adjacency.outgoing.set(from,new Set());adjacency.outgoing.get(from).add(to);
+  if(!adjacency.incoming.has(to))adjacency.incoming.set(to,new Set());adjacency.incoming.get(to).add(from);
  };
  const feed=(id,to,kind)=>{if(id===undefined||id===null||!Number.isFinite(Number(id)))return;connect(source(id),to,kind)};
  // Physical source -> bus -> processing output. Never create a reverse edge to an earlier column.
@@ -826,7 +830,7 @@ function explorerBuildGraph(){
   feed(k.fillId,fill,"assigned");feed(k.keyId,key,"assigned");
  });
  routing.forEach((r,i)=>{const id=add("aux:"+(r.busId??r.protocolBusId??r.rawIndex??i),r.name||("ATEM Routing "+(i+1)),"destination","AUX / ROUTING");feed(r.sourceId,id,"routing")});
- return {nodes,edges};
+ return {nodes,edges,adjacency};
 }
 function explorerLayout(graph){
  const W=184,H=36,ROW=78,top=72,pos=new Map(),labels=[];
@@ -839,8 +843,10 @@ function explorerLayout(graph){
  ];
  // Each category has its own row cap. Routing changes do not affect placement.
  let cursor=32;
+ const nodesByType=new Map(groups.map(group=>[group.type,[]]));
+ graph.nodes.forEach(n=>nodesByType.get(n.type)?.push(n));
  groups.forEach(group=>{
-  const nodes=graph.nodes.filter(n=>n.type===group.type),banks=Math.max(1,Math.ceil(nodes.length/group.limit));
+  const nodes=nodesByType.get(group.type)||[],banks=Math.max(1,Math.ceil(nodes.length/group.limit));
   for(let bank=0;bank<banks;bank++){
    const x=cursor+bank*306;
    labels.push('<text class="overviewGroup" x="'+x+'" y="32">'+explorerEscape(group.title)+(bank?' · '+(bank+1):'')+'</text>');
@@ -861,22 +867,29 @@ function explorerRoute(start,end,columns,lanes,bounds){
  const to=columns.findIndex(x=>Math.abs(end.x-x)<1);
  const gap=i=>({min:columns[i]+W+8,max:columns[i+1]-8});
  const occupied=lanes.get("occupied")||[];
+ const trackBins=lanes.get("trackBins")||new Map();
  lanes.set("occupied",occupied);
+ lanes.set("trackBins",trackBins);
  const segment=(a,b)=>({a,b,h:a.y===b.y,lo:Math.min(a.y===b.y?a.x:a.y,b.y===a.y?b.x:b.y),hi:Math.max(a.y===b.y?a.x:a.y,b.y===a.y?b.x:b.y),axis:a.y===b.y?a.y:a.x});
  const score=points=>{
   let penalty=0;
   for(let i=1;i<points.length;i++){
    const current=segment(points[i-1],points[i]);
-   for(const prior of occupied){
-    if(current.h!==prior.h)continue;
+   const bins=trackBins.get(current.h?"h":"v");if(!bins)continue;
+   const center=Math.round(current.axis/spacing);
+   for(let bin=center-1;bin<=center+1;bin++)for(const prior of bins.get(bin)||[]){
+    if(Math.abs(current.axis-prior.axis)>=spacing)continue;
     const overlap=Math.min(current.hi,prior.hi)-Math.max(current.lo,prior.lo);
-    if(overlap>0&&Math.abs(current.axis-prior.axis)<spacing)penalty+=250+overlap;
+    if(overlap>0)penalty+=250+overlap;
    }
   }
   return penalty;
  };
  const commit=points=>{
-  for(let i=1;i<points.length;i++)if(points[i].x!==points[i-1].x||points[i].y!==points[i-1].y)occupied.push(segment(points[i-1],points[i]));
+  for(let i=1;i<points.length;i++)if(points[i].x!==points[i-1].x||points[i].y!==points[i-1].y){
+   const part=segment(points[i-1],points[i]),axis=part.h?"h":"v",bins=trackBins.get(axis)||new Map(),bin=Math.round(part.axis/spacing);
+   if(!bins.has(bin))bins.set(bin,[]);bins.get(bin).push(part);trackBins.set(axis,bins);occupied.push(part);
+  }
   return points.filter((p,i)=>i===0||p.x!==points[i-1].x||p.y!==points[i-1].y);
  };
  const candidates=[];
@@ -884,7 +897,8 @@ function explorerRoute(start,end,columns,lanes,bounds){
   const first=gap(from),last=gap(to-1);
   const xs=[];
   for(let x=first.min;x<=first.max;x+=spacing)xs.push(x);
-  const firstXs=xs.length?xs:[(first.min+first.max)/2];
+  const sample=(values,count)=>values.length<=count?values:Array.from({length:count},(_,i)=>values[Math.round(i*(values.length-1)/(count-1))]);
+  const firstXs=sample(xs,5);
   const lastXs=to===from+1?firstXs:[last.min+8,(last.min+last.max)/2,last.max-8];
   const ys=[];
   for(let row=0;row<15;row++)for(const offset of [-14,-7,0,7,14]){
@@ -897,7 +911,8 @@ function explorerRoute(start,end,columns,lanes,bounds){
   }else{
    const center=(start.y+end.y)/2;
    ys.sort((a,b)=>Math.abs(a-center)-Math.abs(b-center));
-   for(const x of firstXs)for(const lastX of lastXs)for(const y of ys.slice(0,60))
+   const routeYs=sample(ys.slice(0,12),12);
+   for(const x of firstXs)for(const lastX of lastXs)for(const y of routeYs)
     candidates.push([start,{x,y:start.y},{x,y},{x:lastX,y},{x:lastX,y:end.y},end]);
   }
  }else{
@@ -942,13 +957,14 @@ function explorerDraw(graph){
  const reserve=key=>{const n=ports.get(key)||0;ports.set(key,n+1);return n};
  const outCount=new Map(),inCount=new Map();
  edges.forEach(e=>{outCount.set(e.from,(outCount.get(e.from)||0)+1);inCount.set(e.to,(inCount.get(e.to)||0)+1)});
+ const nodeBottom=Math.max(0,...[...pos.values()].map(p=>p.y+H));
  let routedBottom=0;
  const paths=edges.map(e=>{
   const a=pos.get(e.from),b=pos.get(e.to);if(!a||!b)return "";
   const out=reserve("o:"+e.from),incoming=reserve("i:"+e.to);
   const y1=a.y+H*(out+1)/((outCount.get(e.from)||0)+1),y2=b.y+H*(incoming+1)/((inCount.get(e.to)||0)+1);
   const start={x:a.x+W,y:y1},end={x:b.x,y:y2};
-  const pts=explorerRoute(start,end,columns,lanes,{width,height,nodeBottom:Math.max(...[...pos.values()].map(p=>p.y+H))});
+  const pts=explorerRoute(start,end,columns,lanes,{width,height,nodeBottom});
   routedBottom=Math.max(routedBottom,...pts.map(p=>p.y));
   const d="M"+pts.map(p=>p.x+" "+p.y).join(" L");
   const marker=explorerDirectionMarker(pts),isReturn=b.x<=a.x;
@@ -958,15 +974,15 @@ function explorerDraw(graph){
   const p=pos.get(n.id);
   return '<g class="overviewNode" data-signal-node="'+explorerEscape(n.id)+'"><rect x="'+p.x+'" y="'+p.y+'" width="'+W+'" height="'+H+'" rx="4"/><text x="'+(p.x+9)+'" y="'+(p.y+24)+'">'+explorerEscape(n.label)+'</text><title>'+explorerEscape(n.label)+'</title></g>';
  }).join("");
- const fittedHeight=Math.min(height,Math.max(routedBottom+40,Math.max(...[...pos.values()].map(p=>p.y+H))+30));
+ const fittedHeight=Math.min(height,Math.max(routedBottom+40,nodeBottom+30));
  return '<svg class="signalOverview" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+width+' '+fittedHeight+'" width="'+width+'" height="'+fittedHeight+'" data-width="'+width+'" data-height="'+fittedHeight+'" role="img" aria-label="Live ATEM signal overview">'+paths+labels.join("")+nodes+'</svg>';
 }
 function renderPaths(){
  const graph=explorerBuildGraph(),canvas=$("explorerCanvas");if(!canvas)return;
  const topology=graph.nodes.map(n=>n.id+"|"+n.label+"|"+n.group).join(";"),routing=graph.edges.map(e=>e.id+"|"+e.kind).sort().join(";");
- const changed=topology!==explorerTopology||routing!==explorerRouteState||!canvas.querySelector(".signalOverview");
+ const topologyChanged=topology!==explorerTopology||!canvas.querySelector(".signalOverview"),routingChanged=routing!==explorerRouteState;
  explorerGraph=graph;
- if(changed){
+ if(topologyChanged){
   const scroller=canvas.querySelector(".explorerDiagramScroll"),x=scroller?.scrollLeft||0,y=scroller?.scrollTop||0;
   canvas.innerHTML='<div class="explorerDiagramScroll">'+explorerDraw(graph)+'</div>';
   canvas.firstElementChild.scrollLeft=x;canvas.firstElementChild.scrollTop=y;
@@ -981,17 +997,23 @@ function renderPaths(){
    svg.style.marginTop=Math.max(0,(scroll.clientHeight-h*explorerScale)/2)+"px";
    scroll.scrollLeft=x;scroll.scrollTop=y;
   }
- }else if(routing!==explorerRouteState){
-  const svg=canvas.querySelector(".signalOverview"),old=new Map([...svg.querySelectorAll("[data-signal-edge]")].map(el=>[el.dataset.signalEdge,el]));
+ }else if(routingChanged){
+  const svg=canvas.querySelector(".signalOverview"),oldEdges=new Map([...svg.querySelectorAll("[data-signal-edge]")].map(el=>[el.dataset.signalEdge,el])),oldHalos=new Map([...svg.querySelectorAll("[data-signal-halo]")].map(el=>[el.dataset.signalHalo,el])),oldDirections=new Map([...svg.querySelectorAll("[data-signal-direction]")].map(el=>[el.dataset.signalDirection,el]));
   const holder=document.createElement("div");holder.innerHTML=explorerDraw(graph);
+  const nextHalos=new Map([...holder.querySelectorAll("[data-signal-halo]")].map(el=>[el.dataset.signalHalo,el])),nextDirections=new Map([...holder.querySelectorAll("[data-signal-direction]")].map(el=>[el.dataset.signalDirection,el]));
+  const insertBefore=svg.querySelector(".overviewGroup, .overviewNode");
   for(const el of holder.querySelectorAll("[data-signal-edge]")){
    const id=el.dataset.signalEdge;
-   if(!old.has(id)){el.classList.add("is-new");svg.insertBefore(el,svg.firstChild)}
-   else {const existing=old.get(id);existing.setAttribute("d",el.getAttribute("d"));existing.setAttribute("class",el.getAttribute("class"));const halo=svg.querySelectorAll("[data-signal-halo]");halo.forEach(h=>{if(h.dataset.signalHalo===id)h.setAttribute("d",el.getAttribute("d"))});old.delete(id)}
+   const nextHalo=nextHalos.get(id),nextDirection=nextDirections.get(id);
+   const existing=oldEdges.get(id),halo=oldHalos.get(id),direction=oldDirections.get(id);
+   if(existing){existing.setAttribute("d",el.getAttribute("d"));existing.setAttribute("class",el.getAttribute("class"));oldEdges.delete(id)}
+   else {const added=el.cloneNode(true);added.classList.add("is-new");svg.insertBefore(added,insertBefore)}
+   if(halo){if(nextHalo)halo.setAttribute("d",nextHalo.getAttribute("d"));oldHalos.delete(id)}
+   else if(nextHalo)svg.insertBefore(nextHalo.cloneNode(true),insertBefore);
+   if(direction){if(nextDirection){direction.setAttribute("d",nextDirection.getAttribute("d"));direction.setAttribute("class",nextDirection.getAttribute("class"))}else direction.remove();oldDirections.delete(id)}
+   else if(nextDirection)svg.insertBefore(nextDirection.cloneNode(true),insertBefore);
   }
-  svg.querySelectorAll("[data-signal-direction]").forEach(el=>el.remove());
-  for(const marker of holder.querySelectorAll("[data-signal-direction]"))svg.insertBefore(marker,svg.querySelector(".overviewGroup, .overviewNode"));
-  old.forEach(el=>{el.classList.add("is-exiting");setTimeout(()=>el.remove(),180)});
+  for(const removed of [oldEdges,oldHalos,oldDirections])removed.forEach(el=>{el.classList.add("is-exiting");setTimeout(()=>el.remove(),180)});
   explorerRouteState=routing;
  }
  const q=($("signalSearch")?.value||"").trim().toLowerCase();
