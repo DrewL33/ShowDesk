@@ -57,8 +57,8 @@ assert.match(app,/const gap=i=>\(\{min:columns\[i\]\+W\+8/,'Routing must use gap
 assert.match(app,/const y=TOP-18\+row\*ROW\+offset/,'Routing must consider available row gutters');
 assert.match(app,/const W=184,H=36,ROW=78,top=72/,'Build079 must provide more breathing room between nodes');
 assert.match(app,/const occupied=lanes\.get\("occupied"\)/,'Routing must reserve occupied wire segments');
-assert.match(app,/current\.h!==prior\.h/,'Routing must separate horizontal and vertical overlaps');
-assert.match(app,/Math\.abs\(current\.axis-prior\.axis\)<spacing/,'Routing must enforce spacing between parallel paths');
+assert.match(app,/trackBins\.get\(current\.h\?"h":"v"\)/,'Routing must score only nearby horizontal or vertical tracks');
+assert.match(app,/Math\.abs\(current\.axis-prior\.axis\)>=spacing\)continue/,'Routing must enforce spacing between parallel paths');
 assert.match(app,/bounds\.nodeBottom\+22\+lane\*spacing/,'Lower canvas must remain an optional routing candidate');
 assert.match(app,/data-signal-halo/,'Crossings must have narrow visual separation');
 assert.match(styles,/\.overviewEdgeHalo\{fill:none/,'Crossing separation must have explicit styling');
@@ -227,15 +227,17 @@ assert.match(app,/function referenceCategoryStatus\(category\)/,'Reference categ
 assert.match(app,/function renderReferenceAttention\(\)/,'Attention must summarize reference categories');
 assert.match(app,/unknown\?"unverified"/,'Unavailable routes must not be reported as matching');
 
-assert.match(app,/active=isOutput\?new Set\(\[\.\.\.upstream,\.\.\.downstream\]\):explorerReach\(graph,id,false\)/,'Output inspections trace both directions without expanding unrelated source inspections');
-assert.match(app,/explorerReach\(\{edges\},to,false\)\.has\(from\)/,'Explorer must reject inferred circular graph edges');
-assert.match(app,/routing!==explorerRouteState\|\|!canvas\.querySelector/,'Signal explorer must redraw when live routing changes');
+assert.match(app,/function explorerTrace\(graph,id\)/,'Every inspected node must trace connected signal paths in both directions');
+assert.match(app,/explorerReach\(\{edges,adjacency\},to,false\)\.has\(from\)/,'Explorer must reject inferred circular graph edges');
+assert.match(app,/routingChanged=routing!==explorerRouteState/,'Signal explorer must update when live routing changes');
 
-assert.match(app,/const isOutput=node\.type==="destination"\|\|node\.type==="internal"/,'Destination and internal output inspections must trace both directions');
-assert.match(app,/new Set\(\[\.\.\.upstream,\.\.\.downstream\]\)/,'Output inspections must include upstream feeds and downstream consumers');
-assert.match(app,/upstream\.has\(e\.from\)&&upstream\.has\(e\.to\)/,'Upstream edges must remain highlighted');
-assert.match(app,/downstream\.has\(e\.from\)&&downstream\.has\(e\.to\)/,'Downstream edges must remain highlighted');
+assert.match(app,/const nodes=new Set\(\[\.\.\.upstream,\.\.\.downstream\]\)/,'Signal traces must include connected upstream and downstream nodes');
+assert.match(app,/\(upstream\.has\(e\.from\)&&upstream\.has\(e\.to\)\)\|\|/,'Only edges along the upstream or downstream trace may highlight');
 
 assert.match(app,/const startTime=performance\.now\(\),duration=180/,'Signal Explorer zoom must animate smoothly');
 assert.match(app,/logicalX\*scale\+left-focalX/,'Zoom must preserve its cursor-centered focal point');
 assert.match(styles,/\.workspaceTopBar\{position:sticky;top:0;z-index:45/,'Workspace tabs must remain visible during page scrolling');
+assert.match(app,/const hyperdeckOpenDetails=new Map\(\)/,'HyperDeck detail state must survive live card refreshes');
+assert.match(app,/hyperdeckOpenDetails\.set\(card\.dataset\.hyperdeckCard,\[\.\.\.card\.querySelectorAll\("\.rackDetails details"\)\]\.map\(detail=>detail\.open\)\)/,'HyperDeck refresh must capture each deck’s expanded sections');
+assert.match(app,/data-hyperdeck-card="\$\{escapeShowDeskText\(deck\.id\)\}"/,'HyperDeck cards must have stable identities for detail-state restoration');
+assert.match(app,/hyperdeckOpenDetails\.get\(card\.dataset\.hyperdeckCard\)/,'HyperDeck refresh must restore expanded sections by deck identity');

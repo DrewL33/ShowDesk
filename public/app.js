@@ -24,6 +24,7 @@ let viewerCountSubscription=null;
 let connectionHealthTimer=null;
 let connectionStartedAt=null;
 let lastHealthAt=null;
+let undockedWorkspace=null;
 const CONNECTION_STALE_MS=12000;
 let viewerConnectionContext=null;
 let viewerConnectionAttempt=0;
@@ -35,6 +36,82 @@ let inspectInputsExpanded=false;
 function $(id){return document.getElementById(id)}
 
 let liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],routing:[],productIdentifier:null,videoMode:null,topology:{},debug:null};
+const SHOWDESK_HYPERDECKS_KEY="showdesk.hyperdecks.v1";
+const SHOWDESK_HYPERDECK_ADDRESSES_KEY="showdesk.hyperdeck-known-addresses.v1";
+let hyperdeckConfigs=loadHyperdeckConfigs(),hyperdeckStates=[],remoteHyperdeckMonitoringEnabled=false;
+let savedHyperdeckAddresses=loadSavedHyperdeckAddresses();
+let hyperdeckSubscription=null;
+function loadHyperdeckConfigs(){try{const list=JSON.parse(localStorage.getItem(SHOWDESK_HYPERDECKS_KEY)||"[]");if(!Array.isArray(list))return [];const endpoints=new Set(),cleaned=[];for(const deck of list){if(!deck||typeof deck.id!=="string"||typeof deck.host!=="string")continue;const endpoint=normalizedHyperdeckEndpoint(deck.host,deck.port);if(endpoints.has(endpoint))continue;endpoints.add(endpoint);cleaned.push({...deck,name:String(deck.name||"").trim()||`HyperDeck ${cleaned.length+1}`,port:Number(deck.port)||9993})}const limited=cleaned.slice(0,8);if(limited.length!==list.length)localStorage.setItem(SHOWDESK_HYPERDECKS_KEY,JSON.stringify(limited));return limited}catch{return []}}
+function persistHyperdeckConfigs(){try{localStorage.setItem(SHOWDESK_HYPERDECKS_KEY,JSON.stringify(hyperdeckConfigs))}catch(error){console.warn("Unable to save HyperDecks",error)}}
+function loadSavedHyperdeckAddresses(){try{const list=JSON.parse(localStorage.getItem(SHOWDESK_HYPERDECK_ADDRESSES_KEY)||"[]");if(!Array.isArray(list))return [];const seen=new Set(),cleaned=[];for(const item of list){const host=String(item?.host||"").trim();if(!validIpLike(host))continue;const endpoint=normalizedHyperdeckEndpoint(host,9993);if(seen.has(endpoint))continue;seen.add(endpoint);cleaned.push({endpoint,host,name:String(item.name||"HyperDeck").trim()||"HyperDeck",port:9993,lastConnectedAt:Number(item.lastConnectedAt)||0})}return cleaned.slice(0,24)}catch{return []}}
+function persistSavedHyperdeckAddresses(){try{localStorage.setItem(SHOWDESK_HYPERDECK_ADDRESSES_KEY,JSON.stringify(savedHyperdeckAddresses))}catch(error){console.warn("Unable to save confirmed HyperDeck addresses",error)}}
+function isShowDeskViewer(){return activeConnectionMode==="viewer"||$("viewerSetup")?.hidden===false}
+function rememberConnectedHyperdecks(states=hyperdeckStates){let changed=false;for(const deck of states||[]){if(String(deck.status||"").toLowerCase()!=="connected")continue;const config=hyperdeckConfigs.find(item=>item.id===deck.id);if(!config)continue;const host=String(deck.host||config.host||"").trim();if(!validIpLike(host))continue;const endpoint=normalizedHyperdeckEndpoint(host,9993),name=String(config.name||deck.name||"HyperDeck").trim()||"HyperDeck",existing=savedHyperdeckAddresses.find(item=>item.endpoint===endpoint);if(existing){if(existing.name!==name){existing.name=name;changed=true}}else{savedHyperdeckAddresses.unshift({endpoint,host,name,port:9993,lastConnectedAt:Date.now()});savedHyperdeckAddresses=savedHyperdeckAddresses.slice(0,24);changed=true}}if(changed){persistSavedHyperdeckAddresses();renderSavedHyperdeckAddresses()}}
+function renderSavedHyperdeckAddresses(){const root=$("settingsHyperdeckAddresses");if(!root)return;if(!savedHyperdeckAddresses.length){root.innerHTML='<p>No confirmed HyperDeck addresses yet.</p>';return}root.innerHTML=savedHyperdeckAddresses.map(item=>{const active=hyperdeckConfigs.some(config=>normalizedHyperdeckEndpoint(config.host,config.port)===item.endpoint);return `<div class="settingsHyperdeckRow"><div><b>${escapeShowDeskText(item.name)}</b><span>${escapeShowDeskText(item.host)} · TCP 9993</span></div><div class="settingsHyperdeckActions">${active?'<span class="settingsHyperdeckActive">IN MONITOR</span>':`<button class="settingsAction" type="button" data-action="use-saved-hyperdeck" data-endpoint="${escapeShowDeskText(item.endpoint)}">USE ADDRESS</button>`}<button class="settingsAction" type="button" data-action="forget-saved-hyperdeck" data-endpoint="${escapeShowDeskText(item.endpoint)}">FORGET</button></div></div>`}).join("")}
+function useSavedHyperdeckAddress(endpoint){const saved=savedHyperdeckAddresses.find(item=>item.endpoint===endpoint);if(!saved)return;closeShowDeskSettings();const active=hyperdeckConfigs.find(config=>normalizedHyperdeckEndpoint(config.host,config.port)===endpoint);if(!active){if(!showDeskPreferences.hyperdeckMonitoring)setHyperdeckMonitoringEnabled(true);$("hyperdeckHost").value=saved.host;$("hyperdeckName").value=saved.name==="HyperDeck"?"":saved.name}setTab("hyperdecks");if(!active)$("hyperdeckHost")?.focus()}
+function forgetSavedHyperdeckAddress(endpoint){savedHyperdeckAddresses=savedHyperdeckAddresses.filter(item=>item.endpoint!==endpoint);persistSavedHyperdeckAddresses();renderSavedHyperdeckAddresses()}
+function configureLocalHyperdeckMonitor(){const enabled=showDeskPreferences.hyperdeckMonitoring===true,devices=enabled?hyperdeckConfigs:[];window.ATEM_TRANSPORT?.configureHyperdecks?.(devices,enabled).catch(error=>console.error("HyperDeck monitor configuration failed",error))}
+function viewHyperdecksFromSettings(){closeShowDeskSettings();if(!showDeskPreferences.hyperdeckMonitoring)setHyperdeckMonitoringEnabled(true);setTab("hyperdecks")}
+function syncHyperdeckTab(){const isViewer=isShowDeskViewer(),enabled=showDeskPreferences.hyperdeckMonitoring===true,btn=$("hyperdeckBtn"),undockBtn=$("hyperdeckUndockButton"),option=document.querySelector('#settingsWorkspaceOptions [data-workspace="hyperdecks"]');if(btn){btn.hidden=!enabled;btn.classList.toggle("on",$("app")?.classList.contains("tab-hyperdecks"))}if(undockBtn)undockBtn.hidden=!enabled;if(option)option.hidden=!enabled;if($("hyperdeckSetupPanel"))$("hyperdeckSetupPanel").hidden=isViewer;if($("hyperdeckViewerNotice"))$("hyperdeckViewerNotice").hidden=!isViewer;if($("hyperdeckViewerSettingsNotice"))$("hyperdeckViewerSettingsNotice").hidden=!isViewer;if($("hyperdeckHostSettings"))$("hyperdeckHostSettings").hidden=isViewer;if($("hyperdeckSettingsIntro"))$("hyperdeckSettingsIntro").textContent=isViewer?"Show or hide the read-only HyperDeck status shared by the connected ShowDesk Host.":"Enable the HyperDeck Monitoring workspace to add a dedicated tab to ShowDesk.";if(!enabled&&$("app")?.classList.contains("tab-hyperdecks"))setTab("show")}
+function setHyperdeckConfigs(list){hyperdeckConfigs=list.slice(0,8);persistHyperdeckConfigs();syncHyperdeckTab();const enabled=showDeskPreferences.hyperdeckMonitoring===true,devices=enabled?hyperdeckConfigs:[];return window.ATEM_TRANSPORT?.configureHyperdecks?.(devices,enabled).catch(error=>{console.error("HyperDeck configuration failed",error);if($("hyperdeckSettingsStatus"))$("hyperdeckSettingsStatus").textContent=error.message||String(error)})}
+function nextHyperdeckName(configs=hyperdeckConfigs){const used=new Set(configs.map(deck=>String(deck.name||"").trim().toLocaleLowerCase()));let index=1;while(used.has(`hyperdeck ${index}`))index++;return `HyperDeck ${index}`}
+function normalizedHyperdeckEndpoint(host,port){const value=host.trim().toLowerCase(),normalizedHost=value.includes(":")?value:value.split(".").map(part=>String(Number(part))).join(".");return `${normalizedHost}:${Number(port)||9993}`}
+function renameHyperdeck(id,value){const config=hyperdeckConfigs.find(deck=>deck.id===id);if(!config)return;const name=value.trim()||nextHyperdeckName(hyperdeckConfigs.filter(deck=>deck.id!==id));config.name=name.slice(0,64);setHyperdeckConfigs(hyperdeckConfigs);renderHyperdeckCards()}
+function setHyperdeckMonitoringEnabled(enabled){showDeskPreferences.hyperdeckMonitoring=!!enabled;if(!enabled&&showDeskPreferences.workspace==="hyperdecks")showDeskPreferences.workspace="show";saveShowDeskPreferences();syncHyperdeckTab();syncSettingsWorkspaceMenu();if($("settingsHyperdeckEnabled"))$("settingsHyperdeckEnabled").checked=!!enabled;if(!isShowDeskViewer())configureLocalHyperdeckMonitor();if(enabled)toast("HYPERDECK MONITORING TAB ADDED");else{if(!isShowDeskViewer())hyperdeckStates=[];renderHyperdeckCards();toast("HYPERDECK MONITORING TAB REMOVED")}}
+function hyperdeckFieldLabel(key){const normalized=String(key).trim().toLowerCase();if(normalized==="display timecode")return"Front display timecode";if(normalized==="timecode")return"Clip / timeline timecode";if(normalized==="recording time available"||normalized==="recording time")return"Record time remaining (seconds)";return String(key).replace(/[_-]+/g," ").replace(/\b\w/g,letter=>letter.toUpperCase()).replace(/\bId\b/g,"ID")}
+function hyperdeckFieldList(values,omitKeys=[],liveDeckId=null){const omitted=new Set(omitKeys.map(key=>String(key).trim().toLowerCase()));const entries=Object.entries(values||{}).filter(([key])=>!omitted.has(String(key).trim().toLowerCase()));return entries.length?`<dl class="hyperdeckFieldList">${entries.map(([key,value])=>`<div class="hyperdeckInfoField"><dt>${escapeShowDeskText(hyperdeckFieldLabel(key))}</dt><dd${liveDeckId?` data-hyperdeck-id="${escapeShowDeskText(liveDeckId)}" data-hyperdeck-field="${escapeShowDeskText(key)}"`:""}>${escapeShowDeskText(value)}</dd></div>`).join("")}</dl>`:`<p>No additional details reported.</p>`}
+let lastHyperdeckRenderSignature="";
+const hyperdeckOpenDetails=new Map();
+function hyperdeckDeckSignature(decks){return JSON.stringify(decks.map(deck=>({id:deck.id,name:deck.name,host:deck.host,port:deck.port,status:deck.status,error:deck.error,model:deck.model,deviceName:deck.deviceName,softwareVersion:deck.softwareVersion,protocolVersion:deck.protocolVersion,deviceInfo:deck.deviceInfo,transport:Object.fromEntries(Object.entries(deck.transport||{}).filter(([key])=>!(["display timecode","timecode"].includes(key.toLowerCase()))).sort(([a],[b])=>a.localeCompare(b))),slots:deck.slots})))}
+function hyperdeckTimecode(deck){const transport=deck.transport||{};return deck.frontDisplayTimecode||transport["display timecode"]||"--:--:--:--"}
+const hyperdeckClockReceipts=new Map();
+const hyperdeckClipTimecodeSamples=new Map();
+const hyperdeckRecordingTimeSamples=new Map();
+const hyperdeckTimerLabels={recordingElapsed:"RECORDING ELAPSED",frontDisplayTimecode:"FRONT DISPLAY TIMECODE",clipTimecode:"CLIP / TIMELINE TIMECODE",recordingRemaining:"SSD RECORD TIME LEFT"};
+function formatHyperdeckElapsed(deck,elapsedMs=Number(deck.recordingElapsedMs)||0){const format=String(deck.transport?.["video format"]||""),match=/([0-9]{4})$/.exec(format),rate=match?Number(match[1])/100:(Number(/([0-9]{2,3})$/.exec(format)?.[1])||30),fps=Math.max(1,Math.round(rate)),frames=Math.floor(Math.max(0,elapsedMs)*rate/1000),frame=frames%fps,totalSeconds=Math.floor(frames/rate),seconds=totalSeconds%60,minutes=Math.floor(totalSeconds/60)%60,hours=Math.floor(totalSeconds/3600);return`${String(hours).padStart(2,"0")}:${String(minutes).padStart(2,"0")}:${String(seconds).padStart(2,"0")}:${String(frame).padStart(2,"0")}`}
+function hyperdeckRecordingTimeSeconds(slot){const value=slot?.["recording time available"]??slot?.["recording time"];if(value===undefined||value===null||String(value).trim()==="")return null;const seconds=Number(value);return Number.isFinite(seconds)&&seconds>=0?seconds:null}
+function visibleHyperdeckSlots(deck){return(deck?.slots||[]).filter(slot=>{const id=String(slot?.id||slot?.["slot id"]||slot?.["slot name"]||"").trim().toLowerCase(),status=String(slot?.status||"").trim().toLowerCase();return id!==""&&id!=="none"&&status!==""&&status!=="unknown"&&status!=="empty"})}
+function hyperdeckTimerSlots(deck){return(deck?.slots||[]).filter(slot=>{const id=String(slot?.id||slot?.["slot id"]||slot?.["slot name"]||"").trim().toLowerCase(),status=String(slot?.status||"").trim().toLowerCase();return id!==""&&id!=="none"&&status!=="unknown"&&status!=="empty"})}
+function observeHyperdeckRecordingTimes(decks,now=Date.now()){for(const deck of decks||[]){const status=String(deck.transport?.status||"").toLowerCase(),connected=!["disconnected","connecting"].includes(String(deck.status||"").toLowerCase());for(const slot of deck.slots||[]){const seconds=hyperdeckRecordingTimeSeconds(slot);if(seconds===null)continue;const key=String(deck.id)+":"+String(slot.id),recording=connected&&status==="record",old=hyperdeckRecordingTimeSamples.get(key);if(!old||old.reportedSeconds!==seconds){hyperdeckRecordingTimeSamples.set(key,{seconds,reportedSeconds:seconds,observedAt:now,recording});continue}if(old.recording!==recording){const current=old.seconds-(old.recording?Math.max(0,now-old.observedAt)/1000:0);hyperdeckRecordingTimeSamples.set(key,{seconds:Math.max(0,current),reportedSeconds:seconds,observedAt:now,recording})}}}}
+function hyperdeckRecordingTimeDisplaySeconds(slot,deck,now=Date.now()){const reported=hyperdeckRecordingTimeSeconds(slot);if(reported===null)return null;const sample=deck?hyperdeckRecordingTimeSamples.get(String(deck.id)+":"+String(slot.id)):null;if(!sample)return reported;const seconds=sample.seconds-(sample.recording?Math.max(0,now-sample.observedAt)/1000:0);return Math.max(0,seconds)}
+function hyperdeckSlotAvailabilityLabel(slot){const seconds=hyperdeckRecordingTimeSeconds(slot);return seconds===null?"Availability not reported":`${seconds} seconds available`}
+function hyperdeckTimecodeRate(deck){const format=String(deck.transport?.["video format"]||""),match=/(?:p|i)(\d{2,5})$/i.exec(format);let rate=30;if(match){const digits=match[1];rate=digits.length===5?Number(digits.slice(0,2))+Number(digits.slice(2))/1000:digits.length===4?Number(digits.slice(0,2))+Number(digits.slice(2))/100:Number(digits);if(/i\d/i.test(format)&&rate>=50)rate/=2}return Number.isFinite(rate)&&rate>0?rate:30}
+function hyperdeckTimecodeParts(value){const match=/^(\d{2,}):(\d{2}):(\d{2})([:;])(\d{2})$/.exec(String(value||""));if(!match)return null;return{hours:Number(match[1]),minutes:Number(match[2]),seconds:Number(match[3]),separator:match[4],frames:Number(match[5])}}
+function hyperdeckTimecodeToFrames(value,fps){const parts=hyperdeckTimecodeParts(value);if(!parts)return null;const nominal=Math.max(1,Math.round(fps)),minutes=parts.hours*60+parts.minutes;let frames=((parts.hours*3600+parts.minutes*60+parts.seconds)*nominal)+parts.frames;if(parts.separator===";"&&(nominal===30||nominal===60)){const drop=nominal===60?4:2;frames-=drop*(minutes-Math.floor(minutes/10))}return Math.max(0,frames)}
+function hyperdeckFramesToTimecode(frameCount,fps,separator=":"){const nominal=Math.max(1,Math.round(fps));let frames=Math.max(0,Math.floor(frameCount));if(separator===";"&&(nominal===30||nominal===60)){const drop=nominal===60?4:2,framesPerMinute=nominal*60-drop,framesPerTenMinutes=nominal*600-drop*9,tenMinuteBlocks=Math.floor(frames/framesPerTenMinutes),remainder=frames%framesPerTenMinutes;frames+=drop*9*tenMinuteBlocks+(remainder>=drop?drop*Math.floor((remainder-drop)/framesPerMinute):0)}const ff=frames%nominal,totalSeconds=Math.floor(frames/nominal),ss=totalSeconds%60,mm=Math.floor(totalSeconds/60)%60,hh=Math.floor(totalSeconds/3600);return`${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}:${String(ss).padStart(2,"0")}${separator}${String(ff).padStart(2,"0")}`}
+function hyperdeckClipTimecodeRate(deck){const sample=hyperdeckClipTimecodeSamples.get(String(deck.id));if(!sample||["disconnected","connecting"].includes(String(deck.status||"").toLowerCase()))return 0;const status=String(sample.status||"").toLowerCase(),speed=Number(sample.speed);if(status==="record")return 1;if(!["play","forward","rewind","jog","shuttle"].includes(status))return 0;let multiplier=Number.isFinite(speed)?speed/100:0;if(status==="rewind")return -Math.abs(multiplier||1);if((status==="play"||status==="forward")&&multiplier===0)return 1;return multiplier}
+function observeHyperdeckClipTimecodes(decks,now=Date.now()){for(const deck of decks||[]){const t=deck.transport||{},timecode=String(t.timecode||""),parts=hyperdeckTimecodeParts(timecode);if(!parts)continue;const id=String(deck.id),status=String(t.status||"").toLowerCase(),speed=String(t.speed??""),videoFormat=String(t["video format"]||""),connectionStatus=String(deck.status||""),old=hyperdeckClipTimecodeSamples.get(id);if(!old||old.timecode!==timecode||old.status!==status||old.speed!==speed||old.videoFormat!==videoFormat||old.connectionStatus!==connectionStatus)hyperdeckClipTimecodeSamples.set(id,{timecode,status,speed,videoFormat,connectionStatus,observedAt:now})}}
+function hyperdeckInterpolatedClipTimecode(deck,now=Date.now()){const t=deck.transport||{},base=String(t.timecode||""),sample=hyperdeckClipTimecodeSamples.get(String(deck.id));if(!sample)return base||"--:--:--:--";const rate=hyperdeckTimecodeRate(deck),fps=Math.max(1,Math.round(rate)),baseFrames=hyperdeckTimecodeToFrames(sample.timecode,rate);if(baseFrames===null)return base||"--:--:--:--";const advanced=Math.floor(Math.max(0,now-sample.observedAt)*fps*hyperdeckClipTimecodeRate(deck)/1000);return hyperdeckFramesToTimecode(baseFrames+advanced,rate,hyperdeckTimecodeParts(sample.timecode).separator)}
+function hyperdeckTimerValue(deck,timer,now=Date.now()){const t=deck.transport||{};if(timer==="recordingElapsed"){const received=hyperdeckClockReceipts.get(String(deck.id))||now,connected=!["disconnected","connecting"].includes(String(deck.status||"").toLowerCase()),extra=connected&&String(t.status||"").toLowerCase()==="record"?Math.max(0,now-received):0;return formatHyperdeckElapsed(deck,(Number(deck.recordingElapsedMs)||0)+extra)}if(timer==="frontDisplayTimecode")return hyperdeckTimecode(deck);if(timer==="clipTimecode")return hyperdeckInterpolatedClipTimecode(deck,now);if(timer==="recordingRemaining"){const slots=hyperdeckTimerSlots(deck),slot=slots.find(item=>String(item.id)===String(t["slot id"]))||slots.find(item=>String(item.status||"").toLowerCase()==="mounted")||slots[0],seconds=hyperdeckRecordingTimeDisplaySeconds(slot,deck,now);if(seconds===null)return"—";const total=Math.floor(seconds);return`${String(Math.floor(total/3600)).padStart(2,"0")}:${String(Math.floor(total%3600/60)).padStart(2,"0")}:${String(total%60).padStart(2,"0")}`}return"—"}
+function renderHyperdeckReadouts(decks=hyperdeckStates){const root=$("hyperdeckCards");if(!root)return;for(const deck of decks){const id=String(deck.id),primary=root.querySelector(`[data-hyperdeck-primary="${id}"]`),secondary=root.querySelector(`[data-hyperdeck-secondary="${id}"]`),mainLabel=root.querySelector(`[data-hyperdeck-primary-label="${id}"]`),secondaryGroup=root.querySelector(`[data-hyperdeck-secondary-group="${id}"]`),secondaryLabel=root.querySelector(`[data-hyperdeck-secondary-label="${id}"]`),secondaryTimer=showDeskPreferences.hyperdeckSecondaryTimer;if(primary)primary.textContent=hyperdeckTimerValue(deck,showDeskPreferences.hyperdeckPrimaryTimer);if(mainLabel)mainLabel.textContent=hyperdeckTimerLabels[showDeskPreferences.hyperdeckPrimaryTimer]||"TIMER";for(const node of root.querySelectorAll(`[data-hyperdeck-slot-remaining][data-hyperdeck-id="${id}"]`)){const slot=(deck.slots||[]).find(item=>String(item.id)===node.dataset.slotId),label=slot?hyperdeckRecordingTimeRemaining(slot,deck):"";node.textContent=label;node.hidden=!label}if(secondaryGroup)secondaryGroup.hidden=secondaryTimer==="none";if(secondary)secondary.textContent=hyperdeckTimerValue(deck,secondaryTimer);if(secondaryLabel)secondaryLabel.textContent=hyperdeckTimerLabels[secondaryTimer]||"TIMER"}}
+function updateHyperdeckTimerPreference(which,value){const choices=["recordingElapsed","frontDisplayTimecode","clipTimecode","recordingRemaining","none"],key=which==="primary"?"hyperdeckPrimaryTimer":"hyperdeckSecondaryTimer";if(!choices.includes(value)||which==="primary"&&value==="none")return;showDeskPreferences[key]=value;if(showDeskPreferences.hyperdeckPrimaryTimer===showDeskPreferences.hyperdeckSecondaryTimer){showDeskPreferences[which==="primary"?"hyperdeckSecondaryTimer":"hyperdeckPrimaryTimer"]=value==="frontDisplayTimecode"?"recordingElapsed":"frontDisplayTimecode"}saveShowDeskPreferences();syncHyperdeckTimerMenus();lastHyperdeckRenderSignature="";renderHyperdeckCards()}
+function hyperdeckRecordingTimeRemaining(slot,deck=null,now=Date.now()){const seconds=hyperdeckRecordingTimeDisplaySeconds(slot,deck,now);if(seconds===null)return"";const total=Math.floor(seconds),hours=Math.floor(total/3600),minutes=Math.floor(total%3600/60),remainingSeconds=total%60;return`RECORD TIME LEFT · ${String(hours).padStart(2,"0")}:${String(minutes).padStart(2,"0")}:${String(remainingSeconds).padStart(2,"0")}`}
+function updateHyperdeckTimecodes(decks){const root=$("hyperdeckCards");if(!root)return;const fields=[...root.querySelectorAll("[data-hyperdeck-id][data-hyperdeck-field]")];for(const deck of decks){for(const node of fields)if(node.dataset.hyperdeckId===String(deck.id)){const value=deck.transport?.[node.dataset.hyperdeckField];if(value!=null)node.textContent=String(value)}}renderHyperdeckReadouts(decks)}
+function renderHyperdeckCards(){
+ const root=$("hyperdeckCards");if(!root)return;
+ const isViewer=activeConnectionMode==="viewer",decks=isViewer?hyperdeckStates:hyperdeckConfigs;
+ const renderDecks=isViewer?decks:decks.map(config=>hyperdeckStates.find(state=>state.id===config.id)||{...config,status:"connecting",slots:[],transport:{}}),signature=hyperdeckDeckSignature(renderDecks);
+ if(signature===lastHyperdeckRenderSignature&&root.querySelectorAll(".hyperdeckRackUnit").length===renderDecks.length){updateHyperdeckTimecodes(renderDecks);return}
+ lastHyperdeckRenderSignature=signature;
+ for(const card of root.querySelectorAll(".hyperdeckRackUnit[data-hyperdeck-card]"))hyperdeckOpenDetails.set(card.dataset.hyperdeckCard,[...card.querySelectorAll(".rackDetails details")].map(detail=>detail.open));
+ if(!decks.length){root.innerHTML=`<div class="panel">${isViewer?(remoteHyperdeckMonitoringEnabled?"The ShowDesk Host has not added any HyperDecks yet.":"No HyperDeck status is being shared. Enable HyperDeck Monitoring in the Host’s Settings and add the deck there; this Viewer does not connect to HyperDeck IP addresses."):"No HyperDecks added yet. Use the form above to connect a network-enabled deck."}</div>`;return}
+ root.innerHTML=renderDecks.map(deck=>{
+  const config=deck;
+  const t=deck.transport||{},transport=String(t.status||"unknown").toLowerCase(),stateClass=transport.includes("record")?"recording":transport.includes("play")?"playing":(["preview","stopped"].includes(transport)?"stopped":"idle");
+  const visibleSlots=visibleHyperdeckSlots(deck),slots=visibleSlots.map(slot=>`<div class="hyperdeckSlot"><div class="slotLed ${String(slot.status||"").toLowerCase()==="mounted"?"ready":""}"></div><div class="slotIdentity"><span>SLOT ${escapeShowDeskText(slot.id||"—")} · ${escapeShowDeskText(slot.status||"UNKNOWN")}</span><b>${escapeShowDeskText(slot["volume name"]||slot["slot name"]||"Media name unavailable")}</b><small>${escapeShowDeskText(hyperdeckSlotAvailabilityLabel(slot))}${slot["video format"]?" · "+escapeShowDeskText(slot["video format"]):""}</small></div>${hyperdeckFieldList(slot)}</div>`).join("")||'<div class="hyperdeckNoSlots">No media-slot information reported by this deck.</div>';
+  const statusText=(deck.status||"unknown").toUpperCase(),timecode=hyperdeckTimecode(deck),clip=t["clip id"]||"—",activeSlotId=t["slot id"]??(visibleSlots.length===1?(visibleSlots[0].id??"—"):"—");
+  const identity=escapeShowDeskText(deck.deviceName||deck.model||"HYPERDECK · MODEL NOT REPORTED"),name=escapeShowDeskText(config.name||"HyperDeck");
+  const editableName=isViewer?`<b class="viewerDeckName">${name}</b>`:`<label class="rackNameLabel" for="hyperdeck-name-${escapeShowDeskText(config.id)}">DECK NAME</label><input class="rackNameInput" id="hyperdeck-name-${escapeShowDeskText(config.id)}" aria-label="HyperDeck name" maxlength="64" value="${name}" data-change-action="hyperdeck-name" data-id="${escapeShowDeskText(config.id)}">`;
+  const location=isViewer?identity:`${identity} · ${escapeShowDeskText(deck.host)}:${Number(deck.port)||9993}`;
+  const remove=isViewer?"":`<button class="rackRemove" type="button" data-action="remove-hyperdeck" data-id="${escapeShowDeskText(config.id)}">REMOVE</button>`;
+  return `<article class="hyperdeckRackUnit ${deck.status==="connected"?"isConnected":"isDisconnected"}" data-hyperdeck-card="${escapeShowDeskText(deck.id)}"><div class="rackFace"><header class="rackHeader"><div class="rackBadge" aria-hidden="true">SD</div><div class="rackIdentity">${editableName}<span>${location}</span></div><span class="rackConnection"><i></i>${escapeShowDeskText(statusText)}${deck.error?" · "+escapeShowDeskText(deck.error):""}</span>${remove}</header><div class="rackPanel"><div class="rackTransport"><span class="rackSectionLabel">TRANSPORT</span><div class="rackStaticControls" aria-label="Read-only HyperDeck transport indicators; ShowDesk does not control the deck"><span title="Skip to previous clip"><b>|◀</b><small>SKIP</small></span><span class="${stateClass==="recording"?"isRecording":""}" title="Record status"><b>●</b><small>REC</small></span><span title="Skip to next clip"><b>▶|</b><small>SKIP</small></span><span title="Input status"><b>▯</b><small>INPUT</small></span><span title="Rewind"><b>◀◀</b><small>REW</small></span><span class="${stateClass==="playing"?"isPlaying":""}" title="Playback status"><b>▶</b><small>PLAY</small></span><span title="Fast forward"><b>▶▶</b><small>F FWD</small></span><span class="${stateClass==="stopped"?"isStopped":""}" title="Stop status"><b>■</b><small>STOP</small></span></div></div><div class="rackLcd"><div class="lcdTop"><span>${escapeShowDeskText(deck.deviceName||config.name)} · LIVE STATUS</span><span>${escapeShowDeskText(t["video format"]||"VIDEO MODE —")}</span></div><div class="lcdMain"><div><small>STATUS</small><b class="lcdTransport ${stateClass}">${escapeShowDeskText(t.status||"Waiting for transport state")}</b></div><div class="lcdTimecodeGroup"><small data-hyperdeck-primary-label="${escapeShowDeskText(deck.id)}"></small><b class="lcdTimecode lcdPrimaryTimer" data-hyperdeck-primary="${escapeShowDeskText(deck.id)}"></b><span class="lcdSecondaryTimerGroup" data-hyperdeck-secondary-group="${escapeShowDeskText(deck.id)}"><small data-hyperdeck-secondary-label="${escapeShowDeskText(deck.id)}"></small><b class="lcdSecondaryTimer" data-hyperdeck-secondary="${escapeShowDeskText(deck.id)}"></b></span></div></div><div class="lcdBottom"><span>CLIP <b>${escapeShowDeskText(clip)}</b></span><span>SPEED <b>${escapeShowDeskText(t.speed||"—")}</b></span><span>MEDIA SLOT <b>${escapeShowDeskText(activeSlotId)}</b></span></div></div><div class="rackSlotIndicators"><span class="rackSectionLabel">MEDIA SLOTS</span>${visibleSlots.length?visibleSlots.map(slot=>`<div class="miniSlot"><i class="slotLed ${String(slot.status||"").toLowerCase()==="mounted"?"ready":""}"></i><span><b>SLOT ${escapeShowDeskText(slot.id||"—")}</b><em>${escapeShowDeskText(slot.status||"UNKNOWN")}</em>${hyperdeckRecordingTimeRemaining(slot,deck)?`<small data-hyperdeck-slot-remaining data-hyperdeck-id="${escapeShowDeskText(deck.id)}" data-slot-id="${escapeShowDeskText(slot.id||"")}">${escapeShowDeskText(hyperdeckRecordingTimeRemaining(slot,deck))}</small>`:""}</span></div>`).join(""):'<span class="noSlotStatus">—</span>'}</div><div class="rackModelPanel"><small>DEVICE</small><b>${escapeShowDeskText(deck.model||"HyperDeck")}</b>${deck.softwareVersion?`<span>SOFTWARE VERSION · ${escapeShowDeskText(deck.softwareVersion)}</span>`:""}</div></div><div class="rackDetails"><details><summary>Device information</summary>${hyperdeckFieldList(deck.deviceInfo,["model"])}</details><details><summary>Transport and clip information</summary>${hyperdeckFieldList(t,["status","speed","clip id","video format"],deck.id)}</details><details><summary>Media slot information</summary><div class="hyperdeckSlots">${slots}</div></details></div></div></article>`
+ }).join("");
+ root.querySelectorAll(".hyperdeckRackUnit[data-hyperdeck-card]").forEach(card=>{const open=hyperdeckOpenDetails.get(card.dataset.hyperdeckCard);if(!open)return;card.querySelectorAll(".rackDetails details").forEach((detail,index)=>{if(index<open.length)detail.open=open[index]})});
+ renderHyperdeckReadouts(renderDecks);
+ if(!isViewer)root.querySelectorAll(".hyperdeckRackUnit").forEach(card=>{const id=card.querySelector('[data-action="remove-hyperdeck"]')?.dataset.id,header=card.querySelector(".rackHeader");if(!id||!header)return;const handle=document.createElement("button");handle.type="button";handle.className="rackDragHandle";handle.dataset.dragHyperdeck=id;handle.setAttribute("aria-label",`Drag ${card.querySelector(".rackNameInput")?.value||"HyperDeck"} to reorder`);handle.title="Drag to change deck order";handle.textContent="⠿";header.prepend(handle)});
+}
+function reorderHyperdecks(sourceId,targetId){if(!sourceId||!targetId||sourceId===targetId)return;const from=hyperdeckConfigs.findIndex(deck=>deck.id===sourceId),to=hyperdeckConfigs.findIndex(deck=>deck.id===targetId),root=$("hyperdeckCards");if(from<0||to<0||!root)return;const previousRects=new Map([...root.querySelectorAll(".hyperdeckRackUnit")].map(card=>[card.querySelector('[data-action="remove-hyperdeck"]')?.dataset.id,card.getBoundingClientRect()])),ordered=[...hyperdeckConfigs];[ordered[from],ordered[to]]=[ordered[to],ordered[from]];setHyperdeckConfigs(ordered);renderHyperdeckCards();root.querySelectorAll(".hyperdeckRackUnit").forEach(card=>{const id=card.querySelector('[data-action="remove-hyperdeck"]')?.dataset.id,previous=previousRects.get(id);if(!previous)return;const next=card.getBoundingClientRect(),x=previous.left-next.left,y=previous.top-next.top;if(!x&&!y)return;card.style.transition="none";card.style.transform=`translate(${x}px,${y}px)`;void card.offsetWidth;requestAnimationFrame(()=>{card.style.transition="transform 220ms cubic-bezier(.2,.8,.2,1)";card.style.transform=""});card.addEventListener("transitionend",()=>{card.style.transition=""},{once:true})})}
+function addHyperdeck(){if(isShowDeskViewer()){$("hyperdeckSettingsStatus").textContent="Add HyperDeck IP addresses on the ShowDesk Host. Viewer mode receives shared status only.";return}const requestedName=$("hyperdeckName").value.trim(),rawHost=$("hyperdeckHost").value.trim(),port=9993;if(!validIpLike(rawHost)||!Number.isInteger(port)||port<1||port>65535){$("hyperdeckSettingsStatus").textContent="Enter a valid IPv4 address.";return}const host=rawHost.split(".").map(part=>String(Number(part))).join("."),endpoint=normalizedHyperdeckEndpoint(host,port),existing=hyperdeckConfigs.find(deck=>normalizedHyperdeckEndpoint(deck.host,deck.port)===endpoint);if(existing){if(!showDeskPreferences.hyperdeckMonitoring)setHyperdeckMonitoringEnabled(true);$("hyperdeckSettingsStatus").textContent=`${existing.name||"This HyperDeck"} is already in the Host monitor. Showing its current status.`;renderHyperdeckCards();setTab("hyperdecks");return}if(hyperdeckConfigs.length>=8){$("hyperdeckSettingsStatus").textContent="ShowDesk supports up to 8 HyperDecks.";return}const id=window.crypto?.randomUUID?.()||"deck-"+Date.now().toString(36)+Math.random().toString(36).slice(2,8),name=(requestedName||nextHyperdeckName()).slice(0,64);$("hyperdeckName").value="";$("hyperdeckHost").value="";$("hyperdeckSettingsStatus").textContent="Deck added. Connecting…";setHyperdeckConfigs([...hyperdeckConfigs,{id,name,host,port}]);renderHyperdeckCards();setTab("hyperdecks")}
 function toggleDebug(){const el=$("atemDebug");if(!el)return;el.hidden=!el.hidden;if(!el.hidden)renderDebug()}
 function renderDebug(){const el=$("atemDebug");if(!el)return;el.textContent=JSON.stringify({productIdentifier:liveEngineering.productIdentifier,videoMode:liveEngineering.videoMode,topology:liveEngineering.topology,inputs:liveEngineering.inputs,mixEffects:liveEngineering.mixEffects,downstreamKeyers:liveEngineering.downstreamKeyers,auxRoutes:{...actual},rawExposedState:liveEngineering.debug},null,2)}
 function toast(msg){let t=$("toast");if(!t)return;t.textContent=msg;t.classList.add("show");clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove("show"),1100)}
@@ -44,6 +121,12 @@ document.addEventListener("click",e=>{
  b.classList.remove("clickFlash");void b.offsetWidth;b.classList.add("clickFlash");
  setTimeout(()=>b.classList.remove("clickFlash"),260);
 });
+let hyperdeckPointerDrag=null;
+document.addEventListener("pointerdown",event=>{const handle=event.target.closest?.("[data-drag-hyperdeck]");if(!handle||!event.isPrimary||event.button!==0)return;const card=handle.closest(".hyperdeckRackUnit");if(!card)return;event.preventDefault();handle.setPointerCapture?.(event.pointerId);hyperdeckPointerDrag={id:handle.dataset.dragHyperdeck,pointerId:event.pointerId,startX:event.clientX,startY:event.clientY,card,active:false,targetId:null}});
+document.addEventListener("pointermove",event=>{const drag=hyperdeckPointerDrag;if(!drag||event.pointerId!==drag.pointerId)return;const dx=event.clientX-drag.startX,dy=event.clientY-drag.startY;if(!drag.active&&Math.hypot(dx,dy)<5)return;if(!drag.active){drag.active=true;drag.card.classList.add("isDragging")}drag.card.style.transition="none";drag.card.style.transform=`translate3d(${dx}px,${dy}px,0) scale(1.015)`;const under=document.elementFromPoint(event.clientX,event.clientY)?.closest?.(".hyperdeckRackUnit"),targetId=under?.querySelector('[data-action="remove-hyperdeck"]')?.dataset.id||null;if(drag.targetId!==targetId){if(drag.targetId)document.querySelectorAll(".hyperdeckRackUnit").forEach(card=>{if(card.querySelector('[data-action="remove-hyperdeck"]')?.dataset.id===drag.targetId)card.classList.remove("isDropTarget")});drag.targetId=targetId;if(targetId&&targetId!==drag.id)under.classList.add("isDropTarget")}});
+function finishHyperdeckPointerDrag(event,cancelled=false){const drag=hyperdeckPointerDrag;if(!drag||event.pointerId!==drag.pointerId)return;hyperdeckPointerDrag=null;const under=drag.active&&!cancelled?document.elementFromPoint(event.clientX,event.clientY)?.closest?.(".hyperdeckRackUnit"):null,targetId=under?.querySelector('[data-action="remove-hyperdeck"]')?.dataset.id;if(drag.active&&targetId&&targetId!==drag.id)reorderHyperdecks(drag.id,targetId);else{drag.card.style.transition="transform 160ms ease";drag.card.style.transform="";drag.card.addEventListener("transitionend",()=>{drag.card.style.transition="";drag.card.classList.remove("isDragging")},{once:true});setTimeout(()=>{drag.card.style.transition="";drag.card.classList.remove("isDragging")},220)}document.querySelectorAll(".hyperdeckRackUnit.isDropTarget").forEach(card=>card.classList.remove("isDropTarget"))}
+document.addEventListener("pointerup",event=>finishHyperdeckPointerDrag(event));
+document.addEventListener("pointercancel",event=>finishHyperdeckPointerDrag(event,true));
 function validIpLike(v){
  const parts=v.trim().split(".");
  return parts.length===4&&parts.every(x=>/^\d{1,3}$/.test(x)&&Number(x)>=0&&Number(x)<=255);
@@ -51,6 +134,9 @@ function validIpLike(v){
 function chooseConnectionMode(mode){
  const choice=$("modeChoice"),host=$("hostSetup"),viewer=$("viewerSetup");
  choice.hidden=!!mode;host.hidden=mode!=="host";viewer.hidden=mode!=="viewer";
+ if(mode==="host")configureLocalHyperdeckMonitor();
+ else if(mode==="viewer")window.ATEM_TRANSPORT?.configureHyperdecks?.([],false).catch(error=>console.error("Unable to stop local HyperDeck connections for Viewer mode",error));
+ syncHyperdeckTab();
 }
 const SHOWDESK_CONNECTION_STORAGE_KEY="showdesk.connections.v1";
 function loadRememberedConnections(){try{const saved=JSON.parse(localStorage.getItem(SHOWDESK_CONNECTION_STORAGE_KEY)||"{}");return {atemIp:validIpLike(saved.atemIp||"")?saved.atemIp:"",viewerHostIp:validIpLike(saved.viewerHostIp||"")?saved.viewerHostIp:""};}catch{return {atemIp:"",viewerHostIp:""};}}
@@ -58,9 +144,9 @@ function rememberSuccessfulConnection(kind,ip){if(!validIpLike(ip))return;try{co
 function restoreRememberedConnections(){const saved=loadRememberedConnections();if(saved.atemIp&&$("atemIp"))$("atemIp").value=saved.atemIp;if(saved.viewerHostIp&&$("viewerHostIp"))$("viewerHostIp").value=saved.viewerHostIp;connectionInputChanged();viewerInputChanged();}
 const SHOWDESK_PREFERENCES_KEY="showdesk.preferences.v1";
 const SHOWDESK_SAVED_CONNECTIONS_KEY="showdesk.savedConnections.v1";
-const showDeskPreferenceDefaults={workspace:"show",lastWorkspace:"show",autoConnect:false,automaticUpdateChecks:true};
+const showDeskPreferenceDefaults={workspace:"show",lastWorkspace:"show",autoConnect:false,automaticUpdateChecks:true,hyperdeckMonitoring:false,hyperdeckPrimaryTimer:"recordingElapsed",hyperdeckSecondaryTimer:"frontDisplayTimecode"};
 function loadShowDeskPreferences(){
- try{const v=JSON.parse(localStorage.getItem(SHOWDESK_PREFERENCES_KEY)||"{}");return {...showDeskPreferenceDefaults,...v,autoConnect:v.autoConnect===true,automaticUpdateChecks:v.automaticUpdateChecks!==false};}
+ try{const v=JSON.parse(localStorage.getItem(SHOWDESK_PREFERENCES_KEY)||"{}"),timers=["recordingElapsed","frontDisplayTimecode","clipTimecode","recordingRemaining"];return {...showDeskPreferenceDefaults,...v,autoConnect:v.autoConnect===true,automaticUpdateChecks:v.automaticUpdateChecks!==false,hyperdeckMonitoring:v.hyperdeckMonitoring===true,hyperdeckPrimaryTimer:timers.includes(v.hyperdeckPrimaryTimer)?v.hyperdeckPrimaryTimer:showDeskPreferenceDefaults.hyperdeckPrimaryTimer,hyperdeckSecondaryTimer:[...timers,"none"].includes(v.hyperdeckSecondaryTimer)?v.hyperdeckSecondaryTimer:showDeskPreferenceDefaults.hyperdeckSecondaryTimer};}
  catch{return {...showDeskPreferenceDefaults}}
 }
 let showDeskPreferences=loadShowDeskPreferences();
@@ -110,13 +196,18 @@ function selectSavedConnection(mode,ip){
 function renameSavedConnection(i){const c=showDeskSavedConnections[i];if(!c)return;const name=prompt("Connection name",c.name);if(name===null)return;const trimmed=name.trim().slice(0,60);if(!trimmed)return;c.name=trimmed;persistSavedConnections();renderSavedConnectionChoices()}
 function preferSavedConnection(i){const c=showDeskSavedConnections[i];if(!c)return;showDeskSavedConnections.forEach(x=>{if(x.mode===c.mode)x.preferred=x===c});persistSavedConnections();renderSavedConnectionChoices()}
 function removeSavedConnection(i){if(!showDeskSavedConnections[i])return;showDeskSavedConnections.splice(i,1);persistSavedConnections();renderSavedConnectionChoices()}
-function changeDefaultWorkspace(value){if(!["show","engineering","signal","last"].includes(value))return;showDeskPreferences.workspace=value;saveShowDeskPreferences()}
-const settingsWorkspaceNames={show:"Show View",engineering:"Inspect",signal:"Signal Explorer",last:"Last used workspace"};
+function changeDefaultWorkspace(value){if(!["show","engineering","signal","hyperdecks","last"].includes(value)||(value==="hyperdecks"&&!showDeskPreferences.hyperdeckMonitoring))return;showDeskPreferences.workspace=value;saveShowDeskPreferences()}
+const settingsWorkspaceNames={show:"Show View",engineering:"Inspect",signal:"Signal Explorer",hyperdecks:"HyperDeck Monitoring",last:"Last used workspace"};
 function syncSettingsWorkspaceMenu(){
  const current=showDeskPreferences.workspace;
  if($("settingsWorkspaceLabel"))$("settingsWorkspaceLabel").textContent=settingsWorkspaceNames[current]||settingsWorkspaceNames.show;
  document.querySelectorAll("#settingsWorkspaceOptions [data-workspace]").forEach(option=>option.setAttribute("aria-selected",String(option.dataset.workspace===current)));
 }
+const hyperdeckTimerOptionLabels={recordingElapsed:"Recording elapsed",frontDisplayTimecode:"Front display timecode",clipTimecode:"Clip / timeline timecode",recordingRemaining:"SSD record time remaining",none:"None"};
+function syncHyperdeckTimerMenus(){for(const which of ["primary","secondary"]){const value=showDeskPreferences[which==="primary"?"hyperdeckPrimaryTimer":"hyperdeckSecondaryTimer"],label=$(which==="primary"?"settingsHyperdeckPrimaryTimerLabel":"settingsHyperdeckSecondaryTimerLabel"),menu=$(which==="primary"?"settingsHyperdeckPrimaryTimerOptions":"settingsHyperdeckSecondaryTimerOptions");if(label)label.textContent=hyperdeckTimerOptionLabels[value]||hyperdeckTimerOptionLabels.frontDisplayTimecode;menu?.querySelectorAll(`[data-hyperdeck-timer="${which}"]`).forEach(option=>option.setAttribute("aria-selected",String(option.dataset.timerValue===value)))}}
+function closeHyperdeckTimerMenus(except=null){for(const which of ["primary","secondary"]){if(which===except)continue;const menu=$(which==="primary"?"settingsHyperdeckPrimaryTimerOptions":"settingsHyperdeckSecondaryTimerOptions"),trigger=$(which==="primary"?"settingsHyperdeckPrimaryTimer":"settingsHyperdeckSecondaryTimer");if(menu)menu.hidden=true;if(trigger)trigger.setAttribute("aria-expanded","false")}}
+function toggleHyperdeckTimerMenu(which){const menu=$(which==="primary"?"settingsHyperdeckPrimaryTimerOptions":"settingsHyperdeckSecondaryTimerOptions"),trigger=$(which==="primary"?"settingsHyperdeckPrimaryTimer":"settingsHyperdeckSecondaryTimer");if(!menu||!trigger)return;const opening=menu.hidden;closeSettingsWorkspaceMenu();closeHyperdeckTimerMenus(which);menu.hidden=!opening;trigger.setAttribute("aria-expanded",String(opening));if(opening){const active=menu.querySelector('[aria-selected="true"]');(active||menu.querySelector("button"))?.focus()}}
+function chooseHyperdeckTimer(which,value){updateHyperdeckTimerPreference(which,value);closeHyperdeckTimerMenus();$(which==="primary"?"settingsHyperdeckPrimaryTimer":"settingsHyperdeckSecondaryTimer")?.focus()}
 function closeSettingsWorkspaceMenu(){
  const menu=$("settingsWorkspaceOptions"),trigger=$("settingsDefaultWorkspace");if(menu)menu.hidden=true;if(trigger)trigger.setAttribute("aria-expanded","false");
 }
@@ -126,10 +217,10 @@ function toggleSettingsWorkspaceMenu(){
  if(opening){const active=menu.querySelector('[aria-selected="true"]');(active||menu.querySelector("button"))?.focus()}
 }
 function chooseSettingsWorkspace(value){changeDefaultWorkspace(value);syncSettingsWorkspaceMenu();closeSettingsWorkspaceMenu();$("settingsDefaultWorkspace")?.focus()}
-document.addEventListener("click",event=>{if(!$("settingsWorkspaceSelector")?.contains(event.target))closeSettingsWorkspaceMenu()});
+document.addEventListener("click",event=>{if(!$("settingsWorkspaceSelector")?.contains(event.target))closeSettingsWorkspaceMenu();if(!$("settingsHyperdeckPrimaryTimerSelector")?.contains(event.target)&&!$("settingsHyperdeckSecondaryTimerSelector")?.contains(event.target))closeHyperdeckTimerMenus()});
 document.addEventListener("keydown",event=>{
- const menu=$("settingsWorkspaceOptions");if(!menu||menu.hidden)return;
- if(event.key==="Escape"){event.preventDefault();closeSettingsWorkspaceMenu();$("settingsDefaultWorkspace")?.focus();return}
+ const menu=[$("settingsWorkspaceOptions"),$("settingsHyperdeckPrimaryTimerOptions"),$("settingsHyperdeckSecondaryTimerOptions")].find(item=>item&&!item.hidden);if(!menu)return;
+ if(event.key==="Escape"){event.preventDefault();if(menu.id==="settingsWorkspaceOptions"){closeSettingsWorkspaceMenu();$("settingsDefaultWorkspace")?.focus()}else{const which=menu.id.includes("Primary")?"primary":"secondary";closeHyperdeckTimerMenus();$(which==="primary"?"settingsHyperdeckPrimaryTimer":"settingsHyperdeckSecondaryTimer")?.focus()}return}
  if(event.key==="ArrowDown"||event.key==="ArrowUp"){event.preventDefault();const options=[...menu.querySelectorAll('[role="option"]')];const i=options.indexOf(document.activeElement);options[(i+(event.key==="ArrowDown"?1:-1)+options.length)%options.length]?.focus()}
 });
 function changeAutoConnectPreference(enabled){showDeskPreferences.autoConnect=!!enabled;saveShowDeskPreferences()}
@@ -145,10 +236,11 @@ function attemptPreferredAutoConnection(){
  else if(preferred.mode==="host"&&transport.connect)connectAtem();
 }
 function showDeskStartupWorkspace(){return showDeskPreferences.workspace==="last"?showDeskPreferences.lastWorkspace:showDeskPreferences.workspace}
-function applyShowDeskStartupWorkspace(){const tab=showDeskStartupWorkspace();if(["show","engineering","signal"].includes(tab))setTab(tab)}
+function applyShowDeskStartupWorkspace(){const tab=undockedWorkspace||showDeskStartupWorkspace();if(["show","engineering","signal","hyperdecks"].includes(tab))setTab(tab)}
 function showSettingsSection(section){
- for(const name of ["general","connections","reference","updates","about"]){const el=$("settingsSection"+name[0].toUpperCase()+name.slice(1));if(el)el.hidden=section!==name;}
- document.querySelectorAll("[data-settings-tab]").forEach(b=>{b.classList.toggle("on",b.dataset.settingsTab===section);b.setAttribute("aria-current",b.dataset.settingsTab===section?"page":"false")});if($("settingsPageTitle"))$("settingsPageTitle").textContent=section[0].toUpperCase()+section.slice(1);
+ const sections=["general","guide","hyperdeck","connections","reference","updates","about"],titles={general:"General",guide:"Feature Guide",hyperdeck:"HyperDeck Monitor",connections:"Connections",reference:"References",updates:"Updates",about:"About"};
+ for(const name of sections){const el=$("settingsSection"+name[0].toUpperCase()+name.slice(1));if(el)el.hidden=section!==name;}
+ document.querySelectorAll("[data-settings-tab]").forEach(b=>{b.classList.toggle("on",b.dataset.settingsTab===section);b.setAttribute("aria-current",b.dataset.settingsTab===section?"page":"false")});if($("settingsPageTitle"))$("settingsPageTitle").textContent=titles[section]||"Settings";
 }
 function viewerInputChanged(){
  const ip=$("viewerHostIp").value.trim();
@@ -183,9 +275,11 @@ function ensureViewerConnectionSubscription(transport){
 }
 function clearHostReconnectTimer(){if(hostReconnectTimer){clearTimeout(hostReconnectTimer);hostReconnectTimer=null;}}
 function stopHostReconnect(){clearHostReconnectTimer();hostReconnectIp=null;hostReconnectInFlight=false;hostReconnecting=false;}
+function adoptSharedHostConnection(message){if(!undockedWorkspace||activeConnectionMode||!message?.data)return;connectedDevice={...message.data,ip:message.ip||message.data.ip||""};activeConnectionMode="host";intentionalDisconnect=false;applyAtemStateUpdate(connectedDevice);ensureLiveStateSubscription(window.ATEM_TRANSPORT);ensureViewerCountSubscription(window.ATEM_TRANSPORT);ensureHostConnectionSubscription(window.ATEM_TRANSPORT);startConnectionHealth(window.ATEM_TRANSPORT);$("modelLabel").textContent=(connectedDevice.name||connectedDevice.productIdentifier||"ATEM Switcher")+(connectedDevice.ip?" • "+connectedDevice.ip:"");updateConnectionControls();$("setup").classList.add("hidden");syncHyperdeckTab();renderHyperdeckCards();render()}
 function ensureHostConnectionSubscription(transport){
  if(hostConnectionSubscription||!transport?.subscribeConnection)return;
  hostConnectionSubscription=transport.subscribeConnection(message=>{
+  if(message?.status==="host-connected"){adoptSharedHostConnection(message);return}
   if(activeConnectionMode!=="host"||intentionalDisconnect||message?.status!=="disconnected")return;
   const ip=connectedDevice?.ip||hostReconnectIp;if(!ip)return;
   hostReconnectIp=ip;hostReconnecting=true;stopConnectionHealth();updateConnectionControls();refreshShowDeskSettings();
@@ -212,7 +306,7 @@ async function attemptHostReconnect(transport){
 }
 function enterViewerConnection(d,ctx=viewerConnectionContext){
  if(!d||!ctx||ctx.attempt!==viewerConnectionAttempt)return;
- const {ip}=ctx;connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="viewer";intentionalDisconnect=false;viewerReconnecting=false;rememberSuccessfulConnection("viewerHostIp",ip);saveNamedConnection("viewer",ip);applyShowDeskStartupWorkspace();
+ const {ip}=ctx;connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="viewer";intentionalDisconnect=false;viewerReconnecting=false;rememberSuccessfulConnection("viewerHostIp",ip);saveNamedConnection("viewer",ip);applyShowDeskStartupWorkspace();syncHyperdeckTab();renderHyperdeckCards();
  ensureLiveStateSubscription(window.ATEM_TRANSPORT);
  startConnectionHealth(window.ATEM_TRANSPORT);
  applyAtemStateUpdate(d);$("modelLabel").textContent=(d.name||d.productIdentifier||"ATEM Switcher")+" • "+ip;updateConnectionControls();$("setup").classList.add("hidden");addLog("SYSTEM","Viewer connected to ShowDesk Host at "+ip);render();
@@ -223,7 +317,7 @@ async function connectViewer(){
  const attempt=++viewerConnectionAttempt;viewerConnectionContext={ip,btn,status,attempt};ensureViewerConnectionSubscription(transport);
  btn.disabled=true;btn.textContent="CONNECTING…";status.style.color="";status.textContent="Starting ShowDesk Viewer service…";
  try{
-   status.textContent="Contacting ShowDesk Host at "+ip+" on port 47822…";
+   status.textContent="Contacting ShowDesk Host at "+ip+" on port "+(window.SHOWDESK_CONFIG?.viewerPort||47822)+"…";
    const result=await transport.connectViewer(ip);if(attempt!==viewerConnectionAttempt)return;
    status.textContent="Host found — opening Viewer connection…";
    if(result?.status==="waiting"){status.textContent="ShowDesk Host reached at "+ip+". "+(result.reason||"Waiting for the Host to connect to an ATEM…");status.style.color="var(--amber)";btn.disabled=true;btn.textContent="WAITING FOR ATEM…";return;}
@@ -333,8 +427,8 @@ async function disconnectShowDesk(){
    else if(activeConnectionMode==="host"&&transport.disconnect)await transport.disconnect();
  }catch(error){intentionalDisconnect=false;alert("ShowDesk could not disconnect cleanly.\n\n"+(error?.message||String(error)));return;}
  addLog("SYSTEM",activeConnectionMode==="viewer"?"Disconnected from ShowDesk Host":"Disconnected from ATEM");
- activeConnectionMode=null;connectedDevice=null;previousMeState=new Map();committedMeState=new Map();liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],routing:[],productIdentifier:null,videoMode:null,topology:{},debug:null};
- $("setup").classList.remove("hidden");chooseConnectionMode(null);$("modelLabel").textContent="";updateConnectionControls();$("connectAtemBtn").textContent="CONNECT & HOST";$("connectViewerBtn").textContent="CONNECT TO HOST";connectionInputChanged();viewerInputChanged();intentionalDisconnect=false;render();
+ activeConnectionMode=null;connectedDevice=null;remoteHyperdeckMonitoringEnabled=false;hyperdeckStates=[];previousMeState=new Map();committedMeState=new Map();liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],routing:[],productIdentifier:null,videoMode:null,topology:{},debug:null};syncHyperdeckTab();renderHyperdeckCards();
+ $("setup").classList.remove("hidden");chooseConnectionMode(null);syncHyperdeckTab();$("modelLabel").textContent="";updateConnectionControls();$("connectAtemBtn").textContent="CONNECT & HOST";$("connectViewerBtn").textContent="CONNECT TO HOST";connectionInputChanged();viewerInputChanged();intentionalDisconnect=false;render();
 }
 window.addEventListener("showdesk-native-menu",event=>{if(event.detail==="disconnect")disconnectShowDesk();});
 function selectME(index){selectedMeIndex=Number(index)||1;render()}
@@ -348,8 +442,8 @@ function refreshShowDeskSettings(){
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
  if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"1.0.0"; if($("settingsBuild"))$("settingsBuild").textContent=`Version ${showDeskUpdater.currentVersion||"1.0.0"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
 }
-function openShowDeskSettings(){refreshShowDeskSettings();updateReferenceUI();renderSavedConnectionChoices();syncSettingsWorkspaceMenu();closeSettingsWorkspaceMenu();if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");$("settingsModal").hidden=false}
-function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true}
+function openShowDeskSettings(){refreshShowDeskSettings();updateReferenceUI();renderSavedConnectionChoices();renderSavedHyperdeckAddresses();syncSettingsWorkspaceMenu();syncHyperdeckTimerMenus();syncHyperdeckTab();closeSettingsWorkspaceMenu();closeHyperdeckTimerMenus();if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;if($("settingsHyperdeckEnabled"))$("settingsHyperdeckEnabled").checked=showDeskPreferences.hyperdeckMonitoring===true;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");$("settingsModal").hidden=false;document.documentElement.classList.add("settingsOpen")}
+function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true;document.documentElement.classList.remove("settingsOpen")}
 async function disconnectFromSettings(){closeShowDeskSettings();await disconnectShowDesk()}
 async function openShowDeskRepository(){
  const url="https://github.com/DrewL33/ShowDesk";
@@ -361,11 +455,18 @@ async function openShowDeskRepository(){
  }catch(error){console.error("Could not open ShowDesk repository",error);toast("Could not open GitHub in your browser")}
 }
 function checkUpdatesFromSettings(){closeShowDeskSettings();checkForShowDeskUpdate(true)}
-function setTab(tab){if(!["show","signal","engineering"].includes(tab))return;showDeskPreferences.lastWorkspace=tab;saveShowDeskPreferences();toast((tab==="engineering"?"INSPECT":tab.toUpperCase())+" view");
+const workspaceTitles={show:"Show View",signal:"Signal Explorer",engineering:"Inspect",hyperdecks:"HyperDeck Monitoring"};
+function setTab(tab){if(!["show","signal","engineering","hyperdecks"].includes(tab)||(tab==="hyperdecks"&&!showDeskPreferences.hyperdeckMonitoring))return;if(!undockedWorkspace){showDeskPreferences.lastWorkspace=tab;saveShowDeskPreferences()}else{undockedWorkspace=tab;if($("undockedWorkspaceTitle"))$("undockedWorkspaceTitle").textContent=workspaceTitles[tab];document.title=`ShowDesk — ${workspaceTitles[tab]}`}toast((tab==="engineering"?"INSPECT":tab==="hyperdecks"?"HYPERDECK MONITORING":tab.toUpperCase())+" view");
  $("app").className="wrap tab-"+tab;
- $("showBtn").classList.toggle("on",tab==="show");$("signalBtn").classList.toggle("on",tab==="signal");$("engBtn").classList.toggle("on",tab==="engineering");
+ $("showBtn").classList.toggle("on",tab==="show");$("signalBtn").classList.toggle("on",tab==="signal");$("engBtn").classList.toggle("on",tab==="engineering");$("hyperdeckBtn")?.classList.toggle("on",tab==="hyperdecks");
+ if(tab==="show")render();
+ if(tab==="engineering")render();
  if(tab==="signal"){renderPaths();requestAnimationFrame(explorerInitializeViewport)}
+ if(tab==="hyperdecks")renderHyperdeckCards();
 }
+async function undockWorkspace(tab){if(!Object.hasOwn(workspaceTitles,tab)||(tab==="hyperdecks"&&!showDeskPreferences.hyperdeckMonitoring))return;const context={workspace:tab,connectionMode:activeConnectionMode,connectionHost:connectedDevice?.ip||""},invoke=tauriInvoke();try{if(invoke){await invoke("open_workspace_window",{workspace:tab,connectionMode:context.connectionMode,connectionHost:context.connectionHost});return}const url=new URL(location.href);url.searchParams.set("workspace",tab);url.searchParams.set("connectionMode",context.connectionMode||"");url.searchParams.set("connectionHost",context.connectionHost);if(!window.open(url.toString(),"_blank"))throw new Error("The browser blocked the new window")}catch(error){console.error("Could not open workspace window",error);toast(error.message||"Could not open workspace window")}}
+function initializeUndockedWorkspace(){const params=new URLSearchParams(location.search),context=window.SHOWDESK_UNDOCKED_CONTEXT||{workspace:params.get("workspace"),connectionMode:params.get("connectionMode"),connectionHost:params.get("connectionHost")};const requested=context.workspace;if(!Object.hasOwn(workspaceTitles,requested)||(requested==="hyperdecks"&&!showDeskPreferences.hyperdeckMonitoring))return;undockedWorkspace=requested;document.documentElement.classList.add("undockedWorkspace");document.title=`ShowDesk — ${workspaceTitles[requested]}`;const controls=$("undockedWorkspaceControls");if(controls)controls.hidden=false;if($("undockedWorkspaceTitle"))$("undockedWorkspaceTitle").textContent=workspaceTitles[requested];setTab(requested);if(context.connectionMode==="viewer"&&validIpLike(context.connectionHost||"")){chooseConnectionMode("viewer");$("viewerHostIp").value=context.connectionHost;viewerInputChanged();connectViewer()}else if(context.connectionMode==="host"){const transport=window.ATEM_TRANSPORT;ensureHostConnectionSubscription(transport);ensureLiveStateSubscription(transport);transport?.attach?.().catch(error=>console.warn("Could not attach detached workspace to the existing Host session",error))}}
+async function redockWorkspace(){if(!undockedWorkspace)return;const invoke=tauriInvoke();if(invoke){try{await invoke("redock_workspace",{workspace:undockedWorkspace})}catch(error){console.error("Could not return workspace to main window",error);toast(error.message||"Could not return workspace to main window")}return}if(window.opener){window.close();return}document.documentElement.classList.remove("undockedWorkspace");$("undockedWorkspaceControls").hidden=true;undockedWorkspace=null;setTab("show")}
 function recordEvent(kind,msg,data={}){const e={iso:new Date().toISOString(),t:new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}),kind,msg,data};sessionEvents.unshift(e);if(sessionEvents.length>500)sessionEvents.length=500;logs=sessionEvents;lastChangeText=msg;return e}
 function addLog(kind,msg){recordEvent(kind,msg);renderLog()}
 function recordConnectionIncident(type,message){if(Object.hasOwn(connectionIncidents,type))connectionIncidents[type]++;addLog(type==="failures"?"ERROR":"CONNECTION",message)}
@@ -667,26 +768,30 @@ function explorerWheel(event){
  event.preventDefault();explorerZoom(event.deltaY<0?1:-1,event.clientX,event.clientY);
 }
 function explorerReach(graph,id,reverse=false){
- const seen=new Set([id]),queue=[id];
- while(queue.length){const current=queue.shift();for(const e of graph.edges){const from=reverse?e.to:e.from,to=reverse?e.from:e.to;if(from===current&&!seen.has(to)){seen.add(to);queue.push(to)}}}
+ const seen=new Set([id]),queue=[id],adjacency=graph.adjacency;
+ if(adjacency){for(let cursor=0;cursor<queue.length;cursor++)for(const next of adjacency[reverse?"incoming":"outgoing"].get(queue[cursor])||[])if(!seen.has(next)){seen.add(next);queue.push(next)}return seen}
+ for(let cursor=0;cursor<queue.length;cursor++){const current=queue[cursor];for(const e of graph.edges){const from=reverse?e.to:e.from,to=reverse?e.from:e.to;if(from===current&&!seen.has(to)){seen.add(to);queue.push(to)}}}
  return seen;
+}
+function explorerTrace(graph,id){
+ const upstream=explorerReach(graph,id,true),downstream=explorerReach(graph,id,false);
+ const nodes=new Set([...upstream,...downstream]);
+ const edges=new Set(graph.edges.filter(e=>
+  (upstream.has(e.from)&&upstream.has(e.to))||
+  (downstream.has(e.from)&&downstream.has(e.to))
+ ).map(e=>e.id));
+ return {nodes,edges};
 }
 function explorerHighlight(){
  const graph=explorerGraph,svg=document.querySelector("#explorerCanvas .signalOverview");if(!graph||!svg)return;
  const id=explorerHover||explorerPinned,node=graph.nodes.find(n=>n.id===id);
  let active=null,activeEdges=null;
  if(node){
-  // An output inspection includes its exact upstream feed and any actual
-  // downstream consumers, without highlighting sibling output branches.
-  const upstream=explorerReach(graph,id,true);
-  const downstream=explorerReach(graph,id,false);
-  const isOutput=node.type==="destination"||node.type==="internal";
-  active=isOutput?new Set([...upstream,...downstream]):explorerReach(graph,id,false);
-  activeEdges=new Set(graph.edges.filter(e=>{
-   if(!isOutput)return active.has(e.from)&&active.has(e.to);
-   return (upstream.has(e.from)&&upstream.has(e.to))||
-          (downstream.has(e.from)&&downstream.has(e.to));
-  }).map(e=>e.id));
+  // Trace only edges wholly on paths into or out of the inspected node.
+  // Keeping the two directions separate prevents a cross-edge between an
+  // upstream and downstream branch from looking like part of the trace.
+  const trace=explorerTrace(graph,id);
+  active=trace.nodes;activeEdges=trace.edges;
  }
  svg.classList.toggle("is-filtered",!!active);
  const linked=new Set(graph.edges.flatMap(e=>[e.from,e.to]));
@@ -703,6 +808,7 @@ function explorerHighlight(){
 function explorerBuildGraph(){
  const inputs=liveEngineering.inputs||[],mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
  const nodes=[],edges=[],byId=new Map(),edgeIds=new Set();
+ const adjacency={outgoing:new Map(),incoming:new Map()};
  const add=(id,label,type,group)=>{if(!byId.has(id)){const n={id,label,type,group};byId.set(id,n);nodes.push(n)}return id};
  const internal=new Map();
  // Blackmagic's internal M/E Program/Preview source IDs are stable; labels are user-editable.
@@ -722,8 +828,10 @@ function explorerBuildGraph(){
   if(from===to||edgeIds.has(id))return;
   // ATEM cross-M/E selections can be legitimate, but a graph cycle is not
   // proof of a live feedback path. Suppress circular inferred connections.
-  if(explorerReach({edges},to,false).has(from))return;
+  if(explorerReach({edges,adjacency},to,false).has(from))return;
   edgeIds.add(id);edges.push({id,from,to,kind});
+  if(!adjacency.outgoing.has(from))adjacency.outgoing.set(from,new Set());adjacency.outgoing.get(from).add(to);
+  if(!adjacency.incoming.has(to))adjacency.incoming.set(to,new Set());adjacency.incoming.get(to).add(from);
  };
  const feed=(id,to,kind)=>{if(id===undefined||id===null||!Number.isFinite(Number(id)))return;connect(source(id),to,kind)};
  // Physical source -> bus -> processing output. Never create a reverse edge to an earlier column.
@@ -750,7 +858,7 @@ function explorerBuildGraph(){
   feed(k.fillId,fill,"assigned");feed(k.keyId,key,"assigned");
  });
  routing.forEach((r,i)=>{const id=add("aux:"+(r.busId??r.protocolBusId??r.rawIndex??i),r.name||("ATEM Routing "+(i+1)),"destination","AUX / ROUTING");feed(r.sourceId,id,"routing")});
- return {nodes,edges};
+ return {nodes,edges,adjacency};
 }
 function explorerLayout(graph){
  const W=184,H=36,ROW=78,top=72,pos=new Map(),labels=[];
@@ -763,8 +871,10 @@ function explorerLayout(graph){
  ];
  // Each category has its own row cap. Routing changes do not affect placement.
  let cursor=32;
+ const nodesByType=new Map(groups.map(group=>[group.type,[]]));
+ graph.nodes.forEach(n=>nodesByType.get(n.type)?.push(n));
  groups.forEach(group=>{
-  const nodes=graph.nodes.filter(n=>n.type===group.type),banks=Math.max(1,Math.ceil(nodes.length/group.limit));
+  const nodes=nodesByType.get(group.type)||[],banks=Math.max(1,Math.ceil(nodes.length/group.limit));
   for(let bank=0;bank<banks;bank++){
    const x=cursor+bank*306;
    labels.push('<text class="overviewGroup" x="'+x+'" y="32">'+explorerEscape(group.title)+(bank?' · '+(bank+1):'')+'</text>');
@@ -785,22 +895,29 @@ function explorerRoute(start,end,columns,lanes,bounds){
  const to=columns.findIndex(x=>Math.abs(end.x-x)<1);
  const gap=i=>({min:columns[i]+W+8,max:columns[i+1]-8});
  const occupied=lanes.get("occupied")||[];
+ const trackBins=lanes.get("trackBins")||new Map();
  lanes.set("occupied",occupied);
+ lanes.set("trackBins",trackBins);
  const segment=(a,b)=>({a,b,h:a.y===b.y,lo:Math.min(a.y===b.y?a.x:a.y,b.y===a.y?b.x:b.y),hi:Math.max(a.y===b.y?a.x:a.y,b.y===a.y?b.x:b.y),axis:a.y===b.y?a.y:a.x});
  const score=points=>{
   let penalty=0;
   for(let i=1;i<points.length;i++){
    const current=segment(points[i-1],points[i]);
-   for(const prior of occupied){
-    if(current.h!==prior.h)continue;
+   const bins=trackBins.get(current.h?"h":"v");if(!bins)continue;
+   const center=Math.round(current.axis/spacing);
+   for(let bin=center-1;bin<=center+1;bin++)for(const prior of bins.get(bin)||[]){
+    if(Math.abs(current.axis-prior.axis)>=spacing)continue;
     const overlap=Math.min(current.hi,prior.hi)-Math.max(current.lo,prior.lo);
-    if(overlap>0&&Math.abs(current.axis-prior.axis)<spacing)penalty+=250+overlap;
+    if(overlap>0)penalty+=250+overlap;
    }
   }
   return penalty;
  };
  const commit=points=>{
-  for(let i=1;i<points.length;i++)if(points[i].x!==points[i-1].x||points[i].y!==points[i-1].y)occupied.push(segment(points[i-1],points[i]));
+  for(let i=1;i<points.length;i++)if(points[i].x!==points[i-1].x||points[i].y!==points[i-1].y){
+   const part=segment(points[i-1],points[i]),axis=part.h?"h":"v",bins=trackBins.get(axis)||new Map(),bin=Math.round(part.axis/spacing);
+   if(!bins.has(bin))bins.set(bin,[]);bins.get(bin).push(part);trackBins.set(axis,bins);occupied.push(part);
+  }
   return points.filter((p,i)=>i===0||p.x!==points[i-1].x||p.y!==points[i-1].y);
  };
  const candidates=[];
@@ -808,7 +925,8 @@ function explorerRoute(start,end,columns,lanes,bounds){
   const first=gap(from),last=gap(to-1);
   const xs=[];
   for(let x=first.min;x<=first.max;x+=spacing)xs.push(x);
-  const firstXs=xs.length?xs:[(first.min+first.max)/2];
+  const sample=(values,count)=>values.length<=count?values:Array.from({length:count},(_,i)=>values[Math.round(i*(values.length-1)/(count-1))]);
+  const firstXs=sample(xs,5);
   const lastXs=to===from+1?firstXs:[last.min+8,(last.min+last.max)/2,last.max-8];
   const ys=[];
   for(let row=0;row<15;row++)for(const offset of [-14,-7,0,7,14]){
@@ -821,7 +939,8 @@ function explorerRoute(start,end,columns,lanes,bounds){
   }else{
    const center=(start.y+end.y)/2;
    ys.sort((a,b)=>Math.abs(a-center)-Math.abs(b-center));
-   for(const x of firstXs)for(const lastX of lastXs)for(const y of ys.slice(0,60))
+   const routeYs=sample(ys.slice(0,12),12);
+   for(const x of firstXs)for(const lastX of lastXs)for(const y of routeYs)
     candidates.push([start,{x,y:start.y},{x,y},{x:lastX,y},{x:lastX,y:end.y},end]);
   }
  }else{
@@ -866,13 +985,14 @@ function explorerDraw(graph){
  const reserve=key=>{const n=ports.get(key)||0;ports.set(key,n+1);return n};
  const outCount=new Map(),inCount=new Map();
  edges.forEach(e=>{outCount.set(e.from,(outCount.get(e.from)||0)+1);inCount.set(e.to,(inCount.get(e.to)||0)+1)});
+ const nodeBottom=Math.max(0,...[...pos.values()].map(p=>p.y+H));
  let routedBottom=0;
  const paths=edges.map(e=>{
   const a=pos.get(e.from),b=pos.get(e.to);if(!a||!b)return "";
   const out=reserve("o:"+e.from),incoming=reserve("i:"+e.to);
   const y1=a.y+H*(out+1)/((outCount.get(e.from)||0)+1),y2=b.y+H*(incoming+1)/((inCount.get(e.to)||0)+1);
   const start={x:a.x+W,y:y1},end={x:b.x,y:y2};
-  const pts=explorerRoute(start,end,columns,lanes,{width,height,nodeBottom:Math.max(...[...pos.values()].map(p=>p.y+H))});
+  const pts=explorerRoute(start,end,columns,lanes,{width,height,nodeBottom});
   routedBottom=Math.max(routedBottom,...pts.map(p=>p.y));
   const d="M"+pts.map(p=>p.x+" "+p.y).join(" L");
   const marker=explorerDirectionMarker(pts),isReturn=b.x<=a.x;
@@ -882,15 +1002,15 @@ function explorerDraw(graph){
   const p=pos.get(n.id);
   return '<g class="overviewNode" data-signal-node="'+explorerEscape(n.id)+'"><rect x="'+p.x+'" y="'+p.y+'" width="'+W+'" height="'+H+'" rx="4"/><text x="'+(p.x+9)+'" y="'+(p.y+24)+'">'+explorerEscape(n.label)+'</text><title>'+explorerEscape(n.label)+'</title></g>';
  }).join("");
- const fittedHeight=Math.min(height,Math.max(routedBottom+40,Math.max(...[...pos.values()].map(p=>p.y+H))+30));
+ const fittedHeight=Math.min(height,Math.max(routedBottom+40,nodeBottom+30));
  return '<svg class="signalOverview" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+width+' '+fittedHeight+'" width="'+width+'" height="'+fittedHeight+'" data-width="'+width+'" data-height="'+fittedHeight+'" role="img" aria-label="Live ATEM signal overview">'+paths+labels.join("")+nodes+'</svg>';
 }
 function renderPaths(){
  const graph=explorerBuildGraph(),canvas=$("explorerCanvas");if(!canvas)return;
  const topology=graph.nodes.map(n=>n.id+"|"+n.label+"|"+n.group).join(";"),routing=graph.edges.map(e=>e.id+"|"+e.kind).sort().join(";");
- const changed=topology!==explorerTopology||routing!==explorerRouteState||!canvas.querySelector(".signalOverview");
+ const topologyChanged=topology!==explorerTopology||!canvas.querySelector(".signalOverview"),routingChanged=routing!==explorerRouteState;
  explorerGraph=graph;
- if(changed){
+ if(topologyChanged){
   const scroller=canvas.querySelector(".explorerDiagramScroll"),x=scroller?.scrollLeft||0,y=scroller?.scrollTop||0;
   canvas.innerHTML='<div class="explorerDiagramScroll">'+explorerDraw(graph)+'</div>';
   canvas.firstElementChild.scrollLeft=x;canvas.firstElementChild.scrollTop=y;
@@ -905,17 +1025,23 @@ function renderPaths(){
    svg.style.marginTop=Math.max(0,(scroll.clientHeight-h*explorerScale)/2)+"px";
    scroll.scrollLeft=x;scroll.scrollTop=y;
   }
- }else if(routing!==explorerRouteState){
-  const svg=canvas.querySelector(".signalOverview"),old=new Map([...svg.querySelectorAll("[data-signal-edge]")].map(el=>[el.dataset.signalEdge,el]));
+ }else if(routingChanged){
+  const svg=canvas.querySelector(".signalOverview"),oldEdges=new Map([...svg.querySelectorAll("[data-signal-edge]")].map(el=>[el.dataset.signalEdge,el])),oldHalos=new Map([...svg.querySelectorAll("[data-signal-halo]")].map(el=>[el.dataset.signalHalo,el])),oldDirections=new Map([...svg.querySelectorAll("[data-signal-direction]")].map(el=>[el.dataset.signalDirection,el]));
   const holder=document.createElement("div");holder.innerHTML=explorerDraw(graph);
+  const nextHalos=new Map([...holder.querySelectorAll("[data-signal-halo]")].map(el=>[el.dataset.signalHalo,el])),nextDirections=new Map([...holder.querySelectorAll("[data-signal-direction]")].map(el=>[el.dataset.signalDirection,el]));
+  const insertBefore=svg.querySelector(".overviewGroup, .overviewNode");
   for(const el of holder.querySelectorAll("[data-signal-edge]")){
    const id=el.dataset.signalEdge;
-   if(!old.has(id)){el.classList.add("is-new");svg.insertBefore(el,svg.firstChild)}
-   else {const existing=old.get(id);existing.setAttribute("d",el.getAttribute("d"));existing.setAttribute("class",el.getAttribute("class"));const halo=svg.querySelectorAll("[data-signal-halo]");halo.forEach(h=>{if(h.dataset.signalHalo===id)h.setAttribute("d",el.getAttribute("d"))});old.delete(id)}
+   const nextHalo=nextHalos.get(id),nextDirection=nextDirections.get(id);
+   const existing=oldEdges.get(id),halo=oldHalos.get(id),direction=oldDirections.get(id);
+   if(existing){existing.setAttribute("d",el.getAttribute("d"));existing.setAttribute("class",el.getAttribute("class"));oldEdges.delete(id)}
+   else {const added=el.cloneNode(true);added.classList.add("is-new");svg.insertBefore(added,insertBefore)}
+   if(halo){if(nextHalo)halo.setAttribute("d",nextHalo.getAttribute("d"));oldHalos.delete(id)}
+   else if(nextHalo)svg.insertBefore(nextHalo.cloneNode(true),insertBefore);
+   if(direction){if(nextDirection){direction.setAttribute("d",nextDirection.getAttribute("d"));direction.setAttribute("class",nextDirection.getAttribute("class"))}else direction.remove();oldDirections.delete(id)}
+   else if(nextDirection)svg.insertBefore(nextDirection.cloneNode(true),insertBefore);
   }
-  svg.querySelectorAll("[data-signal-direction]").forEach(el=>el.remove());
-  for(const marker of holder.querySelectorAll("[data-signal-direction]"))svg.insertBefore(marker,svg.querySelector(".overviewGroup, .overviewNode"));
-  old.forEach(el=>{el.classList.add("is-exiting");setTimeout(()=>el.remove(),180)});
+  for(const removed of [oldEdges,oldHalos,oldDirections])removed.forEach(el=>{el.classList.add("is-exiting");setTimeout(()=>el.remove(),180)});
   explorerRouteState=routing;
  }
  const q=($("signalSearch")?.value||"").trim().toLowerCase();
@@ -963,11 +1089,12 @@ function renderTransitionStatus(){
  }
 }
 function render(){
+ const app=$("app"),showActive=app?.classList.contains("tab-show"),inspectActive=app?.classList.contains("tab-engineering"),signalActive=app?.classList.contains("tab-signal");
  const activeMe=selectedME(),displayPgm=activeMe?.pgm||pgm,displayPvw=activeMe?.pvw||pvw;
- if($("pgm"))$("pgm").textContent=displayPgm;if($("pvw"))$("pvw").textContent=displayPvw;
- const meSelector=$("meSelector");if(meSelector)meSelector.innerHTML=(liveEngineering.mixEffects||[]).map(me=>`<button class="tinyAction meSelectBtn ${me.index===selectedMeIndex?"on":""}" data-action="select-me" data-index="${Number(me.index)||1}">M/E ${me.index}</button>`).join("");
+ if(showActive){if($("pgm"))$("pgm").textContent=displayPgm;if($("pvw"))$("pvw").textContent=displayPvw;const meSelector=$("meSelector");if(meSelector)meSelector.innerHTML=(liveEngineering.mixEffects||[]).map(me=>`<button class="tinyAction meSelectBtn ${me.index===selectedMeIndex?"on":""}" data-action="select-me" data-index="${Number(me.index)||1}">M/E ${me.index}</button>`).join("");renderShowKeyers()}
  renderTransitionStatus();
 
+ if(showActive){
  let total=Object.keys(actual).filter(n=>actual[n]!=="UNUSED").length;
  const changed=Object.keys(actual).filter(n=>window.routeHistory[n]&&window.routeHistory[n].from!==actual[n]);
  const mismatches=getMismatches(), mismatchNames=new Set(mismatches.filter(x=>x.type==="ROUTE").map(x=>x.name));
@@ -985,10 +1112,11 @@ function render(){
  $("healthTitle").textContent=mismatches.length?"REFERENCE MISMATCH":changed.length?"ROUTING CHANGES":"SYSTEM READY";
  $("healthDetail").textContent=mismatches.length?`${mismatches.length} live state item${mismatches.length===1?" differs":"s differ"} from the attached reference`:changed.length?`${changed.length} destination route${changed.length>1?"s have":" has"} changed during this session`:`${total} destinations currently routed`;
  if($("routeMetric")) $("routeMetric").textContent=mismatches.length?`${mismatches.length} MISMATCH${mismatches.length===1?"":"ES"}`:`${total} ACTIVE`; if($("routeMetric")) $("routeMetric").className=mismatches.length?"bad":"ok";
- if($("engIssues")) $("engIssues").textContent=`${mismatches.length} mismatch${mismatches.length===1?"":"es"}`;
  if($("attention")) $("attention").innerHTML=renderReferenceAttention()+(lastChangeText!=="—"?`<div class="attentionItem"><b>LAST CHANGE</b><span>${escapeShowDeskText(lastChangeText)}</span></div>`:"");
  if($("lastChange"))$("lastChange").textContent=lastChangeText;
- renderInputs();renderActiveSources();
+ renderActiveSources();renderLog();updateReferenceUI();
+ }
+ if(inspectActive){if($("engIssues"))$("engIssues").textContent=`${getMismatches().length} mismatch${getMismatches().length===1?"":"es"}`;renderInputs();renderEngineering();
  const ig=$("inputGrid");
  if(ig){
    const cards=[...ig.children];
@@ -1004,18 +1132,18 @@ function render(){
      ig.appendChild(more);
      if($("inputCountLabel"))$("inputCountLabel").textContent=`${visibleLimit} / ${cards.length} inputs shown`;
    }else if($("inputCountLabel"))$("inputCountLabel").textContent=`${cards.length} inputs shown`;
- }
- renderPaths();renderEngineering();renderLog();updateReferenceUI()
+ }}
+ if(signalActive)renderPaths();
 }
 setInterval(()=>{let s=Math.floor((Date.now()-pgmSince)/1000),q=Math.floor((Date.now()-pvwSince)/1000);if($("pgmTime"))$("pgmTime").textContent=`LIVE ${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;if($("pvwTime"))$("pvwTime").textContent=`READY ${String(Math.floor(q/60)).padStart(2,"0")}:${String(q%60).padStart(2,"0")}`;if($("clock"))$("clock").textContent=new Date().toLocaleTimeString()},1000);
 
 function formatVideoMode(mode){
  const modes={0:["525i59.94","59.94i"],1:["625i50","50i"],2:["525i59.94 16:9","59.94i"],3:["625i50 16:9","50i"],4:["720p50","50 fps"],5:["720p59.94","59.94 fps"],6:["1080i50","50i"],7:["1080i59.94","59.94i"],8:["1080p23.98","23.98 fps"],9:["1080p24","24 fps"],10:["1080p25","25 fps"],11:["1080p29.97","29.97 fps"],12:["1080p50","50 fps"],13:["1080p59.94","59.94 fps"],14:["2160p23.98","23.98 fps"],15:["2160p24","24 fps"],16:["2160p25","25 fps"],17:["2160p29.97","29.97 fps"],18:["2160p50","50 fps"],19:["2160p59.94","59.94 fps"],20:["4320p23.98","23.98 fps"],21:["4320p24","24 fps"],22:["4320p25","25 fps"],23:["4320p29.97","29.97 fps"],24:["4320p50","50 fps"],25:["4320p59.94","59.94 fps"],26:["1080p30","30 fps"],27:["1080p60","60 fps"]};return modes[Number(mode)]||[mode??"—","—"];
 }
+function renderShowKeyers(){const mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],keys=[];mes.forEach(me=>(me.upstreamKeyers||[]).forEach(k=>keys.push({...k,label:`USK ${k.index} · M/E ${me.index}`})));dsks.forEach(k=>keys.push({...k,label:`DSK ${k.index}`}));if($("showKeyers")){const ftbs=mes.map(me=>({index:me.index,state:me.ftb?(me.ftb.inTransition?"TRANSITION":me.ftb.isFullyBlack?"BLACK":"OFF"):"—"}));$("showKeyers").innerHTML=keys.map(k=>`<div class="key ${k.onAir?"on":""}">${k.label} • ${k.onAir?"ON AIR":"OFF"}</div>`).join("")+ftbs.map(f=>`<div class="key ${f.state==="BLACK"||f.state==="TRANSITION"?"on ftbLive":""} ${f.state==="TRANSITION"?"ftbTransition":""}">FTB · M/E ${f.index} • ${f.state}</div>`).join("")}}
 function renderEngineering(){
  const e=liveEngineering,inputs=e.inputs||[],mes=e.mixEffects||[],dsks=e.downstreamKeyers||[];
  const keys=[];mes.forEach(me=>(me.upstreamKeyers||[]).forEach(k=>keys.push({...k,label:`USK ${k.index} · M/E ${me.index}`})));dsks.forEach(k=>keys.push({...k,label:`DSK ${k.index}`}));
- if($("showKeyers")){const ftbs=mes.map(me=>({index:me.index,state:me.ftb?(me.ftb.inTransition?"TRANSITION":me.ftb.isFullyBlack?"BLACK":"OFF"):"—"}));$("showKeyers").innerHTML=keys.map(k=>`<div class="key ${k.onAir?"on":""}">${k.label} • ${k.onAir?"ON AIR":"OFF"}</div>`).join("")+ftbs.map(f=>`<div class="key ${f.state==="BLACK"||f.state==="TRANSITION"?"on ftbLive":""} ${f.state==="TRANSITION"?"ftbTransition":""}">FTB · M/E ${f.index} • ${f.state}</div>`).join("")}
  const selected=selectedME();
  if($("pgmContext"))$("pgmContext").textContent=selected?`M/E ${selected.index} • PROGRAM`:"—";
  if($("pvwContext"))$("pvwContext").textContent=selected?`M/E ${selected.index} • PREVIEW`:"—";
@@ -1026,6 +1154,7 @@ function renderEngineering(){
  if($("diagnostics")){const vm=formatVideoMode(e.videoMode),activeFtb=mes.filter(me=>me.ftb&&(me.ftb.isFullyBlack||me.ftb.inTransition)).map(me=>`M/E ${me.index}`).join(", ")||"NONE";$("diagnostics").innerHTML=`<div class="metric"><span>LINK</span><b class="ok">CONNECTED</b></div><div class="metric"><span>VIDEO MODE</span><b>${vm[0]}</b></div><div class="metric"><span>FRAME RATE</span><b>${vm[1]}</b></div><div class="metric"><span>MODEL</span><b>${e.productIdentifier||connectedDevice?.name||"—"}</b></div><div class="metric"><span>M/E BLOCKS</span><b>${mes.length}</b></div><div class="metric"><span>SOURCES REPORTED</span><b>${inputs.length}</b></div><div class="metric"><span>ROUTING DESTINATIONS</span><b>${(e.routing||[]).length}</b></div><div class="metric ${activeFtb!=="NONE"?"ftbLive":""}"><span>FTB ACTIVE</span><b>${activeFtb}</b></div><div class="metric"><span>REFERENCE</span><b id="diagReference">${baselineState.attached?baselineState.name:"NONE"}</b></div>`}
 }
 function applyAtemStateUpdate(patch={}){
+  let routeStateChanged=false;
    if(Array.isArray(patch.inputs)) liveEngineering.inputs=patch.inputs;
    if(Array.isArray(patch.mixEffects)){
      const nextMeState=new Map(),displayMixEffects=[];
@@ -1054,12 +1183,12 @@ function applyAtemStateUpdate(patch={}){
     const prev={...actual};
     Object.keys(actual).forEach(k=>delete actual[k]);
     Object.assign(actual,next);
-    Object.keys(next).forEach(name=>{if(prev[name]!==undefined&&prev[name]!==next[name]) recordEvent("ROUTE",`${name}: ${prev[name]} → ${next[name]}`,{destination:name,from:prev[name],to:next[name]});});
+    Object.keys(next).forEach(name=>{if(prev[name]!==undefined&&prev[name]!==next[name]){routeStateChanged=true;recordEvent("ROUTE",`${name}: ${prev[name]} → ${next[name]}`,{destination:name,from:prev[name],to:next[name]});}});
   }
   if(Array.isArray(patch.inputs)&&connectedDevice) connectedDevice.inputs=patch.inputs.length;
   render();
   const root=document.querySelector(".signalPage"),transitionActive=(liveEngineering.mixEffects||[]).some(me=>me.transition?.inTransition);
-  if(root&&!transitionActive){root.classList.remove("routePulse");void root.offsetWidth;root.classList.add("routePulse");}
+  if(routeStateChanged&&root&&!transitionActive){root.classList.remove("routePulse");void root.offsetWidth;root.classList.add("routePulse");}
 }
 window.ATEM_OPS=Object.assign(window.ATEM_OPS||{},{applyStateUpdate:applyAtemStateUpdate});
 
@@ -1111,8 +1240,8 @@ function showUpdateProgress(detail={}){
 }
 async function ensureUpdateProgressListener(){
  const internals=window.__TAURI_INTERNALS__;if(!internals)return;const listen=internals.event?.listen;
- if(typeof listen==="function"){await listen("showdesk-update-progress",event=>showUpdateProgress(event.payload||{}));await listen("showdesk-native-menu",event=>{if(event.payload==="check-for-updates")checkForShowDeskUpdate(true);else if(event.payload==="disconnect")disconnectShowDesk();else if(event.payload==="settings")openShowDeskSettings();else if(["show","signal","engineering"].includes(event.payload))setTab(event.payload);});return;}
- if(typeof internals.invoke==="function"){const transform=internals.transformCallback;if(typeof transform!=="function")throw new Error("Tauri event bridge is unavailable.");for(const [event,handler] of [["showdesk-update-progress",e=>showUpdateProgress(e.payload||{})],["showdesk-native-menu",e=>{if(e.payload==="check-for-updates")checkForShowDeskUpdate(true);else if(e.payload==="disconnect")disconnectShowDesk();else if(e.payload==="settings")openShowDeskSettings();else if(["show","signal","engineering"].includes(e.payload))setTab(e.payload);}]]){const id=transform(handler);await internals.invoke("plugin:event|listen",{event,target:{kind:"Any"},handler:id});}}
+ if(typeof listen==="function"){await listen("showdesk-update-progress",event=>showUpdateProgress(event.payload||{}));await listen("showdesk-redock-workspace",event=>setTab(event.payload));await listen("showdesk-native-menu",event=>{if(event.payload==="check-for-updates")checkForShowDeskUpdate(true);else if(event.payload==="disconnect")disconnectShowDesk();else if(event.payload==="settings")openShowDeskSettings();else if(["show","signal","engineering","hyperdecks"].includes(event.payload))setTab(event.payload);});return;}
+ if(typeof internals.invoke==="function"){const transform=internals.transformCallback;if(typeof transform!=="function")throw new Error("Tauri event bridge is unavailable.");for(const [event,handler] of [["showdesk-update-progress",e=>showUpdateProgress(e.payload||{})],["showdesk-redock-workspace",e=>setTab(e.payload)],["showdesk-native-menu",e=>{if(e.payload==="check-for-updates")checkForShowDeskUpdate(true);else if(e.payload==="disconnect")disconnectShowDesk();else if(e.payload==="settings")openShowDeskSettings();else if(["show","signal","engineering","hyperdecks"].includes(e.payload))setTab(e.payload);}]]){const id=transform(handler);await internals.invoke("plugin:event|listen",{event,target:{kind:"Any"},handler:id});}}
 }
 async function installShowDeskUpdate(){
  const invoke=tauriInvoke();if(!invoke||showDeskUpdater.operation)return;
@@ -1141,6 +1270,14 @@ function runShowDeskAction(action,element){
   case "tab-show":setTab("show");break;
   case "tab-signal":setTab("signal");break;
   case "tab-inspect":setTab("engineering");break;
+  case "tab-hyperdecks":setTab("hyperdecks");break;
+  case "undock-workspace":undockWorkspace(element.dataset.undockWorkspace);break;
+  case "redock-workspace":redockWorkspace();break;
+  case "view-hyperdecks":viewHyperdecksFromSettings();break;
+  case "add-hyperdeck":addHyperdeck();break;
+  case "use-saved-hyperdeck":useSavedHyperdeckAddress(element.dataset.endpoint);break;
+  case "forget-saved-hyperdeck":forgetSavedHyperdeckAddress(element.dataset.endpoint);break;
+  case "remove-hyperdeck":setHyperdeckConfigs(hyperdeckConfigs.filter(deck=>deck.id!==element.dataset.id));renderHyperdeckCards();break;
   case "disconnect":disconnectShowDesk();break;
   case "disconnect-settings":disconnectFromSettings();break;
   case "clear-trace":explorerClear();break;
@@ -1153,6 +1290,8 @@ function runShowDeskAction(action,element){
   case "toggle-debug":toggleDebug();break;
   case "close-settings":closeShowDeskSettings();break;
   case "workspace-menu":toggleSettingsWorkspaceMenu();break;
+  case "hyperdeck-primary-timer-menu":toggleHyperdeckTimerMenu("primary");break;
+  case "hyperdeck-secondary-timer-menu":toggleHyperdeckTimerMenu("secondary");break;
   case "save-reference-preferences":saveReferencePreferences();break;
   case "check-updates":checkUpdatesFromSettings();break;
   case "open-repository":openShowDeskRepository();break;
@@ -1163,10 +1302,11 @@ function runShowDeskAction(action,element){
  }
 }
 document.addEventListener("click",event=>{
- const target=event.target.closest?.("[data-action],[data-settings-tab],[data-workspace],[data-signal-node]");
+ const target=event.target.closest?.("[data-action],[data-settings-tab],[data-workspace],[data-signal-node],[data-hyperdeck-timer]");
  if(!target)return;
  if(target.hasAttribute("data-settings-tab")){showSettingsSection(target.dataset.settingsTab);return;}
  if(target.hasAttribute("data-workspace")){chooseSettingsWorkspace(target.dataset.workspace);return;}
+ if(target.hasAttribute("data-hyperdeck-timer")){chooseHyperdeckTimer(target.dataset.hyperdeckTimer,target.dataset.timerValue);return;}
  if(target.hasAttribute("data-signal-node")){explorerInspect(target.dataset.signalNode,true);return;}
  runShowDeskAction(target.dataset.action,target);
 });
@@ -1179,11 +1319,13 @@ document.addEventListener("input",event=>{
 document.addEventListener("change",event=>{
  const target=event.target;
  if(target.dataset.compare){setReferenceComparison(target.dataset.compare,target.checked);return;}
+ if(target.dataset.changeAction==="hyperdeck-name"){renameHyperdeck(target.dataset.id,target.value);return;}
  switch(target.dataset.changeAction){
   case "explorer-highlight":explorerHighlight();break;
   case "import-reference":importReferenceFile(event);break;
   case "auto-connect":changeAutoConnectPreference(target.checked);break;
   case "auto-updates":changeAutomaticUpdateChecks(target.checked);break;
+  case "hyperdeck-enabled":setHyperdeckMonitoringEnabled(target.checked);break;
  }
 });
 document.addEventListener("keydown",event=>{
@@ -1191,6 +1333,7 @@ document.addEventListener("keydown",event=>{
  const target=event.target.closest?.("[data-enter-action]");if(!target)return;
  if(target.dataset.enterAction==="connect-host"&&!$("connectAtemBtn").disabled)connectAtem();
  else if(target.dataset.enterAction==="connect-viewer"&&!$("connectViewerBtn").disabled)connectViewer();
+ else if(target.dataset.enterAction==="add-hyperdeck")addHyperdeck();
 });
 document.addEventListener("mouseover",event=>{
  const node=event.target.closest?.("[data-signal-node]");if(node&&!node.contains(event.relatedTarget))explorerInspect(node.dataset.signalNode);
@@ -1198,4 +1341,4 @@ document.addEventListener("mouseover",event=>{
 document.addEventListener("mouseout",event=>{
  const node=event.target.closest?.("[data-signal-node]");if(node&&!node.contains(event.relatedTarget))explorerInspect(null);
 });
-document.addEventListener("DOMContentLoaded",()=>{const close=$("updateCloseBtn");if(close)close.onclick=closeUpdateModal;if(tauriInvoke()){ensureUpdateProgressListener().then(()=>{if(showDeskPreferences.automaticUpdateChecks)setTimeout(()=>checkForShowDeskUpdate(false),1200)}).catch(console.error)}setTimeout(attemptPreferredAutoConnection,1800)});
+document.addEventListener("DOMContentLoaded",()=>{initializeUndockedWorkspace();const close=$("updateCloseBtn");if(close)close.onclick=closeUpdateModal;syncHyperdeckTab();syncHyperdeckTimerMenus();if($("settingsHyperdeckEnabled"))$("settingsHyperdeckEnabled").checked=showDeskPreferences.hyperdeckMonitoring===true;renderSavedHyperdeckAddresses();renderHyperdeckCards();const transport=window.ATEM_TRANSPORT;if(transport?.subscribeHyperdecks)hyperdeckSubscription=transport.subscribeHyperdecks(data=>{hyperdeckStates=Array.isArray(data)?data:[];const receivedAt=Date.now();for(const deck of hyperdeckStates)hyperdeckClockReceipts.set(String(deck.id),receivedAt);observeHyperdeckClipTimecodes(hyperdeckStates,receivedAt);observeHyperdeckRecordingTimes(hyperdeckStates,receivedAt);if(activeConnectionMode!=="viewer")rememberConnectedHyperdecks(hyperdeckStates);renderHyperdeckCards();syncHyperdeckTab()});transport?.subscribeHyperdeckAvailability?.(enabled=>{remoteHyperdeckMonitoringEnabled=enabled;syncHyperdeckTab();renderHyperdeckCards()});setInterval(()=>{if($("app")?.classList.contains("tab-hyperdecks"))renderHyperdeckReadouts(hyperdeckStates)},100);if(tauriInvoke()){ensureUpdateProgressListener().then(()=>{if(showDeskPreferences.automaticUpdateChecks)setTimeout(()=>checkForShowDeskUpdate(false),1200)}).catch(console.error)}setTimeout(attemptPreferredAutoConnection,1800)});

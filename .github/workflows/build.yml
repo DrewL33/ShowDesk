@@ -8,7 +8,7 @@ concurrency:
 on:
   workflow_dispatch:
   push:
-    branches: ['main', 'beta', 'tauri-migration']
+    branches: ['main', 'tauri-migration']
     tags: ['v*']
 
 jobs:
@@ -23,7 +23,7 @@ jobs:
       - run: npm run check
 
   tauri-shell:
-    if: startsWith(github.event.head_commit.message, 'RELEASE Build') || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    if: (startsWith(github.event.head_commit.message, 'RELEASE Build') || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')) && github.ref != 'refs/heads/beta'
     needs: validate
     strategy:
       fail-fast: false
@@ -239,10 +239,6 @@ jobs:
             gh release create showdesk-stable-latest --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "ShowDesk Stable Updates" --notes "Signed ShowDesk stable updater feed." --prerelease
           fi
           gh release upload showdesk-stable-latest updater-release/* --repo "${{ github.repository }}" --clobber
-          if ! gh release view showdesk-beta-latest --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            gh release create showdesk-beta-latest --repo "${{ github.repository }}" --title "ShowDesk Beta Latest" --notes "Signed ShowDesk beta updater feed." --prerelease
-          fi
-          gh release upload showdesk-beta-latest updater-release/latest.json --repo "${{ github.repository }}" --clobber
       - name: Verify published updater feed
         shell: bash
         run: |
@@ -331,9 +327,6 @@ jobs:
             gh release create showdesk-stable-latest --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "ShowDesk Stable Updates" --notes "Signed ShowDesk stable updater feed." --prerelease
           fi
           gh release upload showdesk-stable-latest official-release/ShowDesk-*-macOS-arm64.app.tar.gz official-release/ShowDesk-*-macOS-arm64.app.tar.gz.sig official-release/ShowDesk-*-Windows-x64-setup.exe official-release/ShowDesk-*-Windows-x64-setup.exe.sig official-release/latest.json --repo "${{ github.repository }}" --clobber
-          if gh release view showdesk-beta-latest --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            gh release upload showdesk-beta-latest official-release/latest.json --repo "${{ github.repository }}" --clobber
-          fi
       - name: Verify official downloads and stable updater feed
         env:
           GH_TOKEN: ${{ github.token }}

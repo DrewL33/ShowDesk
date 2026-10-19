@@ -262,7 +262,7 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .eng .matrixViewport .mc:first-child{min-width:145px!important;position:sticky!important;left:0!important;z-index:3!important;background:#172128!important}
 .eng .matrixViewport .mh{position:sticky!important;top:0!important;z-index:4!important;background:#151f26!important;color:#aeb9bf!important;font-size:8px!important;letter-spacing:.035em!important}
 .eng .matrixViewport .mh:first-child{z-index:5!important}.eng .matrixViewport .live{font-size:9px!important}.eng .matrixViewport .ready{font-size:9px!important}
-.settingsModal{position:fixed!important;inset:0!important;z-index:120!important;display:grid!important;place-items:center!important;padding:24px!important;background:#000a!important}.settingsModal[hidden]{display:none!important}
+.settingsModal{position:fixed!important;inset:0!important;z-index:120!important;display:grid!important;place-items:center!important;padding:24px!important;background:#000a!important;overscroll-behavior:contain!important}.settingsModal[hidden]{display:none!important}html.settingsOpen,html.settingsOpen body{overflow:hidden!important;overscroll-behavior:none!important}
 .settingsCard{width:min(520px,calc(100vw - 48px))!important;max-height:calc(100vh - 48px)!important;overflow:auto!important;background:var(--sd-panel)!important;border:1px solid var(--sd-line)!important;box-shadow:0 24px 70px #000b!important}
 .settingsHead{display:flex!important;align-items:center!important;justify-content:space-between!important;padding:18px 20px!important;border-bottom:1px solid var(--sd-line)!important}.settingsHead span{display:block!important;color:var(--sd-muted)!important;font-size:8px!important;font-weight:800!important;letter-spacing:.12em!important}.settingsHead h2{margin:4px 0 0!important;font-size:20px!important}.settingsClose{width:30px!important;height:30px!important;display:grid!important;place-items:center!important;border:1px solid var(--sd-line)!important;background:var(--sd-raised)!important;color:var(--sd-text)!important;font-size:18px!important;line-height:1!important}
 .settingsSection{padding:16px 20px!important;border-bottom:1px solid var(--sd-line)!important}.settingsSection:last-child{border-bottom:0!important}.settingsSection h3{margin:0 0 12px!important;color:#dfe5e8!important;font-size:9px!important;letter-spacing:.09em!important}
@@ -369,6 +369,9 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .explorerClearButton{position:absolute;right:20px;top:18px;z-index:3;background:#1c3540!important;border:1px solid #5ba4ad!important;color:#d8f2f0!important;padding:9px 14px!important}
 .explorerClearButton[hidden]{display:none!important}
 .explorerDetails{display:flex;align-items:center;gap:12px;padding:8px 4px!important;min-height:0;flex:0 0 auto;font-size:11px;color:var(--sd-muted);border:0!important}
+/* Give the signal map the same layered slate surface used by Attention cards. */
+.explorerMain{background:radial-gradient(ellipse at 50% -20%,#11191e 0%,transparent 58%),linear-gradient(160deg,#0a1115 0%,#080d11 54%,#060a0d 100%)!important;border:1px solid #354650!important;box-shadow:inset 0 1px #ffffff0a,0 6px 18px #0004}
+.explorerDiagramScroll{background:transparent!important}
 @media(max-width:650px){.explorerWorkspace{height:calc(100vh - 80px)}.explorerWorkspace .explorerToolbar{flex-wrap:wrap}.explorerWorkspace .signalSearch{max-width:100%;width:100%}}
 
 /* Build075: emphasize the selected route above background wiring. */
@@ -460,7 +463,7 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .savedConnectionRow button{background:#1b3340;color:var(--sd-text);border:1px solid var(--line);border-radius:4px;padding:7px;font-size:9px;cursor:pointer}
 
 /* Build086 — Settings: consistent desktop window, 8/16/24 spacing, quiet navigation. */
-.settingsModal .settingsWindow{display:grid!important;grid-template-columns:166px minmax(0,1fr)!important;width:min(720px,calc(100vw - 40px))!important;min-height:420px!important;max-height:min(82vh,650px)!important;overflow:hidden!important;background:#15212a!important;border:1px solid #344752!important;border-radius:8px!important;box-shadow:0 26px 75px #000b!important}
+.settingsModal .settingsWindow{display:grid!important;grid-template-columns:166px minmax(0,1fr)!important;grid-template-rows:minmax(0,1fr)!important;width:min(720px,calc(100vw - 40px))!important;height:min(82vh,650px)!important;min-height:min(420px,calc(100vh - 32px))!important;max-height:calc(100vh - 32px)!important;overflow:hidden!important;overscroll-behavior:contain!important;background:#15212a!important;border:1px solid #344752!important;border-radius:8px!important;box-shadow:0 26px 75px #000b!important}
 .settingsWindow .settingsSidebar{padding:24px 12px 16px;background:#111d25;border-right:1px solid #30414b;min-width:0}
 .settingsWindow .settingsBrand{padding:0 10px 25px}
 .settingsWindow .settingsBrand span{font-size:10px;letter-spacing:2px;font-weight:800;color:#92a5b0}
@@ -469,12 +472,16 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .settingsWindow .settingsTabs button{display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;border:1px solid transparent;border-radius:5px;background:transparent;text-align:left;color:#b8c9d2;font-size:12px;font-weight:600;letter-spacing:0;text-transform:none;cursor:pointer}
 .settingsWindow .settingsTabs button.on{background:#294250;border-color:#405c6d;color:#fff}
 .settingsWindow .settingsTabs button:hover:not(.on){background:#1b303c}
+.settingsGuideList{display:grid;gap:8px;margin:0 0 24px}
+.settingsGuideList article{padding:12px 14px;background:#1b2b35;border:1px solid #344752;border-left:3px solid #4d8ee8;border-radius:4px}
+.settingsGuideList article b{color:#eaf2f6;font-size:12px}
+.settingsGuideList article p{margin:5px 0 0;color:#aab9c1;font-size:11px;line-height:1.5}
 .settingsWindow .settingsNavGlyph{display:inline-flex;align-items:center;justify-content:center;width:16px;font-size:16px;font-weight:400}
-.settingsWindow .settingsMain{min-width:0;display:flex;flex-direction:column}
+.settingsWindow .settingsMain{min-width:0;min-height:0;overflow:hidden;display:flex;flex-direction:column}
 .settingsWindow .settingsPageHead{height:72px;min-height:72px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid #30414b}
 .settingsWindow .settingsPageHead h2{margin:0;font-size:19px;font-weight:700;color:#f0f5f7}
 .settingsWindow .settingsPageHead .settingsClose{position:static;width:32px;height:32px;min-width:32px;display:grid;place-items:center;border:1px solid #3b505c;background:#1a2a34;color:#e8f1f4;font-size:22px;cursor:pointer}
-.settingsWindow .settingsSectionBody{padding:24px;flex:1;min-height:0;overflow-y:auto}
+.settingsWindow .settingsSectionBody{padding:24px;flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable}
 .settingsWindow .settingsSectionBody .settingsSection{margin:0;padding:0;border:0}
 .settingsWindow .settingsSection h3{margin:0 0 12px!important;padding:0!important;font-size:10px;letter-spacing:1.3px;color:#9eafba;font-weight:800}
 .settingsWindow #settingsSectionGeneral h3:not(:first-child){margin-top:25px!important;padding-top:20px!important;border-top:1px solid #30414b}
@@ -569,6 +576,21 @@ html body{padding-left:0!important}
 .floatingWorkspaceTabs{grid-column:2;display:flex;gap:4px;border:1px solid var(--line);border-radius:14px;background:var(--panel2);padding:4px}
 .floatingWorkspaceTab{border:0;border-radius:10px;background:transparent;color:var(--muted);padding:12px 18px;font-size:12px;font-weight:650;white-space:nowrap}
 .floatingWorkspaceTab.on{background:var(--blue);color:white}
+.workspacePageActionRow{display:flex;justify-content:flex-end;margin:0 0 8px}
+.workspaceUndockButton{height:32px;padding:0 10px;border:1px solid var(--line2);border-radius:5px;background:var(--panel2);color:#a9bac4;display:flex;align-items:center;gap:6px;font-size:9px;font-weight:800;letter-spacing:.06em;cursor:pointer;white-space:nowrap}
+.workspaceUndockButton svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.workspaceUndockButton:focus-visible{outline:2px solid #68a9f2;outline-offset:-3px}
+.workspaceUndockButton:hover{color:#fff;background:#ffffff0d}
+.workspaceUndockButton[hidden]{display:none!important}
+.signalWorkspaceHead>.workspaceUndockButton{margin-left:auto;flex:none}
+.undockedWorkspaceControls{grid-column:2;display:flex;align-items:center;justify-content:center;gap:18px;min-width:0}
+.undockedWorkspaceControls[hidden]{display:none!important}
+.undockedWorkspaceControls strong{color:#e7edf1;font-size:13px;font-weight:800;letter-spacing:.04em}
+html.undockedWorkspace .floatingWorkspaceTabs{display:none}
+html.undockedWorkspace .workspaceTopBar{grid-template-columns:1fr auto 1fr}
+html.undockedWorkspace #app.wrap{padding:20px 24px 32px}
+@media(max-width:1050px){.undockedWorkspaceControls{grid-column:1;grid-row:1;justify-self:center}}
+@media(max-width:620px){.signalWorkspaceHead>.workspaceUndockButton{margin:10px 0 0 auto}.workspaceUndockButton{height:30px;padding:0 8px}}
 .workspaceTopBar .desktopStatus{grid-column:3;grid-row:1;padding:0!important;min-height:0!important;background:transparent!important;justify-content:flex-end!important;min-width:0}
 .workspaceTopBar .desktopStatus #modelLabel{display:none!important}
 body .wrap{margin:0 auto!important;width:100%!important;max-width:none!important;padding:12px 20px 28px!important}
@@ -597,3 +619,175 @@ body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!importa
 .workspaceTopBar{position:sticky;top:0;z-index:45;background:rgba(8,13,17,.96);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
 .workspaceTopBar .floatingWorkspaceTabs{position:relative;z-index:1}
 @media(prefers-reduced-motion:reduce){.signalOverview{scroll-behavior:auto}}
+
+/* Read-only HyperDeck monitor workspace and Settings editor */
+.floatingWorkspaceTab[hidden]{display:none!important}
+.hyperdeckPage{display:none}.tab-hyperdecks .hyperdeckPage{display:block!important}
+.hyperdeckPage{padding:4px 0 20px}.hyperdeckPage .signalWorkspaceHead{margin-bottom:16px}
+.hyperdeckCards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:12px}
+.hyperdeckCard .head{align-items:flex-start}.hyperdeckStatus{font-size:10px;font-weight:900;letter-spacing:.08em;margin:4px 0 14px}.hyperdeckStatus.bad{color:var(--amber)!important}
+.hyperdeckFacts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.hyperdeckFacts>div,.hyperdeckSlot{min-width:0;background:var(--panel3);border:1px solid var(--line);padding:10px}.hyperdeckFacts span,.hyperdeckSlot span,.hyperdeckSlot small{display:block;color:var(--muted);font-size:8px;letter-spacing:.06em}.hyperdeckFacts b,.hyperdeckSlot b{display:block;margin-top:5px;font-size:11px;overflow-wrap:anywhere}.hyperdeckCard h3{font-size:9px;letter-spacing:.1em;margin:16px 0 8px}.hyperdeckSlots{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:7px}.hyperdeckSlot small{margin-top:6px;letter-spacing:0}
+.settingsHyperdeckList{display:grid;gap:6px;margin:12px 0 20px}.settingsHyperdeckRow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;background:var(--panel3);border:1px solid var(--line)}.settingsHyperdeckRow>div{min-width:0}.settingsHyperdeckRow b,.settingsHyperdeckRow span{display:block}.settingsHyperdeckRow span{margin-top:4px;color:var(--muted);font-size:9px;overflow-wrap:anywhere}.hyperdeckForm{display:grid;grid-template-columns:1fr 1.2fr 90px auto;gap:8px;align-items:end}.hyperdeckForm label{display:block;color:var(--muted);font-size:9px}.hyperdeckForm input{display:block;width:100%;margin-top:6px;padding:10px;background:#101a20;color:var(--text);border:1px solid var(--line);border-radius:4px}.hyperdeckForm button{height:37px}.settingsSection>p,#hyperdeckSettingsStatus{color:var(--muted);font-size:10px;line-height:1.5}
+.hyperdeckSetupPanel{margin-bottom:12px}.hyperdeckSetupPanel .head{align-items:center}.hyperdeckFieldList{margin:8px 0 2px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:5px}.hyperdeckFieldList>div{min-width:0;padding:7px;background:#0b1116;border:1px solid var(--line)}.hyperdeckFieldList dt{font-size:8px;color:var(--muted);overflow-wrap:anywhere}.hyperdeckFieldList dd{margin:4px 0 0;font-size:9px;overflow-wrap:anywhere}.hyperdeckSlot details,.hyperdeckReport{margin-top:8px}.hyperdeckSlot summary,.hyperdeckReport summary{cursor:pointer;color:#b8c6ce;font-size:8px;font-weight:800;letter-spacing:.05em}
+@media(max-width:700px){.hyperdeckFacts{grid-template-columns:repeat(2,minmax(0,1fr))}.hyperdeckForm{grid-template-columns:1fr 1fr}.hyperdeckForm button{grid-column:1/-1}}
+
+/* HyperDeck Monitoring uses stacked, front-panel-inspired rack units. */
+.hyperdeckPage .hyperdeckCards{display:grid;grid-template-columns:minmax(0,1fr);gap:11px}
+.hyperdeckRackUnit{display:grid;grid-template-columns:21px minmax(0,1fr) 21px;align-items:stretch;min-width:0;overflow:hidden;background:#080b0d;border:1px solid #455158;box-shadow:0 9px 20px #0007,inset 0 1px #74808855}
+.rackRail{display:flex;flex-direction:column;justify-content:space-around;align-items:center;padding:10px 0;background:linear-gradient(90deg,#111719,#282f32 44%,#111719);border-inline:1px solid #566168}
+.rackRail i{width:7px;height:7px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#899197,#252b2e 65%);box-shadow:0 1px 2px #000}
+.rackFace{min-width:0;background:linear-gradient(180deg,#24292c 0%,#15191b 11%,#0e1214 100%);padding:10px 13px 9px;box-shadow:inset 0 1px #ffffff0b,inset 0 -2px #000}
+.rackHeader{display:flex;align-items:center;gap:10px;min-width:0;padding:1px 1px 8px;border-bottom:1px solid #394146}
+.rackBadge{width:26px;height:26px;flex:none;display:grid;place-items:center;background:linear-gradient(145deg,#cf2028,#641217);border:1px solid #e64245;color:#fff;font-size:9px;font-weight:1000;letter-spacing:-.06em;box-shadow:0 0 8px #a3192640}
+.rackIdentity{min-width:0;display:flex;flex-direction:column;gap:3px}.rackIdentity b{font-size:11px;color:#eef0ef;letter-spacing:.04em}.rackIdentity span{font-size:8px;color:#9ca5a8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rackConnection{margin-left:auto;display:flex;align-items:center;gap:5px;flex:none;color:#8e9a9d;font-size:8px;font-weight:800}.rackConnection i{width:7px;height:7px;border-radius:50%;background:#818b8f;box-shadow:0 0 5px currentColor}.isConnected .rackConnection{color:#67cf8c}.isConnected .rackConnection i{background:#55d782}.isDisconnected .rackConnection{color:#f0a255}.isDisconnected .rackConnection i{background:#ed9d50}
+.rackRemove{flex:none;background:#171b1d;color:#9ca6aa;border:1px solid #41494d;border-radius:2px;padding:5px 7px;font-size:7px;font-weight:900;letter-spacing:.06em}.rackPanel{display:grid;grid-template-columns:minmax(160px,.72fr) minmax(280px,1.7fr) minmax(115px,.58fr) minmax(125px,.7fr);gap:9px;align-items:stretch;padding-top:9px}
+.rackSectionLabel{display:block;margin-bottom:7px;color:#7f8a8d;font-size:7px;font-weight:900;letter-spacing:.14em}.rackTransport,.rackSlotIndicators,.rackModelPanel{min-width:0;padding:8px;background:linear-gradient(180deg,#0b0e10,#14191b);border:1px solid #333c40;box-shadow:inset 0 1px 4px #0009}
+.rackTransportLeds{display:flex;gap:9px;margin:9px 0 10px}.rackTransportLeds>span{display:flex;align-items:center;gap:4px;color:#687275;font-size:7px;font-weight:800}.rackTransportLeds i{width:6px;height:6px;border-radius:50%;background:#3c4446;box-shadow:inset 0 1px 2px #000}.rackTransportLeds .lit.red{color:#ff9991}.rackTransportLeds .lit.red i{background:#f13e3c;box-shadow:0 0 7px #ff3838}.rackTransportLeds .lit.green{color:#8ee3aa}.rackTransportLeds .lit.green i{background:#4cde76;box-shadow:0 0 7px #48db70}.rackTransportLeds .lit.white{color:#d7e0df}.rackTransportLeds .lit.white i{background:#d8e0df;box-shadow:0 0 6px #d8e0df}
+.rackStaticControls{display:flex;align-items:center;justify-content:space-between;gap:4px}.rackStaticControls span{min-width:20px;text-align:center;padding:5px 3px;background:linear-gradient(#343a3d,#191e20);border:1px solid #454e51;border-radius:2px;box-shadow:0 2px 2px #000;color:#aeb7b8;font-size:8px}.rackStaticControls span:nth-child(3){color:#70cc8e}
+.rackLcd{display:flex;flex-direction:column;justify-content:space-between;min-width:0;padding:9px 12px;background:radial-gradient(ellipse at 50% 0,#182c2c,#071113 75%);border:1px solid #365151;box-shadow:inset 0 0 14px #000,0 0 4px #69ba8c22;color:#b7d2c3;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.lcdTop,.lcdBottom{display:flex;justify-content:space-between;gap:8px;color:#75928a;font-size:7px;letter-spacing:.05em}.lcdTop span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lcdMain{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;padding:10px 0}.lcdMain>div{display:flex;flex-direction:column;gap:4px;min-width:0}.lcdMain small{color:#748c83;font-size:7px;letter-spacing:.12em}.lcdTimecodeGroup{align-items:flex-end;text-align:right}.lcdTimecodeGroup>small{font-size:8px;letter-spacing:.12em}.lcdTransport{font-family:inherit!important;color:#d1e4d8!important;font-size:12px!important;text-transform:uppercase;overflow-wrap:anywhere}.lcdTransport.playing{color:#76e39a!important}.lcdTransport.recording{color:#ff6860!important}.lcdTimecode{white-space:nowrap;color:#d4f5dc;font-size:clamp(18px,2.2vw,28px);line-height:1;letter-spacing:.02em;text-shadow:0 0 8px #74da8c88;font-variant-numeric:tabular-nums}.lcdBottom span{white-space:nowrap}.lcdBottom b{color:#c5ded0;font-weight:600}
+.miniSlot{display:flex;align-items:center;gap:7px;padding:6px 0;border-bottom:1px solid #252d30}.miniSlot>span{display:flex;flex-direction:column;gap:2px;color:#8c989a;font-size:7px}.miniSlot b{color:#d2d9d8;font-size:8px}.slotLed{width:7px;height:7px;flex:none;border-radius:50%;background:#535b5d;box-shadow:inset 0 1px 2px #000}.slotLed.ready{background:#50d783;box-shadow:0 0 7px #42d77c}.noSlotStatus{color:#576164;font-size:16px}
+.rackModelPanel{display:flex;flex-direction:column;justify-content:center;gap:6px}.rackModelPanel small{color:#7f8a8d;font-size:7px;font-weight:900;letter-spacing:.12em}.rackModelPanel b{color:#d0d6d6;font-size:9px;overflow-wrap:anywhere}.rackModelPanel span{color:#869194;font-size:7px}
+.rackDetails{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:8px}.rackDetails>details{min-width:0;padding:7px 9px;background:#111618;border:1px solid #30393d}.rackDetails summary{cursor:pointer;list-style:none;color:#a8b4b6;font-size:8px;font-weight:900;letter-spacing:.07em}.rackDetails summary::-webkit-details-marker{display:none}.rackDetails summary:after{content:"＋";float:right;color:#737f82}.rackDetails details[open] summary:after{content:"−"}.rackDetails .hyperdeckFieldList{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}.rackDetails .hyperdeckSlots{grid-template-columns:1fr;margin-top:8px}.rackDetails .hyperdeckSlot{display:grid;grid-template-columns:7px minmax(120px,.75fr) minmax(0,1.5fr);align-items:center;gap:9px;background:#0b1113}.rackDetails .hyperdeckSlot>span,.rackDetails .hyperdeckSlot>small{grid-column:2}.rackDetails .hyperdeckSlot>details{grid-column:1/-1}
+@media(max-width:850px){.rackPanel{grid-template-columns:minmax(140px,.75fr) minmax(260px,1.6fr)}.rackSlotIndicators,.rackModelPanel{min-height:72px}.rackDetails{grid-template-columns:1fr}}
+@media(max-width:560px){.rackFace{padding:8px}.rackHeader{gap:7px;flex-wrap:wrap}.rackIdentity{flex:1 1 calc(100% - 42px)}.rackIdentity span{white-space:normal}.rackConnection{margin-left:33px}.rackPanel{grid-template-columns:minmax(0,1fr)}.rackLcd{min-height:112px}.rackTimecode{font-size:19px}.rackRemove{margin-left:auto}.rackDetails{grid-template-columns:1fr}.hyperdeckForm{grid-template-columns:1fr 1fr}.hyperdeckForm button{grid-column:1/-1}}
+/* Keep the hardware cues, but use ShowDesk's square-edged blue-gray workspace palette. */
+.hyperdeckRackUnit{background:var(--sd-panel);border-color:var(--sd-line);box-shadow:none;border-radius:1px}
+.rackRail{background:var(--sd-bg);border-color:var(--sd-line);padding-inline:3px}.rackRail i{background:var(--sd-raised);box-shadow:inset 0 0 0 1px var(--sd-line)}
+.rackFace{background:var(--sd-work);box-shadow:none;padding:10px 13px 9px}
+.rackHeader{border-bottom-color:var(--sd-line);padding-bottom:9px}
+.rackBadge{position:relative;background:var(--sd-raised);border:1px solid var(--sd-line);color:var(--sd-text);box-shadow:none;border-radius:1px}
+.rackBadge:after{content:"";position:absolute;left:0;top:4px;bottom:4px;width:2px;background:var(--sd-red)}
+.rackIdentity b{color:var(--sd-text);font-size:10px;letter-spacing:.08em}.rackIdentity span{color:var(--sd-muted)}
+.rackConnection{color:var(--sd-muted)}.isConnected .rackConnection{color:var(--green)}.isDisconnected .rackConnection{color:var(--amber)}
+.rackRemove{background:var(--sd-raised);color:var(--sd-muted);border-color:var(--sd-line);border-radius:1px}
+.rackTransport,.rackSlotIndicators,.rackModelPanel{background:var(--sd-panel);border-color:var(--sd-line);box-shadow:none;border-radius:1px}
+.rackTransportLeds>span{color:var(--sd-muted)}.rackTransportLeds i,.slotLed{background:#3b4a51;box-shadow:none}.rackTransportLeds .lit.red{color:var(--sd-red)}.rackTransportLeds .lit.red i{background:var(--sd-red);box-shadow:0 0 5px #ed3f3666}.rackTransportLeds .lit.green i,.slotLed.ready{background:var(--green);box-shadow:0 0 5px #42d89455}.rackTransportLeds .lit.white i{background:#c9d3d7;box-shadow:none}
+.rackStaticControls span{background:var(--sd-raised);border-color:var(--sd-line);border-radius:1px;box-shadow:none;color:#aab7bd}.rackStaticControls span:nth-child(3){color:var(--sd-text)}
+.rackLcd{background:#0e171c;border-color:var(--sd-line);box-shadow:none;color:var(--sd-text);border-radius:1px}.lcdTop,.lcdBottom{color:var(--sd-muted)}.lcdMain small{color:var(--sd-muted)}.lcdTransport{color:var(--sd-text)!important}.lcdTransport.playing{color:var(--green)!important}.lcdTransport.recording{color:var(--sd-red)!important}.lcdTimecode{color:var(--sd-text);text-shadow:none}.lcdBottom b{color:var(--sd-text)}
+.rackSectionLabel,.rackModelPanel small{color:var(--sd-muted)}.rackModelPanel b,.rackModelPanel span{color:var(--sd-text)}.rackModelPanel span{color:var(--sd-muted)}
+.miniSlot{border-bottom-color:var(--sd-line-soft)}.miniSlot>span,.noSlotStatus{color:var(--sd-muted)}.miniSlot b{color:var(--sd-text)}
+.rackDetails>details{background:var(--sd-panel);border-color:var(--sd-line);border-radius:1px}.rackDetails summary{color:var(--sd-text)}.rackDetails summary:after{color:var(--sd-muted)}.rackDetails .hyperdeckSlot{background:var(--sd-bg);border-color:var(--sd-line)}.rackDetails .hyperdeckFieldList>div{background:var(--sd-bg);border-color:var(--sd-line)}.rackDetails .hyperdeckFieldList dt{color:var(--sd-muted)}.rackDetails .hyperdeckFieldList dd{color:var(--sd-text)}
+/* Give the monitor more readable scale without simulating physical rack ears. */
+.hyperdeckRackUnit{display:block;overflow:visible}
+.rackFace{padding:16px 18px 15px}
+.rackHeader{gap:12px;padding-bottom:12px}
+.rackIdentity{gap:5px}
+.rackIdentity b{font-size:15px}
+.rackIdentity span{font-size:11px}
+.rackNameLabel{color:var(--sd-muted);font-size:9px;font-weight:800;letter-spacing:.1em}
+.rackNameInput{width:min(100%,320px);padding:5px 8px;background:var(--sd-bg);border:1px solid var(--sd-line);border-radius:1px;color:var(--sd-text);font-family:inherit;font-size:15px;font-weight:700;letter-spacing:.02em}
+.rackNameInput:focus{outline:2px solid var(--sd-blue);outline-offset:1px}
+.rackConnection{font-size:10px}
+.rackRemove{padding:7px 10px;font-size:9px}
+.rackPanel{gap:12px;padding-top:12px}
+.rackTransport,.rackSlotIndicators,.rackModelPanel{padding:12px}
+.rackSectionLabel,.rackModelPanel small{font-size:9px}
+.rackTransportLeds>span{font-size:9px}.rackTransportLeds i,.slotLed{width:8px;height:8px}
+.rackStaticControls span{min-width:27px;padding:7px 5px;font-size:11px}
+.lcdTop,.lcdBottom{font-size:9px}.lcdMain small{font-size:9px}.lcdTransport{font-size:15px!important}.lcdTimecode{font-size:clamp(24px,2.7vw,36px)}
+.miniSlot>span{font-size:9px}.miniSlot b{font-size:10px}
+.rackModelPanel{gap:8px}.rackModelPanel b{font-size:12px}.rackModelPanel span{font-size:9px}
+.rackDetails{gap:10px;margin-top:10px}.rackDetails>details{padding:10px 12px}.rackDetails summary{font-size:10px}
+.hyperdeckForm{grid-template-columns:minmax(190px,.75fr) minmax(250px,1.5fr) 100px auto;gap:10px}
+.hyperdeckForm label{font-size:11px}.hyperdeckForm input{padding:12px;font-size:13px}.hyperdeckForm button{height:42px}
+.hyperdeckSetupPanel{padding:16px}
+@media(max-width:850px){.rackPanel{grid-template-columns:minmax(160px,.75fr) minmax(260px,1.6fr)}.rackSlotIndicators,.rackModelPanel{min-height:84px}}
+@media(max-width:560px){.rackFace{padding:12px}.rackHeader{gap:9px}.rackIdentity{flex:1 1 calc(100% - 42px)}.rackIdentity b,.rackNameInput{font-size:14px}.rackIdentity span{font-size:10px;white-space:normal}.rackConnection{margin-left:38px;font-size:9px}.rackPanel{grid-template-columns:minmax(0,1fr)}.rackLcd{min-height:128px}.rackTimecode{font-size:22px}.rackDetails{grid-template-columns:1fr}.hyperdeckForm{grid-template-columns:1fr 1fr}.hyperdeckForm label:first-child{grid-column:1/-1}.hyperdeckForm button{grid-column:1/-1}}
+.hyperdeckSetupPanel{position:relative;padding:20px 22px 18px;border:1px solid var(--sd-blue);border-left:4px solid var(--sd-blue);background:var(--sd-work);box-shadow:0 0 0 1px #3478dc22}
+.hyperdeckSetupPanel .head{align-items:flex-start;margin-bottom:16px}
+.hyperdeckSetupPanel .head h2{color:var(--sd-text);font-size:15px;letter-spacing:.1em}
+.hyperdeckSetupPanel .head p{margin:5px 0 0;color:var(--sd-muted);font-size:12px}
+.hyperdeckForm{grid-template-columns:minmax(280px,1.8fr) minmax(180px,.9fr) auto;gap:12px}
+.hyperdeckForm label{color:var(--sd-muted);font-size:10px;font-weight:800;letter-spacing:.06em}
+.hyperdeckForm .hyperdeckAddressField{color:var(--sd-text);font-size:11px}
+.hyperdeckForm input{min-height:45px;margin-top:7px;padding:12px 13px;background:var(--sd-bg);border:1px solid var(--sd-line);border-radius:1px;color:var(--sd-text);font-size:14px}
+.hyperdeckForm .hyperdeckAddressField input{border-color:#4b82d4;font-size:16px;font-weight:700;letter-spacing:.025em}
+.hyperdeckForm input:focus{outline:2px solid var(--sd-blue);outline-offset:1px}
+.hyperdeckForm button{min-height:45px;height:45px;padding:0 18px;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--sd-blue);border-color:var(--sd-blue);color:#fff;font-size:11px;font-weight:900;letter-spacing:.04em;white-space:nowrap}
+.hyperdeckForm button span{font-size:16px;line-height:1}
+#hyperdeckSettingsStatus{display:block;margin-top:12px;font-size:11px}
+@media(max-width:850px){.hyperdeckForm{grid-template-columns:minmax(220px,1.5fr) minmax(150px,1fr)}.hyperdeckForm button{grid-column:1/-1;justify-self:start}}
+@media(max-width:560px){.hyperdeckSetupPanel{padding:15px}.hyperdeckSetupPanel .head{flex-direction:column}.hyperdeckSetupPanel .head .sub{margin-top:7px}.hyperdeckForm{grid-template-columns:1fr 90px}.hyperdeckForm .hyperdeckAddressField,.hyperdeckForm label:nth-child(2),.hyperdeckForm button{grid-column:1/-1}.hyperdeckForm button{justify-self:stretch}}
+.rackDetails>details{background:var(--sd-work);border-left:3px solid var(--sd-line);padding:12px 14px}
+.rackDetails>details[open]{border-left-color:var(--sd-blue)}
+.rackDetails summary{font-size:12px;letter-spacing:.04em}
+.rackDetails .hyperdeckFieldList{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-top:12px}
+.rackDetails .hyperdeckFieldList>div{padding:10px 12px;background:var(--sd-panel);border-color:var(--sd-line)}
+.rackDetails .hyperdeckFieldList dt{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.rackDetails .hyperdeckFieldList dd{margin-top:6px;font-size:13px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+.rackDetails .hyperdeckSlot{grid-template-columns:8px minmax(130px,.7fr) minmax(0,2fr);gap:12px;padding:12px}
+.rackDetails .hyperdeckSlot .hyperdeckFieldList{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.rackDetails .hyperdeckSlot .slotIdentity>span{font-size:10px}.rackDetails .hyperdeckSlot .slotIdentity>b{font-size:14px}.rackDetails .hyperdeckSlot .slotIdentity>small{font-size:11px;line-height:1.4}
+.rackModelPanel span{line-height:1.45;overflow-wrap:anywhere}
+@media(max-width:700px){.rackDetails .hyperdeckFieldList{grid-template-columns:repeat(auto-fit,minmax(145px,1fr))}.rackDetails .hyperdeckSlot{grid-template-columns:8px minmax(0,1fr)}}
+/* Lift each HyperDeck above the workspace and give its readouts clear panel edges. */
+.hyperdeckPage .hyperdeckCards{gap:14px}
+.viewerDeckName{display:block;color:var(--sd-text);font-size:15px;font-weight:700;letter-spacing:.02em}
+.hyperdeckRackUnit{background:#0a1116;border-color:#3b515e;box-shadow:0 8px 22px #0007,0 1px 0 #8aa5b522 inset}
+.rackFace{background:linear-gradient(180deg,#1b2a33 0%,#17252d 100%);box-shadow:inset 0 1px #ffffff0a}
+.rackHeader{border-bottom-color:#3b515e}
+.rackPanel{gap:13px}
+.rackTransport,.rackSlotIndicators,.rackModelPanel{background:linear-gradient(180deg,#22333d,#1b2a33);border-color:#3d535f;box-shadow:0 2px 7px #0003,inset 0 1px #ffffff08}
+.rackSectionLabel,.rackModelPanel small{color:#a4b4bd}
+.rackTransportLeds>span{color:#9cabb3}
+.rackStaticControls span{background:linear-gradient(180deg,#344752,#263740);border-color:#4a606b;color:#e0e8ec}
+.rackStaticControls span:nth-child(3){color:#a9f0bf}
+.rackLcd{background:radial-gradient(ellipse at 50% 0,#17333a,#0b151a 78%);border-color:#4c7075;box-shadow:inset 0 0 18px #0008,0 0 0 1px #79c5a51a}
+.lcdTop,.lcdBottom,.lcdMain small{color:#9ab2ad}
+.lcdTimecode{color:#effff2;text-shadow:0 0 10px #74da8c55}
+.lcdTimecodeGroup{gap:5px}.lcdSecondaryTimerGroup{display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-top:2px}.lcdSecondaryTimerGroup[hidden]{display:none}.lcdSecondaryTimer{color:#a9c0c2;font-size:clamp(12px,1.25vw,17px);line-height:1.1;letter-spacing:.025em;font-variant-numeric:tabular-nums}
+.miniSlot{border-bottom-color:#3c525d}
+.miniSlot>span,.noSlotStatus{color:#afbdc4}
+.miniSlot b,.rackModelPanel b{color:#f1f5f6}
+.rackDetails{gap:11px;margin-top:11px}
+.rackDetails>details{background:linear-gradient(180deg,#1c2c35,#17252d);border:1px solid #3b515e;border-left:3px solid #516a77;box-shadow:0 2px 7px #0002}
+.rackDetails>details[open]{background:#1a2931;border-color:#4a6572;border-left-color:var(--sd-blue)}
+.rackDetails summary{color:#e5ecef}
+.rackDetails summary:after{color:#c0cdd2}
+.rackDetails .hyperdeckFieldList>div{background:#0e171d;border-color:#354954}
+.rackDetails .hyperdeckFieldList dt{color:#a9bac2}
+.rackDetails .hyperdeckFieldList dd{color:#f1f5f6}
+.rackDetails .hyperdeckSlot{background:#111c22;border-color:#3b515e}
+.rackDetails summary:hover{color:#fff}
+@media(max-width:700px){.rackPanel{gap:10px}.rackDetails>details{box-shadow:none}}
+.rackDragHandle{width:17px;height:24px;flex:none;display:grid;place-items:center;padding:0;background:transparent;border:0;color:#84959e;font-size:18px;line-height:1;cursor:grab;touch-action:none}
+.rackDragHandle:hover{background:transparent;color:#e5edf1}
+.rackDragHandle:active{cursor:grabbing}
+.hyperdeckRackUnit.isDragging{opacity:.72;z-index:4;pointer-events:none;box-shadow:0 12px 26px #000b,0 0 0 1px #6a93a488}
+.hyperdeckRackUnit.isDropTarget{outline:2px solid var(--sd-blue);outline-offset:2px}
+.hyperdeckRackUnit{transition:opacity 140ms ease,outline-color 140ms ease}
+.rackPanel{grid-template-columns:minmax(150px,.72fr) minmax(280px,1.7fr) minmax(100px,.42fr) minmax(125px,.7fr)}
+.rackSlotIndicators{display:flex;flex-direction:column;justify-content:center;gap:7px}
+.rackSlotIndicators .rackSectionLabel{margin:0}
+.rackSlotIndicators .miniSlot{padding:0;border:0;gap:7px}
+.rackSlotIndicators .miniSlot>span{display:flex;flex-direction:row;align-items:center;flex-wrap:wrap;gap:8px;font-size:11px}
+.rackSlotIndicators .miniSlot b{font-size:11px}
+.rackSlotIndicators .miniSlot em{font-style:normal;color:#bac8ce;font-size:9px;font-weight:900;letter-spacing:.04em;text-transform:uppercase}
+.rackSlotIndicators .miniSlot small{flex-basis:100%;margin-top:1px;color:#84969e;font-size:9px;font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.rackSlotIndicators .miniSlot .slotLed.ready+span em{color:var(--green)}
+@media(max-width:850px){.rackPanel{grid-template-columns:minmax(140px,.75fr) minmax(240px,1.6fr)}.rackSlotIndicators,.rackModelPanel{min-height:60px}}
+@media(max-width:560px){.rackPanel{grid-template-columns:minmax(0,1fr)}}
+.settingsWindow #settingsSectionHyperdeck h3:not(:first-child){margin-top:25px!important;padding-top:20px!important;border-top:1px solid #30414b}
+.settingsWindow .settingsHyperdeckList{display:grid;gap:8px;margin:12px 0 0}
+.settingsWindow .settingsHyperdeckViewAll{min-height:36px;margin-top:8px;padding:0 14px;font-size:10px;font-weight:800}
+.settingsWindow .settingsHyperdeckList>p{margin:0;padding:14px;background:var(--sd-work);border:1px solid var(--sd-line);color:var(--sd-muted);font-size:12px}
+.settingsWindow .settingsHyperdeckRow{min-width:0;padding:12px;background:var(--sd-work);border:1px solid var(--sd-line)}
+.rackStaticControls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(42px,auto));gap:7px 8px;align-items:stretch}
+.rackStaticControls span{min-width:0;min-height:42px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:3px 2px;background:linear-gradient(180deg,#344752,#263740);border:1px solid #4a606b;border-radius:2px;box-shadow:0 2px 3px #0005,inset 0 1px #ffffff12;color:#e0e8ec}
+.rackStaticControls span b{font-size:16px;line-height:1;font-weight:800}
+.rackStaticControls span small{color:#aab9c0;font-size:7px;font-weight:800;line-height:1;letter-spacing:.04em}
+.rackStaticControls span.isRecording{background:linear-gradient(180deg,#612b31,#3c2026);border-color:#945057;color:#ffb9b5;box-shadow:0 0 8px #f0443b22,inset 0 1px #ffffff12}
+.rackStaticControls span.isRecording small{color:#ffaaa4}
+.rackStaticControls span.isPlaying{background:linear-gradient(180deg,#315642,#203d30);border-color:#4a8966;color:#a9f0bf;box-shadow:0 0 8px #45d78022,inset 0 1px #ffffff12}
+.rackStaticControls span.isPlaying small{color:#a9e6bb}
+.rackStaticControls span.isStopped{background:linear-gradient(180deg,#315562,#223d47);border-color:#4a8291;color:#9de7ef;box-shadow:0 0 8px #4ccddd22,inset 0 1px #ffffff12}
+.rackStaticControls span.isStopped small{color:#a7dce1}
+.settingsWindow .settingsHyperdeckRow>div:first-child{min-width:0}
+.settingsWindow .settingsHyperdeckRow b{color:var(--sd-text);font-size:12px}
+.settingsWindow .settingsHyperdeckRow span{color:var(--sd-muted);font-size:11px}
+.settingsWindow .settingsHyperdeckActions{display:flex;gap:7px;flex:none}
+.settingsWindow .settingsHyperdeckActive{align-self:center;color:var(--sd-muted);font-size:9px;font-weight:800;letter-spacing:.06em}
+.settingsWindow .settingsHyperdeckActions .settingsAction{min-height:32px;padding:0 10px;font-size:9px}
+@media(max-width:570px){.settingsWindow .settingsHyperdeckRow{align-items:flex-start;flex-direction:column}.settingsWindow .settingsHyperdeckActions{width:100%}}

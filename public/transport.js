@@ -7,13 +7,15 @@
   const connectionSubscribers = new Set();
   const healthSubscribers = new Set();
   const viewerCountSubscribers = new Set();
+  const hyperdeckSubscribers = new Set();
+  const hyperdeckAvailabilitySubscribers = new Set();
 
   function isNativeTauri() {
     return !!window.__TAURI_INTERNALS__;
   }
 
   function serviceUrl() {
-    if (isNativeTauri()) return 'ws://127.0.0.1:47821/ws';
+    if (isNativeTauri()) return `ws://127.0.0.1:${window.SHOWDESK_CONFIG?.servicePort || 47821}/ws`;
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${proto}//${location.host}/ws`;
   }
@@ -58,6 +60,8 @@
         if (msg.type === 'connection') connectionSubscribers.forEach(fn => fn(msg));
         if (msg.type === 'health') healthSubscribers.forEach(fn => fn(msg));
         if (msg.type === 'viewerCount') viewerCountSubscribers.forEach(fn => fn(msg.count));
+        if (msg.type === 'hyperdecks') hyperdeckSubscribers.forEach(fn => fn(msg.data || []));
+        if (msg.type === 'hyperdeckAvailability') hyperdeckAvailabilitySubscribers.forEach(fn => fn(msg.enabled === true));
       });
       socket.addEventListener('close', () => {
         socket = null;
@@ -91,7 +95,7 @@
   async function connectViewer(host, reconnecting = false) {
     const target = host.trim().replace(/^wss?:\/\//, '').replace(/\/$/, '');
     if(!reconnecting){stopViewerReconnect();viewerReconnectEnabled=true;viewerReconnectHost=host;}
-    const url = `ws://${target.includes(':') ? target : target + ':47822'}/viewer`;
+    const url = `ws://${target.includes(':') ? target : target + ':' + (window.SHOWDESK_CONFIG?.viewerPort || 47822)}/viewer`;
     return new Promise((resolve, reject) => {
       const viewer = new WebSocket(url);
       viewerSocket = viewer;
@@ -105,6 +109,8 @@
         } else if (msg.type === 'state') subscribers.forEach(fn => fn(msg.data));
         else if (msg.type === 'connection') { connectionSubscribers.forEach(fn => fn(msg)); if (!settled && msg.status === 'waiting') { settled=true; clearTimeout(timer); socket=viewer; resolve({status:'waiting',reason:msg.reason}); } }
         else if (msg.type === 'health') healthSubscribers.forEach(fn => fn(msg));
+        else if (msg.type === 'hyperdecks') hyperdeckSubscribers.forEach(fn => fn(msg.data || []));
+        else if (msg.type === 'hyperdeckAvailability') hyperdeckAvailabilitySubscribers.forEach(fn => fn(msg.enabled === true));
       });
       viewer.addEventListener('close', () => {
         if (socket === viewer) socket = null;
@@ -115,7 +121,11 @@
   }
 
   window.ATEM_TRANSPORT = {
+    attach() { return ensureSocket(); },
     connect(ip) { return request('connect', { ip }); },
+    configureHyperdecks(devices, enabled = Array.isArray(devices) && devices.length > 0) { return request('configureHyperdecks', { devices, enabled }); },
+    subscribeHyperdecks(callback) { hyperdeckSubscribers.add(callback); return () => hyperdeckSubscribers.delete(callback); },
+    subscribeHyperdeckAvailability(callback) { hyperdeckAvailabilitySubscribers.add(callback); return () => hyperdeckAvailabilitySubscribers.delete(callback); },
     publishReferenceAttention(data) { return request('referenceAttention', { data }); },
     connectViewer(host) { return connectViewer(host); },
     subscribe(callback) {
