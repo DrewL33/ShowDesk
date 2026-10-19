@@ -100,7 +100,7 @@ Report a problem or request a feature in [GitHub Issues](https://github.com/Drew
 
 ## Contributors
 
-- **Grace Audio** — product direction, hardware testing, and project and release decisions.
+- **Andrew Lemley** — product direction, hardware testing, and project and release decisions.
 - **OpenAI Codex** — AI development collaborator; substantial contributions to implementation, testing, debugging, and documentation.
 
 ## Try ShowDesk BETA
