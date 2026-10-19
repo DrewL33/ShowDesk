@@ -98,6 +98,11 @@ Report a problem or request a feature in [GitHub Issues](https://github.com/Drew
 - [View release notes](https://github.com/DrewL33/ShowDesk/releases)
 - [Report an issue](https://github.com/DrewL33/ShowDesk/issues)
 
+## Contributors
+
+- **Grace Audio** — product direction, hardware testing, and project and release decisions.
+- **OpenAI Codex** — AI development collaborator; substantial contributions to implementation, testing, debugging, and documentation.
+
 ## Try ShowDesk BETA
 
 Beta builds are available for early feature testing and install as a separate **ShowDesk BETA** app. Beta uses its own update feed and does not replace or update the stable ShowDesk app. Beta updates are published from the `beta` branch.
