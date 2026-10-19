@@ -12,16 +12,6 @@
   <a href="https://github.com/DrewL33/ShowDesk/releases/latest">All releases</a>
 </p>
 
-## Try ShowDesk BETA
-
-Beta builds are available for early feature testing and install as a separate **ShowDesk BETA** app. Beta uses its own update feed and does not replace or update the stable ShowDesk app. Beta updates are published from the `beta` branch.
-
-The macOS BETA app uses an ad-hoc bundle signature. On first launch, macOS may require you to allow it under **System Settings → Privacy & Security** after attempting to open it.
-
-- [Download ShowDesk BETA for macOS (Apple silicon)](https://github.com/DrewL33/ShowDesk/releases/download/showdesk-beta-latest/ShowDesk-BETA-macOS-Installer.dmg)
-- [Download ShowDesk BETA for Windows (x64)](https://github.com/DrewL33/ShowDesk/releases/download/showdesk-beta-latest/ShowDesk-BETA-Windows-Installer.exe)
-- [View Beta release details](https://github.com/DrewL33/ShowDesk/releases/tag/showdesk-beta-latest)
-
 ![ShowDesk Host or Viewer connection screen](docs/images/connection-view.png)
 
 ## Description
@@ -74,7 +64,7 @@ The Host serves a compact mobile page directly on the production network.
 2. Open the disk image on macOS and move ShowDesk to Applications, or run the Windows installer.
 3. Open ShowDesk and choose **Host** to connect directly to an ATEM, or **Viewer** to connect to a computer already running ShowDesk Host.
 
-ShowDesk 1.0 currently ships for Apple silicon Macs and 64-bit Windows. macOS and Windows may show their standard first-run warning for an independently distributed app. Download only from this repository’s Releases page.
+ShowDesk 1.1 currently ships for Apple silicon Macs and 64-bit Windows. macOS and Windows may show their standard first-run warning for an independently distributed app. Download only from this repository’s Releases page.
 
 ## Use the mobile Viewer
 
@@ -107,3 +97,13 @@ Report a problem or request a feature in [GitHub Issues](https://github.com/Drew
 - [Download the latest release](https://github.com/DrewL33/ShowDesk/releases/latest)
 - [View release notes](https://github.com/DrewL33/ShowDesk/releases)
 - [Report an issue](https://github.com/DrewL33/ShowDesk/issues)
+
+## Try ShowDesk BETA
+
+Beta builds are available for early feature testing and install as a separate **ShowDesk BETA** app. Beta uses its own update feed and does not replace or update the stable ShowDesk app. Beta updates are published from the `beta` branch.
+
+The macOS BETA app uses an ad-hoc bundle signature. On first launch, macOS may require you to allow it under **System Settings → Privacy & Security** after attempting to open it.
+
+- [Download ShowDesk BETA for macOS (Apple silicon)](https://github.com/DrewL33/ShowDesk/releases/download/showdesk-beta-latest/ShowDesk-BETA-macOS-Installer.dmg)
+- [Download ShowDesk BETA for Windows (x64)](https://github.com/DrewL33/ShowDesk/releases/download/showdesk-beta-latest/ShowDesk-BETA-Windows-Installer.exe)
+- [View Beta release details](https://github.com/DrewL33/ShowDesk/releases/tag/showdesk-beta-latest)
