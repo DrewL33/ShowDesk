@@ -1,21 +1,19 @@
-# ShowDesk 1.0.0
+# ShowDesk 1.1.0
 
-ShowDesk 1.0 is the first stable release of the ATEM monitoring and signal-inspection companion.
+ShowDesk 1.1.0 adds optional HyperDeck monitoring and detachable workspaces, alongside improvements to signal tracing, viewer sharing, and reliability.
 
 ## Highlights
 
-- Live Show View with selectable M/Es, program and preview, active sources, keyer state, and recent changes.
-- Signal Explorer for tracing live signal flow through M/Es, keyers, AUX buses, and output destinations.
-- Inspect workspace with input inventory, route matrix, M/E bus and keyer details, reference attention, and diagnostics.
-- Read-only desktop and mobile Viewer modes for sharing switcher state from a Host over a LAN or routed VPN.
-- Optional comparison of supported ATEM show-reference configuration and routing values.
-- Signed in-app update checks and reliable background-service cleanup when ShowDesk closes.
+- Monitor network-enabled Blackmagic HyperDecks from an optional HyperDeck Monitoring workspace. Add decks by IP, keep successful connections in the settings address list, reorder decks, and view transport, clip, timecode, SSD record-time remaining, and media-slot information.
+- Share HyperDeck status with read-only viewers through the ShowDesk Host, so viewer computers do not need direct network access to the decks.
+- Choose which timer readouts appear on the HyperDeck front-panel display and keep recording counters, clip timecode, and SSD remaining time aligned with the deck’s reported state.
+- Open Show View, Signal Explorer, Inspect, and HyperDeck Monitoring in separate windows for multi-monitor operation. Detached windows close when ShowDesk quits and can be returned to the main window.
+- Improve Signal Explorer responsiveness and signal-path tracing accuracy, including clearer highlighted routes.
+- Improve settings layout, saved HyperDeck address management, device setup, and transport controls.
 
 ## Downloads
 
 - **macOS (Apple silicon):** `ShowDesk-macOS-Installer.dmg`
 - **Windows (64-bit):** `ShowDesk-Windows-Installer.exe`
 
-Choose Host to connect directly to your ATEM, or Viewer to connect to a ShowDesk Host. For a phone or tablet, open `http://<host-computer-ip>:47822/` while ShowDesk is running in Host mode.
-
-ShowDesk is an observability companion and does not send switcher-control commands. The mobile and desktop Viewer connections are read-only.
+ShowDesk remains read-only: it monitors switcher and HyperDeck state and does not send control commands to either device.
