@@ -791,3 +791,8 @@ body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!importa
 .settingsWindow .settingsHyperdeckActive{align-self:center;color:var(--sd-muted);font-size:9px;font-weight:800;letter-spacing:.06em}
 .settingsWindow .settingsHyperdeckActions .settingsAction{min-height:32px;padding:0 10px;font-size:9px}
 @media(max-width:570px){.settingsWindow .settingsHyperdeckRow{align-items:flex-start;flex-direction:column}.settingsWindow .settingsHyperdeckActions{width:100%}}
+
+/* During a trace, keep unrelated wiring out of the highlighted signal path. */
+.signalOverview.is-filtered .overviewEdge:not(.is-active){opacity:.015}
+.signalOverview.is-filtered .overviewEdgeHalo:not(.is-active),
+.signalOverview.is-filtered .overviewDirection:not(.is-active){opacity:0}
