@@ -440,7 +440,7 @@ function refreshShowDeskSettings(){
  if($("settingsDevice"))$("settingsDevice").textContent=connectedDevice?.name||connectedDevice?.productIdentifier||liveEngineering.productIdentifier||"—";
  if($("settingsAddress"))$("settingsAddress").textContent=connectedDevice?.ip||viewerConnectionContext?.ip||"—";
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
- if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"1.1.1"; if($("settingsBuild"))$("settingsBuild").textContent=`Version ${showDeskUpdater.currentVersion||"1.1.1"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
+ if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"1.1.2"; if($("settingsBuild"))$("settingsBuild").textContent=`Version ${showDeskUpdater.currentVersion||"1.1.2"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
 }
 function openShowDeskSettings(){refreshShowDeskSettings();updateReferenceUI();renderSavedConnectionChoices();renderSavedHyperdeckAddresses();syncSettingsWorkspaceMenu();syncHyperdeckTimerMenus();syncHyperdeckTab();closeSettingsWorkspaceMenu();closeHyperdeckTimerMenus();if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;if($("settingsHyperdeckEnabled"))$("settingsHyperdeckEnabled").checked=showDeskPreferences.hyperdeckMonitoring===true;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");$("settingsModal").hidden=false;document.documentElement.classList.add("settingsOpen")}
 function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true;document.documentElement.classList.remove("settingsOpen")}
@@ -683,7 +683,7 @@ function clearReference(){
 async function exportLogReport(){
  const mismatches=getMismatches(),mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
  const line=(label,value)=>label.padEnd(24," ")+(value??"—");
- const rows=["SHOWDESK SESSION REPORT","=======================","",line("ShowDesk version",showDeskUpdater.currentVersion||"1.1.1"),line("Exported",new Date().toLocaleString()),line("ATEM",connectedDevice?.name||liveEngineering.productIdentifier||"Not connected"),line("Connection mode",activeConnectionMode||"Disconnected"),line("Connection state",!activeConnectionMode?"Disconnected":hostReconnecting||viewerReconnecting?"Reconnecting":"Connected"),line("Session started",new Date(sessionStartedAt).toLocaleString()),line("Session duration",Math.round((Date.now()-sessionStartedAt)/1000)+" seconds"),line("Link interruptions",connectionIncidents.interruptions),line("Link recoveries",connectionIncidents.recoveries),line("Connection failures",connectionIncidents.failures),line("ATEM IP",connectedDevice?.ip||"—"),line("Connection uptime",connectionStartedAt?Math.round((Date.now()-connectionStartedAt)/1000)+" seconds":"—"),line("Last health signal",lastHealthAt?new Date(lastHealthAt).toLocaleString():"—"),line("Video mode",liveEngineering.videoMode||"—"),line("Reported sources",(liveEngineering.inputs||[]).length),line("M/E buses",mes.length),"","CURRENT M/E STATE","-----------------"];
+ const rows=["SHOWDESK SESSION REPORT","=======================","",line("ShowDesk version",showDeskUpdater.currentVersion||"1.1.2"),line("Exported",new Date().toLocaleString()),line("ATEM",connectedDevice?.name||liveEngineering.productIdentifier||"Not connected"),line("Connection mode",activeConnectionMode||"Disconnected"),line("Connection state",!activeConnectionMode?"Disconnected":hostReconnecting||viewerReconnecting?"Reconnecting":"Connected"),line("Session started",new Date(sessionStartedAt).toLocaleString()),line("Session duration",Math.round((Date.now()-sessionStartedAt)/1000)+" seconds"),line("Link interruptions",connectionIncidents.interruptions),line("Link recoveries",connectionIncidents.recoveries),line("Connection failures",connectionIncidents.failures),line("ATEM IP",connectedDevice?.ip||"—"),line("Connection uptime",connectionStartedAt?Math.round((Date.now()-connectionStartedAt)/1000)+" seconds":"—"),line("Last health signal",lastHealthAt?new Date(lastHealthAt).toLocaleString():"—"),line("Video mode",liveEngineering.videoMode||"—"),line("Reported sources",(liveEngineering.inputs||[]).length),line("M/E buses",mes.length),"","CURRENT M/E STATE","-----------------"];
  mes.forEach(me=>{rows.push(`M/E ${me.index}`,`  PROGRAM: ${me.pgm||"—"}`,`  PREVIEW: ${me.pvw||"—"}`,`  FTB: ${me.ftb?.isFullyBlack?"BLACK":me.ftb?.inTransition?"TRANSITION":"OFF"}`);(me.upstreamKeyers||[]).forEach((k,i)=>rows.push(`  USK ${i+1}: ${k.onAir?"ON AIR":"OFF"} | Fill: ${k.fill||"—"} | Key: ${k.key||"—"}`));});
  if(dsks.length){rows.push("","DOWNSTREAM KEYERS","-----------------");dsks.forEach((k,i)=>rows.push(`DSK ${i+1}: ${k.onAir?"ON AIR":"OFF"} | Fill: ${k.fill||"—"} | Key: ${k.key||"—"}`));}
  rows.push("","ROUTING / AUX ASSIGNMENTS","-------------------------");
@@ -896,8 +896,6 @@ function explorerRoute(start,end,columns,lanes,bounds){
  const gap=i=>({min:columns[i]+W+8,max:columns[i+1]-8});
  const occupied=lanes.get("occupied")||[];
  const trackBins=lanes.get("trackBins")||new Map();
- const privateLane=lanes.get("privateLane")||0;
- lanes.set("privateLane",privateLane+1);
  lanes.set("occupied",occupied);
  lanes.set("trackBins",trackBins);
  const segment=(a,b)=>({a,b,h:a.y===b.y,lo:Math.min(a.y===b.y?a.x:a.y,b.y===a.y?b.x:b.y),hi:Math.max(a.y===b.y?a.x:a.y,b.y===a.y?b.x:b.y),axis:a.y===b.y?a.y:a.x});
@@ -910,7 +908,7 @@ function explorerRoute(start,end,columns,lanes,bounds){
    for(let bin=center-1;bin<=center+1;bin++)for(const prior of bins.get(bin)||[]){
     if(Math.abs(current.axis-prior.axis)>=spacing)continue;
     const overlap=Math.min(current.hi,prior.hi)-Math.max(current.lo,prior.lo);
-    if(overlap>0)penalty+=1200+overlap*8;
+    if(overlap>0)penalty+=250+overlap;
    }
   }
   return penalty;
@@ -944,12 +942,6 @@ function explorerRoute(start,end,columns,lanes,bounds){
    const routeYs=sample(ys.slice(0,12),12);
    for(const x of firstXs)for(const lastX of lastXs)for(const y of routeYs)
     candidates.push([start,{x,y:start.y},{x,y},{x:lastX,y},{x:lastX,y:end.y},end]);
-   // Dense switcher graphs can exhaust the nearby row gutters. Give every
-   // long route a private lower corridor as a guaranteed non-overlapping
-   // fallback instead of reusing a busy straight segment.
-   const isolatedY=bounds.nodeBottom+22+(64+privateLane)*spacing;
-   for(const x of firstXs)for(const lastX of lastXs)
-    candidates.push([start,{x,y:start.y},{x,y:isolatedY},{x:lastX,y:isolatedY},{x:lastX,y:end.y},end]);
   }
  }else{
   // Build084: reverse/return connections use reserved lower corridors, not

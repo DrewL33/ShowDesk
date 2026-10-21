@@ -52,4 +52,7 @@ assert.ok(explorer.explorerReach(graph,graph.nodes[0].id).size>0,'Indexed traver
 assert.ok(graph.edges.every(edge=>!explorer.explorerReach(graph,edge.to).has(edge.from)),'Cycle filtering should keep the overview graph acyclic');
 assert.match(svg,/aria-label="Live ATEM signal overview"/,'Signal Explorer should still produce its accessible SVG');
 assert.equal((svg.match(/class="overviewEdge /g)||[]).length,graph.edges.length,'Every route should be drawn exactly once');
+const overviewHeight=Number(svg.match(/viewBox="0 0 \d+ ([\d.]+)"/)?.[1]);
+const nodeBottom=Math.max(...[...svg.matchAll(/<rect x="[\d.]+" y="([\d.]+)" width="184" height="36"/g)].map(match=>Number(match[1])+36));
+assert.ok(overviewHeight-nodeBottom<500,'Dense routes should stay near the graph instead of falling into distant lower overflow lanes');
 console.log(`Signal Explorer graph/render regression passed (${graph.nodes.length} nodes, ${graph.edges.length} routes, ${elapsed.toFixed(1)} ms)`);
