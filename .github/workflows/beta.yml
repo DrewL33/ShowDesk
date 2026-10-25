@@ -27,7 +27,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, windows-latest]
+        include:
+          - os: macos-14
+            artifact: macos-arm64
+          - os: macos-15-intel
+            artifact: macos-x86_64
+          - os: windows-latest
+            artifact: windows-x86_64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -82,7 +88,7 @@ jobs:
           fi
       - uses: actions/upload-artifact@v4
         with:
-          name: ShowDesk-BETA-${{ runner.os }}
+          name: ShowDesk-BETA-${{ matrix.artifact }}
           path: |
             src-tauri/target/release/bundle/dmg/*.dmg
             src-tauri/target/release/bundle/nsis/*-setup.exe
@@ -101,7 +107,6 @@ jobs:
         with:
           pattern: ShowDesk-BETA-*
           path: beta-input
-          merge-multiple: true
       - name: Prepare Beta installers and update feed
         shell: bash
         env:
@@ -109,16 +114,25 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p beta-release
-          MAC_DMG="$(find beta-input -type f -name '*.dmg' -print -quit)"
-          WIN_EXE="$(find beta-input -type f -name '*-setup.exe' -print -quit)"
-          MAC_TAR="$(find beta-input -type f -name '*.app.tar.gz' -print -quit)"
-          MAC_SIG="$(find beta-input -type f -name '*.app.tar.gz.sig' -print -quit)"
-          WIN_SIG="$(find beta-input -type f -name '*-setup.exe.sig' -print -quit)"
-          test -n "$MAC_DMG" && test -n "$WIN_EXE" && test -n "$MAC_TAR" && test -n "$MAC_SIG" && test -n "$WIN_SIG"
-          cp "$MAC_DMG" beta-release/ShowDesk-BETA-macOS-Installer.dmg
+          ARM_DIR=beta-input/ShowDesk-BETA-macos-arm64
+          INTEL_DIR=beta-input/ShowDesk-BETA-macos-x86_64
+          WIN_DIR=beta-input/ShowDesk-BETA-windows-x86_64
+          MAC_ARM_DMG="$(find "$ARM_DIR" -type f -name '*.dmg' -print -quit)"
+          MAC_INTEL_DMG="$(find "$INTEL_DIR" -type f -name '*.dmg' -print -quit)"
+          WIN_EXE="$(find "$WIN_DIR" -type f -name '*-setup.exe' -print -quit)"
+          MAC_ARM_TAR="$(find "$ARM_DIR" -type f -name '*.app.tar.gz' -print -quit)"
+          MAC_ARM_SIG="$(find "$ARM_DIR" -type f -name '*.app.tar.gz.sig' -print -quit)"
+          MAC_INTEL_TAR="$(find "$INTEL_DIR" -type f -name '*.app.tar.gz' -print -quit)"
+          MAC_INTEL_SIG="$(find "$INTEL_DIR" -type f -name '*.app.tar.gz.sig' -print -quit)"
+          WIN_SIG="$(find "$WIN_DIR" -type f -name '*-setup.exe.sig' -print -quit)"
+          test -n "$MAC_ARM_DMG" && test -n "$MAC_INTEL_DMG" && test -n "$WIN_EXE" && test -n "$MAC_ARM_TAR" && test -n "$MAC_ARM_SIG" && test -n "$MAC_INTEL_TAR" && test -n "$MAC_INTEL_SIG" && test -n "$WIN_SIG"
+          cp "$MAC_ARM_DMG" beta-release/ShowDesk-BETA-macOS-Installer.dmg
+          cp "$MAC_INTEL_DMG" beta-release/ShowDesk-BETA-macOS-Intel-Installer.dmg
           cp "$WIN_EXE" beta-release/ShowDesk-BETA-Windows-Installer.exe
-          cp "$MAC_TAR" "beta-release/ShowDesk-BETA-${BETA_VERSION}-macOS-arm64.app.tar.gz"
-          cp "$MAC_SIG" "beta-release/ShowDesk-BETA-${BETA_VERSION}-macOS-arm64.app.tar.gz.sig"
+          cp "$MAC_ARM_TAR" "beta-release/ShowDesk-BETA-${BETA_VERSION}-macOS-arm64.app.tar.gz"
+          cp "$MAC_ARM_SIG" "beta-release/ShowDesk-BETA-${BETA_VERSION}-macOS-arm64.app.tar.gz.sig"
+          cp "$MAC_INTEL_TAR" "beta-release/ShowDesk-BETA-${BETA_VERSION}-macOS-x86_64.app.tar.gz"
+          cp "$MAC_INTEL_SIG" "beta-release/ShowDesk-BETA-${BETA_VERSION}-macOS-x86_64.app.tar.gz.sig"
           cp "$WIN_EXE" "beta-release/ShowDesk-BETA-${BETA_VERSION}-Windows-x64-setup.exe"
           cp "$WIN_SIG" "beta-release/ShowDesk-BETA-${BETA_VERSION}-Windows-x64-setup.exe.sig"
           export BETA_VERSION
@@ -135,6 +149,10 @@ jobs:
                 signature:fs.readFileSync(`beta-release/ShowDesk-BETA-${version}-macOS-arm64.app.tar.gz.sig`,'utf8').trim(),
                 url:base+`ShowDesk-BETA-${version}-macOS-arm64.app.tar.gz`
               },
+              'darwin-x86_64':{
+                signature:fs.readFileSync(`beta-release/ShowDesk-BETA-${version}-macOS-x86_64.app.tar.gz.sig`,'utf8').trim(),
+                url:base+`ShowDesk-BETA-${version}-macOS-x86_64.app.tar.gz`
+              },
               'windows-x86_64':{
                 signature:fs.readFileSync(`beta-release/ShowDesk-BETA-${version}-Windows-x64-setup.exe.sig`,'utf8').trim(),
                 url:base+`ShowDesk-BETA-${version}-Windows-x64-setup.exe`
@@ -143,7 +161,7 @@ jobs:
           };
           fs.writeFileSync('beta-release/latest.json',JSON.stringify(feed,null,2)+'\n');
           NODE
-          node -e "const f=JSON.parse(require('fs').readFileSync('beta-release/latest.json','utf8'));if(f.version!==process.env.BETA_VERSION||!f.platforms?.['darwin-aarch64']||!f.platforms?.['windows-x86_64'])process.exit(1)"
+          node -e "const f=JSON.parse(require('fs').readFileSync('beta-release/latest.json','utf8'));if(f.version!==process.env.BETA_VERSION||!f.platforms?.['darwin-aarch64']||!f.platforms?.['darwin-x86_64']||!f.platforms?.['windows-x86_64'])process.exit(1)"
       - name: Publish independent Beta update channel
         env:
           GH_TOKEN: ${{ github.token }}
@@ -162,4 +180,4 @@ jobs:
         run: |
           set -euo pipefail
           curl -fL --retry 3 --retry-delay 2 -H 'Cache-Control: no-cache' "https://github.com/${{ github.repository }}/releases/download/showdesk-beta-latest/latest.json?run=${{ github.run_id }}" -o published-beta.json
-          node -e "const f=JSON.parse(require('fs').readFileSync('published-beta.json','utf8'));if(f.version!==process.env.BETA_VERSION||!f.platforms?.['darwin-aarch64']||!f.platforms?.['windows-x86_64'])process.exit(1)"
+          node -e "const f=JSON.parse(require('fs').readFileSync('published-beta.json','utf8'));if(f.version!==process.env.BETA_VERSION||!f.platforms?.['darwin-aarch64']||!f.platforms?.['darwin-x86_64']||!f.platforms?.['windows-x86_64'])process.exit(1)"

@@ -75,6 +75,8 @@ function waitFor(predicate, timeoutMs = 1500) {
     monitor.configure([{ id: 'deck1', name: 'Studio A', host: '127.0.0.1', port: fakeDeck.address().port }]);
     await waitFor(() => monitor.snapshot()[0]?.transport?.status === 'record' && monitor.snapshot()[0]?.slots?.length === 1);
     const deck = monitor.snapshot()[0];
+    assert(deck.transportUpdatedAt > 0, 'Transport data should include the time of the last protocol reply');
+    assert(deck.slotsUpdatedAt > 0, 'Media-slot data should include the time of the last protocol reply');
     assert(deck.recordingElapsedMs < 250, 'The recording elapsed timer starts near zero when recording is first detected');
     assert.equal(deck.model, 'HyperDeck Studio HD Plus');
     assert.equal(deck.error, '', 'The normal connection-info greeting is not an error');
@@ -88,6 +90,10 @@ function waitFor(predicate, timeoutMs = 1500) {
     assert.notEqual(monitor.snapshot()[0].slots[0]['recording time available'], '3600', 'The SSD recording-time countdown should refresh during recording');
     assert.equal(monitor.snapshot()[0].error, '', 'Asynchronous timecode updates are normal status, not connection errors');
     await waitFor(() => monitor.snapshot()[0]?.transport?.timecode === '00:00:00:02');
+    const transportUpdatedAt = monitor.snapshot()[0].transportUpdatedAt;
+    await waitFor(() => monitor.snapshot()[0]?.transportUpdatedAt > transportUpdatedAt);
+    const slotsUpdatedAt = monitor.snapshot()[0].slotsUpdatedAt;
+    await waitFor(() => monitor.snapshot()[0]?.slotsUpdatedAt > slotsUpdatedAt);
     await waitFor(() => monitor.snapshot()[0]?.recordingElapsedMs >= 25);
     assert(commands.filter(command => command === 'transport info').length > 1, 'A connected deck should receive periodic read-only transport info requests');
     assert.notEqual(monitor.snapshot()[0].transport.timecode, monitor.snapshot()[0].transport['display timecode'], 'Clip and front-panel display timecode remain distinct');
