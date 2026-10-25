@@ -27,12 +27,13 @@ if (process.platform !== 'win32') fs.chmodSync(nodeTarget, 0o755);
 // matching this build so every app does not ship both Node architectures.
 if (process.platform === 'darwin') {
   const architectures = execFileSync('lipo', ['-archs', nodeTarget], { encoding: 'utf8' }).trim().split(/\s+/);
-  if (!architectures.includes(process.arch)) {
-    throw new Error(`Bundled Node runtime architectures (${architectures.join(', ')}) do not include ${process.arch}.`);
+  const runtimeArch = process.arch === 'x64' ? 'x86_64' : process.arch;
+  if (!architectures.includes(runtimeArch)) {
+    throw new Error(`Bundled Node runtime architectures (${architectures.join(', ')}) do not include ${runtimeArch}.`);
   }
   if (architectures.length > 1) {
     const thinTarget = `${nodeTarget}.thin`;
-    execFileSync('lipo', ['-thin', process.arch, nodeTarget, '-output', thinTarget]);
+    execFileSync('lipo', ['-thin', runtimeArch, nodeTarget, '-output', thinTarget]);
     fs.renameSync(thinTarget, nodeTarget);
     fs.chmodSync(nodeTarget, 0o755);
   }
