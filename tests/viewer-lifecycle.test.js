@@ -231,8 +231,8 @@ assert.match(app,/function explorerTrace\(graph,id\)/,'Every inspected node must
 assert.match(app,/explorerReach\(\{edges,adjacency\},to,false\)\.has\(from\)/,'Explorer must reject inferred circular graph edges');
 assert.match(app,/routingChanged=routing!==explorerRouteState/,'Signal explorer must update when live routing changes');
 
-assert.match(app,/const nodes=new Set\(\[\.\.\.upstream,\.\.\.downstream\]\)/,'Signal traces must include connected upstream and downstream nodes');
-assert.match(app,/\(upstream\.has\(e\.from\)&&upstream\.has\(e\.to\)\)\|\|/,'Only edges along the upstream or downstream trace may highlight');
+assert.match(app,/outgoingEdges|incomingEdges/,'Signal traces must walk the exact connected edges in both directions');
+assert.match(app,/edges\.add\(edge\.id\)/,'Only edge IDs actually traversed by the selected signal path may highlight');
 
 assert.match(app,/const startTime=performance\.now\(\),duration=180/,'Signal Explorer zoom must animate smoothly');
 assert.match(app,/logicalX\*scale\+left-focalX/,'Zoom must preserve its cursor-centered focal point');

@@ -440,7 +440,7 @@ function refreshShowDeskSettings(){
  if($("settingsDevice"))$("settingsDevice").textContent=connectedDevice?.name||connectedDevice?.productIdentifier||liveEngineering.productIdentifier||"—";
  if($("settingsAddress"))$("settingsAddress").textContent=connectedDevice?.ip||viewerConnectionContext?.ip||"—";
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
- if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"1.1.2"; if($("settingsBuild"))$("settingsBuild").textContent=`Version ${showDeskUpdater.currentVersion||"1.1.2"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
+ if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"1.1.3"; if($("settingsBuild"))$("settingsBuild").textContent=`Version ${showDeskUpdater.currentVersion||"1.1.3"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
 }
 function openShowDeskSettings(){refreshShowDeskSettings();updateReferenceUI();renderSavedConnectionChoices();renderSavedHyperdeckAddresses();syncSettingsWorkspaceMenu();syncHyperdeckTimerMenus();syncHyperdeckTab();closeSettingsWorkspaceMenu();closeHyperdeckTimerMenus();if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;if($("settingsHyperdeckEnabled"))$("settingsHyperdeckEnabled").checked=showDeskPreferences.hyperdeckMonitoring===true;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");$("settingsModal").hidden=false;document.documentElement.classList.add("settingsOpen")}
 function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true;document.documentElement.classList.remove("settingsOpen")}
@@ -683,7 +683,7 @@ function clearReference(){
 async function exportLogReport(){
  const mismatches=getMismatches(),mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
  const line=(label,value)=>label.padEnd(24," ")+(value??"—");
- const rows=["SHOWDESK SESSION REPORT","=======================","",line("ShowDesk version",showDeskUpdater.currentVersion||"1.1.2"),line("Exported",new Date().toLocaleString()),line("ATEM",connectedDevice?.name||liveEngineering.productIdentifier||"Not connected"),line("Connection mode",activeConnectionMode||"Disconnected"),line("Connection state",!activeConnectionMode?"Disconnected":hostReconnecting||viewerReconnecting?"Reconnecting":"Connected"),line("Session started",new Date(sessionStartedAt).toLocaleString()),line("Session duration",Math.round((Date.now()-sessionStartedAt)/1000)+" seconds"),line("Link interruptions",connectionIncidents.interruptions),line("Link recoveries",connectionIncidents.recoveries),line("Connection failures",connectionIncidents.failures),line("ATEM IP",connectedDevice?.ip||"—"),line("Connection uptime",connectionStartedAt?Math.round((Date.now()-connectionStartedAt)/1000)+" seconds":"—"),line("Last health signal",lastHealthAt?new Date(lastHealthAt).toLocaleString():"—"),line("Video mode",liveEngineering.videoMode||"—"),line("Reported sources",(liveEngineering.inputs||[]).length),line("M/E buses",mes.length),"","CURRENT M/E STATE","-----------------"];
+ const rows=["SHOWDESK SESSION REPORT","=======================","",line("ShowDesk version",showDeskUpdater.currentVersion||"1.1.3"),line("Exported",new Date().toLocaleString()),line("ATEM",connectedDevice?.name||liveEngineering.productIdentifier||"Not connected"),line("Connection mode",activeConnectionMode||"Disconnected"),line("Connection state",!activeConnectionMode?"Disconnected":hostReconnecting||viewerReconnecting?"Reconnecting":"Connected"),line("Session started",new Date(sessionStartedAt).toLocaleString()),line("Session duration",Math.round((Date.now()-sessionStartedAt)/1000)+" seconds"),line("Link interruptions",connectionIncidents.interruptions),line("Link recoveries",connectionIncidents.recoveries),line("Connection failures",connectionIncidents.failures),line("ATEM IP",connectedDevice?.ip||"—"),line("Connection uptime",connectionStartedAt?Math.round((Date.now()-connectionStartedAt)/1000)+" seconds":"—"),line("Last health signal",lastHealthAt?new Date(lastHealthAt).toLocaleString():"—"),line("Video mode",liveEngineering.videoMode||"—"),line("Reported sources",(liveEngineering.inputs||[]).length),line("M/E buses",mes.length),"","CURRENT M/E STATE","-----------------"];
  mes.forEach(me=>{rows.push(`M/E ${me.index}`,`  PROGRAM: ${me.pgm||"—"}`,`  PREVIEW: ${me.pvw||"—"}`,`  FTB: ${me.ftb?.isFullyBlack?"BLACK":me.ftb?.inTransition?"TRANSITION":"OFF"}`);(me.upstreamKeyers||[]).forEach((k,i)=>rows.push(`  USK ${i+1}: ${k.onAir?"ON AIR":"OFF"} | Fill: ${k.fill||"—"} | Key: ${k.key||"—"}`));});
  if(dsks.length){rows.push("","DOWNSTREAM KEYERS","-----------------");dsks.forEach((k,i)=>rows.push(`DSK ${i+1}: ${k.onAir?"ON AIR":"OFF"} | Fill: ${k.fill||"—"} | Key: ${k.key||"—"}`));}
  rows.push("","ROUTING / AUX ASSIGNMENTS","-------------------------");
@@ -774,12 +774,20 @@ function explorerReach(graph,id,reverse=false){
  return seen;
 }
 function explorerTrace(graph,id){
- const upstream=explorerReach(graph,id,true),downstream=explorerReach(graph,id,false);
- const nodes=new Set([...upstream,...downstream]);
- const edges=new Set(graph.edges.filter(e=>
-  (upstream.has(e.from)&&upstream.has(e.to))||
-  (downstream.has(e.from)&&downstream.has(e.to))
- ).map(e=>e.id));
+ const nodes=new Set([id]),edges=new Set();
+ const walk=(reverse)=>{
+  const queue=[id],visited=new Set([id]);
+  for(let cursor=0;cursor<queue.length;cursor++){
+   const current=queue[cursor],indexed=graph.adjacency?.[reverse?"incomingEdges":"outgoingEdges"]?.get(current);
+   const connected=indexed||graph.edges.filter(edge=>(reverse?edge.to:edge.from)===current);
+   for(const edge of connected){
+    edges.add(edge.id);
+    const next=reverse?edge.from:edge.to;
+    if(!visited.has(next)){visited.add(next);nodes.add(next);queue.push(next)}
+   }
+  }
+ };
+ walk(true);walk(false);
  return {nodes,edges};
 }
 function explorerHighlight(){
@@ -808,7 +816,7 @@ function explorerHighlight(){
 function explorerBuildGraph(){
  const inputs=liveEngineering.inputs||[],mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
  const nodes=[],edges=[],byId=new Map(),edgeIds=new Set();
- const adjacency={outgoing:new Map(),incoming:new Map()};
+ const adjacency={outgoing:new Map(),incoming:new Map(),outgoingEdges:new Map(),incomingEdges:new Map()};
  const add=(id,label,type,group)=>{if(!byId.has(id)){const n={id,label,type,group};byId.set(id,n);nodes.push(n)}return id};
  const internal=new Map();
  // Blackmagic's internal M/E Program/Preview source IDs are stable; labels are user-editable.
@@ -832,6 +840,8 @@ function explorerBuildGraph(){
   edgeIds.add(id);edges.push({id,from,to,kind});
   if(!adjacency.outgoing.has(from))adjacency.outgoing.set(from,new Set());adjacency.outgoing.get(from).add(to);
   if(!adjacency.incoming.has(to))adjacency.incoming.set(to,new Set());adjacency.incoming.get(to).add(from);
+  if(!adjacency.outgoingEdges.has(from))adjacency.outgoingEdges.set(from,[]);adjacency.outgoingEdges.get(from).push(edges[edges.length-1]);
+  if(!adjacency.incomingEdges.has(to))adjacency.incomingEdges.set(to,[]);adjacency.incomingEdges.get(to).push(edges[edges.length-1]);
  };
  const feed=(id,to,kind)=>{if(id===undefined||id===null||!Number.isFinite(Number(id)))return;connect(source(id),to,kind)};
  // Physical source -> bus -> processing output. Never create a reverse edge to an earlier column.
@@ -908,7 +918,7 @@ function explorerRoute(start,end,columns,lanes,bounds){
    for(let bin=center-1;bin<=center+1;bin++)for(const prior of bins.get(bin)||[]){
     if(Math.abs(current.axis-prior.axis)>=spacing)continue;
     const overlap=Math.min(current.hi,prior.hi)-Math.max(current.lo,prior.lo);
-    if(overlap>0)penalty+=250+overlap;
+    if(overlap>0)penalty+=1000+overlap*4;
    }
   }
   return penalty;
@@ -926,8 +936,10 @@ function explorerRoute(start,end,columns,lanes,bounds){
   const xs=[];
   for(let x=first.min;x<=first.max;x+=spacing)xs.push(x);
   const sample=(values,count)=>values.length<=count?values:Array.from({length:count},(_,i)=>values[Math.round(i*(values.length-1)/(count-1))]);
-  const firstXs=sample(xs,5);
-  const lastXs=to===from+1?firstXs:[last.min+8,(last.min+last.max)/2,last.max-8];
+  // Retain a wide set of staggered channel tracks to preserve the fan-out
+  // hierarchy when several long routes leave the same source column.
+  const firstXs=sample(xs,11);
+  const lastXs=to===from+1?firstXs:sample(xs.map(x=>last.min+8+(x-first.min)),11);
   const ys=[];
   for(let row=0;row<15;row++)for(const offset of [-14,-7,0,7,14]){
    const y=TOP-18+row*ROW+offset;
@@ -939,7 +951,9 @@ function explorerRoute(start,end,columns,lanes,bounds){
   }else{
    const center=(start.y+end.y)/2;
    ys.sort((a,b)=>Math.abs(a-center)-Math.abs(b-center));
-   const routeYs=sample(ys.slice(0,12),12);
+   const nearbyYs=sample(ys.slice(0,12),12);
+   const overflowYs=ys.filter(y=>y>=bounds.nodeBottom+22);
+   const routeYs=[...new Set([...nearbyYs,...overflowYs])];
    for(const x of firstXs)for(const lastX of lastXs)for(const y of routeYs)
     candidates.push([start,{x,y:start.y},{x,y},{x:lastX,y},{x:lastX,y:end.y},end]);
   }

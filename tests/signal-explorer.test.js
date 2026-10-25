@@ -20,12 +20,16 @@ const traceGraph={edges:[
  {id:'processor-output',from:'processor',to:'output'},
  {id:'branch',from:'source-b',to:'other-bus'},
  {id:'cross-branch',from:'bus-a',to:'processor'}
-],adjacency:{outgoing:new Map(),incoming:new Map()}};
+],adjacency:{outgoing:new Map(),incoming:new Map(),outgoingEdges:new Map(),incomingEdges:new Map()}};
 for(const edge of traceGraph.edges){
  if(!traceGraph.adjacency.outgoing.has(edge.from))traceGraph.adjacency.outgoing.set(edge.from,new Set());
  traceGraph.adjacency.outgoing.get(edge.from).add(edge.to);
  if(!traceGraph.adjacency.incoming.has(edge.to))traceGraph.adjacency.incoming.set(edge.to,new Set());
  traceGraph.adjacency.incoming.get(edge.to).add(edge.from);
+ if(!traceGraph.adjacency.outgoingEdges.has(edge.from))traceGraph.adjacency.outgoingEdges.set(edge.from,[]);
+ traceGraph.adjacency.outgoingEdges.get(edge.from).push(edge);
+ if(!traceGraph.adjacency.incomingEdges.has(edge.to))traceGraph.adjacency.incomingEdges.set(edge.to,[]);
+ traceGraph.adjacency.incomingEdges.get(edge.to).push(edge);
 }
 const trace=explorer.explorerTrace(traceGraph,'selected');
 assert.deepEqual([...trace.nodes].sort(),['bus-a','output','processor','selected','source-a'].sort(),'A selected node should trace its connected upstream and downstream signal path');
@@ -52,6 +56,20 @@ assert.ok(explorer.explorerReach(graph,graph.nodes[0].id).size>0,'Indexed traver
 assert.ok(graph.edges.every(edge=>!explorer.explorerReach(graph,edge.to).has(edge.from)),'Cycle filtering should keep the overview graph acyclic');
 assert.match(svg,/aria-label="Live ATEM signal overview"/,'Signal Explorer should still produce its accessible SVG');
 assert.equal((svg.match(/class="overviewEdge /g)||[]).length,graph.edges.length,'Every route should be drawn exactly once');
+const routePaths=[...svg.matchAll(/<path class="overviewEdge [^"]*" data-signal-edge="([^"]+)" d="([^"]+)"/g)].map(match=>({id:match[1],points:match[2].match(/[\d.]+\s+[\d.]+/g).map(point=>point.split(/\s+/).map(Number))}));
+const overlappingStraights=[];
+for(let i=0;i<routePaths.length;i++)for(let j=i+1;j<routePaths.length;j++)for(let a=1;a<routePaths[i].points.length;a++)for(let b=1;b<routePaths[j].points.length;b++){
+ const [p1,p2]=[routePaths[i].points[a-1],routePaths[i].points[a]], [q1,q2]=[routePaths[j].points[b-1],routePaths[j].points[b]];
+ if(p1[1]===p2[1]&&q1[1]===q2[1]&&p1[1]===q1[1]){
+  const overlap=Math.min(Math.max(p1[0],p2[0]),Math.max(q1[0],q2[0]))-Math.max(Math.min(p1[0],p2[0]),Math.min(q1[0],q2[0]));
+  if(overlap>60)overlappingStraights.push([routePaths[i].id,routePaths[j].id,'horizontal',overlap]);
+ }
+ if(p1[0]===p2[0]&&q1[0]===q2[0]&&p1[0]===q1[0]){
+  const overlap=Math.min(Math.max(p1[1],p2[1]),Math.max(q1[1],q2[1]))-Math.max(Math.min(p1[1],p2[1]),Math.min(q1[1],q2[1]));
+  if(overlap>60)overlappingStraights.push([routePaths[i].id,routePaths[j].id,'vertical',overlap]);
+ }
+}
+assert.deepEqual(overlappingStraights,[],'Separate signal routes should not reuse long straight tracks');
 const overviewHeight=Number(svg.match(/viewBox="0 0 \d+ ([\d.]+)"/)?.[1]);
 const nodeBottom=Math.max(...[...svg.matchAll(/<rect x="[\d.]+" y="([\d.]+)" width="184" height="36"/g)].map(match=>Number(match[1])+36));
 assert.ok(overviewHeight-nodeBottom<500,'Dense routes should stay near the graph instead of falling into distant lower overflow lanes');
