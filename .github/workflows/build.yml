@@ -414,6 +414,8 @@ jobs:
         run: |
           set -euo pipefail
           TAG="showdesk-field-test"
-          COUNT="$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq '.assets | length')"
-          test "$COUNT" = "3"
-          test "$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq '.assets | map(.name) | sort | join(",")')" = "ShowDesk-Windows-Installer.exe,ShowDesk-macOS-Intel-Installer.dmg,ShowDesk-macOS-Installer.dmg"
+          gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq '.assets[].name' | sort > published-assets.txt
+          test "$(wc -l < published-assets.txt | tr -d ' ')" = "3"
+          grep -qx 'ShowDesk-macOS-Installer.dmg' published-assets.txt
+          grep -qx 'ShowDesk-macOS-Intel-Installer.dmg' published-assets.txt
+          grep -qx 'ShowDesk-Windows-Installer.exe' published-assets.txt
