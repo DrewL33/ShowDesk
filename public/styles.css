@@ -796,3 +796,11 @@ body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!importa
 .signalOverview.is-filtered .overviewEdge:not(.is-active){opacity:.015}
 .signalOverview.is-filtered .overviewEdgeHalo:not(.is-active),
 .signalOverview.is-filtered .overviewDirection:not(.is-active){opacity:0}
+
+/* Keep expandable HyperDeck details compact and aligned to their contents. */
+.rackDetails{grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));align-items:start}
+.rackDetails>details{align-self:start;min-width:0}
+.rackDetails .hyperdeckFieldList{grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));margin-top:10px}
+.rackDetails .hyperdeckSlotDetail{min-width:0;padding:10px 12px;background:var(--sd-panel);border:1px solid var(--sd-line)}
+.rackDetails .hyperdeckSlotDetail>strong{display:block;color:var(--sd-muted);font-size:10px;letter-spacing:.05em}
+.rackDetails .hyperdeckSlotDetail .hyperdeckFieldList{margin-top:8px}
