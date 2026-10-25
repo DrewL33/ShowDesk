@@ -16,7 +16,7 @@
 
 Choose **Host** on the computer connected to your ATEM. Other computers, phones, and tablets can join as read-only **Viewers**.
 
-<p><a href="docs/images/connection-view.png"><img src="docs/images/connection-view.png" width="760" alt="ShowDesk Host and Viewer connection screen"></a></p>
+<p><a href="docs/images/connection-view.png"><img src="docs/images/connection-view.png" width="460" alt="ShowDesk Host and Viewer connection screen"></a></p>
 
 ## What you can do
 
@@ -33,31 +33,31 @@ Screenshots are shown at a smaller size to keep the guide easy to scan. **Click 
 
 ### Show View
 
-See program and preview, active sources, and keyer status for the selected M/E.
+**See program and preview, active sources, and keyer status for the selected M/E.**
 
-<p><a href="docs/images/show-view.svg"><img src="docs/images/show-view.svg" width="760" alt="ShowDesk Show View with program, preview, sources, and keyers"></a></p>
+<p><a href="docs/images/show-view.svg"><img src="docs/images/show-view.svg" width="460" alt="ShowDesk Show View with program, preview, sources, and keyers"></a></p>
 
 ### Signal Explorer
 
-Trace a signal across M/E buses, keyers, processors, and destinations. Hover to follow a route; click to pin it.
+**Follow a signal from source to destination.** Hover to trace a route; click to pin it while you inspect the switcher.
 
-<p><a href="docs/images/signal-explorer-overview.png"><img src="docs/images/signal-explorer-overview.png" width="760" alt="ShowDesk Signal Explorer showing live switcher routing"></a></p>
+<p><a href="docs/images/signal-explorer-overview.png"><img src="docs/images/signal-explorer-overview.png" width="460" alt="ShowDesk Signal Explorer showing live switcher routing"></a></p>
 
-<p><a href="docs/images/signal-explorer-trace.png"><img src="docs/images/signal-explorer-trace.png" width="760" alt="ShowDesk Signal Explorer with a source route highlighted"></a></p>
+<p><a href="docs/images/signal-explorer-trace.png"><img src="docs/images/signal-explorer-trace.png" width="460" alt="ShowDesk Signal Explorer with a source route highlighted"></a></p>
 
 ### Inspect
 
-Check your inputs, routing, M/E buses, keyers, and switcher health.
+**Check connected inputs, signal routes, keyers, and switcher health.**
 
-<p><a href="docs/images/inspect-inventory.png"><img src="docs/images/inspect-inventory.png" width="760" alt="ShowDesk Inspect showing input inventory and status"></a></p>
+<p><a href="docs/images/inspect-inventory.png"><img src="docs/images/inspect-inventory.png" width="460" alt="ShowDesk Inspect showing input inventory and status"></a></p>
 
-<p><a href="docs/images/inspect-routing-and-diagnostics.png"><img src="docs/images/inspect-routing-and-diagnostics.png" width="760" alt="ShowDesk Inspect showing routing, M/E buses, keyers, and diagnostics"></a></p>
+<p><a href="docs/images/inspect-routing-and-diagnostics.png"><img src="docs/images/inspect-routing-and-diagnostics.png" width="460" alt="ShowDesk Inspect showing routing, M/E buses, keyers, and diagnostics"></a></p>
 
 ### Mobile Viewer
 
-View show status on a phone or tablet connected to the same network as the Host.
+**Check show status from your phone or tablet** while it’s connected to the Host’s network.
 
-<p><a href="docs/images/mobile-viewer.svg"><img src="docs/images/mobile-viewer.svg" width="420" alt="ShowDesk mobile Viewer"></a></p>
+<p><a href="docs/images/mobile-viewer.svg"><img src="docs/images/mobile-viewer.svg" width="320" alt="ShowDesk mobile Viewer"></a></p>
 
 ## Install and connect
 
