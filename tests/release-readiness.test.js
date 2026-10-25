@@ -10,7 +10,7 @@ assert.ok(html.includes('id="settingsVersion">'+version+'</span>'),'Settings ver
 assert.ok(html.includes('id="settingsBuild">Version '+version+'</span>'),'About version must match native bundle');
 assert.ok(app.includes('showDeskUpdater.currentVersion||"'+version+'"'),'Updater fallback must match native bundle');
 assert.ok(workflow.includes('Verify published updater feed'),'Updater publishing must verify the live manifest');
-assert.ok(workflow.includes('Verify exactly two tester downloads'),'Field-test release must verify downloads');
+assert.ok(workflow.includes('Verify exactly three tester downloads'),'Field-test release must verify all downloads');
 assert.ok(native.bundle?.createUpdaterArtifacts,'Signed updater artifacts must be enabled');
 assert.ok(native.plugins?.updater?.pubkey,'Updater public key must be configured');
 assert.ok(native.plugins?.updater?.endpoints?.length,'Updater endpoint must be configured');
@@ -23,4 +23,5 @@ assert.match(workflow,/^permissions:\n  contents: read$/m,'Workflow defaults to 
 assert.match(workflow,/  publish-updater:\n    permissions:\n      contents: write/m,'Updater publishing alone receives write access');
 assert.match(workflow,/  publish-field-test:\n    permissions:\n      contents: write/m,'Field-test publishing alone receives write access');
 assert.match(workflow,/  publish-official-release:\n    permissions:\n      contents: write/m,'Official release publishing gets write access only in its release job');
-assert.ok(workflow.includes('ShowDesk-macOS-Installer.dmg')&&workflow.includes('ShowDesk-Windows-Installer.exe'),'Official releases must publish plainly named installers');
+assert.ok(workflow.includes('ShowDesk-macOS-Installer.dmg')&&workflow.includes('ShowDesk-macOS-Intel-Installer.dmg')&&workflow.includes('ShowDesk-Windows-Installer.exe'),'Official releases must publish plainly named installers for Apple silicon, Intel, and Windows');
+assert.ok(workflow.includes('macos-15-intel')&&workflow.includes("'darwin-x86_64'"),'Official builds and updater feed must include native Intel Mac support');

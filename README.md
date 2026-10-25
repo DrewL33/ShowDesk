@@ -5,7 +5,9 @@
 [![Latest stable release](https://img.shields.io/github/v/release/DrewL33/ShowDesk?label=stable%20release)](https://github.com/DrewL33/ShowDesk/releases/latest)
 
 <p align="center">
-  <a href="https://github.com/DrewL33/ShowDesk/releases/latest/download/ShowDesk-macOS-Installer.dmg"><strong>Download for macOS (Apple silicon)</strong></a>
+  <a href="https://github.com/DrewL33/ShowDesk/releases/latest/download/ShowDesk-macOS-Installer.dmg"><strong>Download for Mac (Apple silicon)</strong></a>
+  &nbsp; · &nbsp;
+  <a href="https://github.com/DrewL33/ShowDesk/releases/latest/download/ShowDesk-macOS-Intel-Installer.dmg"><strong>Download for Mac (Intel)</strong></a>
   &nbsp; · &nbsp;
   <a href="https://github.com/DrewL33/ShowDesk/releases/latest/download/ShowDesk-Windows-Installer.exe"><strong>Download for Windows (x64)</strong></a>
   &nbsp; · &nbsp;
@@ -65,7 +67,7 @@ Screenshots are shown at a smaller size to keep the guide easy to scan. **Click 
 2. On Mac, open the downloaded disk image and move ShowDesk to Applications. On Windows, run the installer.
 3. Choose **Host** to connect to an ATEM, or **Viewer** to join a Host already running ShowDesk.
 
-ShowDesk is available for Apple silicon Macs and 64-bit Windows. Your computer and ATEM should be on the same local network. Enter the switcher’s IP address when prompted. Some features depend on the switcher model and the information it provides.
+ShowDesk is available for Apple silicon and Intel Macs, and 64-bit Windows. Your computer and ATEM should be on the same local network. Enter the switcher’s IP address when prompted. Some features depend on the switcher model and the information it provides.
 
 ShowDesk displays switcher status and does not send control commands. The Host connects to the ATEM; Viewers receive status from the Host.
 

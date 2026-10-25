@@ -28,7 +28,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, windows-latest]
+        include:
+          - os: macos-14
+            artifact: macos-arm64
+          - os: macos-15-intel
+            artifact: macos-x86_64
+          - os: windows-latest
+            artifact: windows-x86_64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -164,7 +170,7 @@ jobs:
       - name: Upload native Build059
         uses: actions/upload-artifact@v4
         with:
-          name: ShowDesk-Beta2-Build059-Native-${{ runner.os }}
+          name: ShowDesk-Beta2-Build059-Native-${{ matrix.artifact }}
           path: |
             src-tauri/target/release/bundle/dmg/ShowDesk-Beta2-Build059-Native-macOS.dmg
             src-tauri/target/release/bundle/macos/ShowDesk-Beta2-Build059-Native-macOS.zip
@@ -190,7 +196,6 @@ jobs:
         with:
           pattern: ShowDesk-Beta2-Build059-Native-*
           path: updater-input
-          merge-multiple: true
       - name: Prepare signed updater feed
         shell: bash
         run: |
@@ -199,13 +204,20 @@ jobs:
           APP_VERSION="$(node -p "require('./src-tauri/tauri.conf.json').version")"
           test -n "$APP_VERSION"
           echo "Packaging updater feed for ShowDesk $APP_VERSION"
-          MAC_SRC="$(find updater-input -type f -name '*.app.tar.gz' | head -n1)"
-          MAC_SIG_SRC="$(find updater-input -type f -name '*.app.tar.gz.sig' | head -n1)"
-          WIN_SRC="$(find updater-input -type f -name '*-setup.exe' | head -n1)"
-          WIN_SIG_SRC="$(find updater-input -type f -name '*-setup.exe.sig' | head -n1)"
-          test -n "$MAC_SRC" && test -n "$MAC_SIG_SRC" && test -n "$WIN_SRC" && test -n "$WIN_SIG_SRC"
-          cp "$MAC_SRC" "updater-release/ShowDesk-${APP_VERSION}-macOS-arm64.app.tar.gz"
-          cp "$MAC_SIG_SRC" "updater-release/ShowDesk-${APP_VERSION}-macOS-arm64.app.tar.gz.sig"
+          ARM_DIR="updater-input/ShowDesk-Beta2-Build059-Native-macos-arm64"
+          INTEL_DIR="updater-input/ShowDesk-Beta2-Build059-Native-macos-x86_64"
+          WIN_DIR="updater-input/ShowDesk-Beta2-Build059-Native-windows-x86_64"
+          MAC_ARM_SRC="$(find "$ARM_DIR" -type f -name '*.app.tar.gz' | head -n1)"
+          MAC_ARM_SIG_SRC="$(find "$ARM_DIR" -type f -name '*.app.tar.gz.sig' | head -n1)"
+          MAC_INTEL_SRC="$(find "$INTEL_DIR" -type f -name '*.app.tar.gz' | head -n1)"
+          MAC_INTEL_SIG_SRC="$(find "$INTEL_DIR" -type f -name '*.app.tar.gz.sig' | head -n1)"
+          WIN_SRC="$(find "$WIN_DIR" -type f -name '*-setup.exe' | head -n1)"
+          WIN_SIG_SRC="$(find "$WIN_DIR" -type f -name '*-setup.exe.sig' | head -n1)"
+          test -n "$MAC_ARM_SRC" && test -n "$MAC_ARM_SIG_SRC" && test -n "$MAC_INTEL_SRC" && test -n "$MAC_INTEL_SIG_SRC" && test -n "$WIN_SRC" && test -n "$WIN_SIG_SRC"
+          cp "$MAC_ARM_SRC" "updater-release/ShowDesk-${APP_VERSION}-macOS-arm64.app.tar.gz"
+          cp "$MAC_ARM_SIG_SRC" "updater-release/ShowDesk-${APP_VERSION}-macOS-arm64.app.tar.gz.sig"
+          cp "$MAC_INTEL_SRC" "updater-release/ShowDesk-${APP_VERSION}-macOS-x86_64.app.tar.gz"
+          cp "$MAC_INTEL_SIG_SRC" "updater-release/ShowDesk-${APP_VERSION}-macOS-x86_64.app.tar.gz.sig"
           cp "$WIN_SRC" "updater-release/ShowDesk-${APP_VERSION}-Windows-x64-setup.exe"
           cp "$WIN_SIG_SRC" "updater-release/ShowDesk-${APP_VERSION}-Windows-x64-setup.exe.sig"
           export APP_VERSION
@@ -221,6 +233,10 @@ jobs:
                 signature:fs.readFileSync(`updater-release/ShowDesk-${process.env.APP_VERSION}-macOS-arm64.app.tar.gz.sig`,'utf8').trim(),
                 url:base+`ShowDesk-${process.env.APP_VERSION}-macOS-arm64.app.tar.gz`
               },
+              'darwin-x86_64':{
+                signature:fs.readFileSync(`updater-release/ShowDesk-${process.env.APP_VERSION}-macOS-x86_64.app.tar.gz.sig`,'utf8').trim(),
+                url:base+`ShowDesk-${process.env.APP_VERSION}-macOS-x86_64.app.tar.gz`
+              },
               'windows-x86_64':{
                 signature:fs.readFileSync(`updater-release/ShowDesk-${process.env.APP_VERSION}-Windows-x64-setup.exe.sig`,'utf8').trim(),
                 url:base+`ShowDesk-${process.env.APP_VERSION}-Windows-x64-setup.exe`
@@ -229,7 +245,7 @@ jobs:
           };
           fs.writeFileSync('updater-release/latest.json',JSON.stringify(feed,null,2)+'\n');
           NODE
-          node -e "const fs=require('fs');const expected=require('./src-tauri/tauri.conf.json').version;const feed=JSON.parse(fs.readFileSync('updater-release/latest.json','utf8'));if(feed.version!==expected||!feed.platforms?.['darwin-aarch64']||!feed.platforms?.['windows-x86_64'])process.exit(1)"
+          node -e "const fs=require('fs');const expected=require('./src-tauri/tauri.conf.json').version;const feed=JSON.parse(fs.readFileSync('updater-release/latest.json','utf8'));if(feed.version!==expected||!feed.platforms?.['darwin-aarch64']||!feed.platforms?.['darwin-x86_64']||!feed.platforms?.['windows-x86_64'])process.exit(1)"
       - name: Publish stable and legacy updater feeds
         env:
           GH_TOKEN: ${{ github.token }}
@@ -246,7 +262,7 @@ jobs:
           URL="https://github.com/${{ github.repository }}/releases/download/showdesk-stable-latest/latest.json"
           for attempt in 1 2 3 4 5; do
             if curl -fL --retry 3 --retry-delay 2 -H 'Cache-Control: no-cache' "$URL?run=${{ github.run_id }}&attempt=$attempt" -o published-latest.json; then
-              node -e "const fs=require('fs');const expected=require('./src-tauri/tauri.conf.json').version;const feed=JSON.parse(fs.readFileSync('published-latest.json','utf8'));if(feed.version!==expected||!feed.platforms?.['darwin-aarch64']||!feed.platforms?.['windows-x86_64'])process.exit(1)"
+              node -e "const fs=require('fs');const expected=require('./src-tauri/tauri.conf.json').version;const feed=JSON.parse(fs.readFileSync('published-latest.json','utf8'));if(feed.version!==expected||!feed.platforms?.['darwin-aarch64']||!feed.platforms?.['darwin-x86_64']||!feed.platforms?.['windows-x86_64'])process.exit(1)"
               exit 0
             fi
             sleep 3
@@ -267,24 +283,32 @@ jobs:
         with:
           pattern: ShowDesk-Beta2-Build059-Native-*
           path: release-input
-          merge-multiple: true
       - name: Prepare customer installers and signed updater assets
         shell: bash
         run: |
           set -euo pipefail
           APP_VERSION="$(node -p "require('./src-tauri/tauri.conf.json').version")"
           test "v$APP_VERSION" = "${GITHUB_REF_NAME}"
-          MAC_DMG="$(find release-input -type f -name '*.dmg' | head -n1)"
-          WIN_EXE="$(find release-input -type f -name '*-setup.exe' | head -n1)"
-          MAC_TAR="$(find release-input -type f -name '*.app.tar.gz' | head -n1)"
-          MAC_SIG="$(find release-input -type f -name '*.app.tar.gz.sig' | head -n1)"
-          WIN_SIG="$(find release-input -type f -name '*-setup.exe.sig' | head -n1)"
-          test -n "$MAC_DMG" && test -n "$WIN_EXE" && test -n "$MAC_TAR" && test -n "$MAC_SIG" && test -n "$WIN_SIG"
+          ARM_DIR="release-input/ShowDesk-Beta2-Build059-Native-macos-arm64"
+          INTEL_DIR="release-input/ShowDesk-Beta2-Build059-Native-macos-x86_64"
+          WIN_DIR="release-input/ShowDesk-Beta2-Build059-Native-windows-x86_64"
+          MAC_ARM_DMG="$(find "$ARM_DIR" -type f -name '*.dmg' | head -n1)"
+          MAC_INTEL_DMG="$(find "$INTEL_DIR" -type f -name '*.dmg' | head -n1)"
+          WIN_EXE="$(find "$WIN_DIR" -type f -name '*-setup.exe' | head -n1)"
+          MAC_ARM_TAR="$(find "$ARM_DIR" -type f -name '*.app.tar.gz' | head -n1)"
+          MAC_ARM_SIG="$(find "$ARM_DIR" -type f -name '*.app.tar.gz.sig' | head -n1)"
+          MAC_INTEL_TAR="$(find "$INTEL_DIR" -type f -name '*.app.tar.gz' | head -n1)"
+          MAC_INTEL_SIG="$(find "$INTEL_DIR" -type f -name '*.app.tar.gz.sig' | head -n1)"
+          WIN_SIG="$(find "$WIN_DIR" -type f -name '*-setup.exe.sig' | head -n1)"
+          test -n "$MAC_ARM_DMG" && test -n "$MAC_INTEL_DMG" && test -n "$WIN_EXE" && test -n "$MAC_ARM_TAR" && test -n "$MAC_ARM_SIG" && test -n "$MAC_INTEL_TAR" && test -n "$MAC_INTEL_SIG" && test -n "$WIN_SIG"
           mkdir -p official-release
-          cp "$MAC_DMG" official-release/ShowDesk-macOS-Installer.dmg
+          cp "$MAC_ARM_DMG" official-release/ShowDesk-macOS-Installer.dmg
+          cp "$MAC_INTEL_DMG" official-release/ShowDesk-macOS-Intel-Installer.dmg
           cp "$WIN_EXE" official-release/ShowDesk-Windows-Installer.exe
-          cp "$MAC_TAR" "official-release/ShowDesk-${APP_VERSION}-macOS-arm64.app.tar.gz"
-          cp "$MAC_SIG" "official-release/ShowDesk-${APP_VERSION}-macOS-arm64.app.tar.gz.sig"
+          cp "$MAC_ARM_TAR" "official-release/ShowDesk-${APP_VERSION}-macOS-arm64.app.tar.gz"
+          cp "$MAC_ARM_SIG" "official-release/ShowDesk-${APP_VERSION}-macOS-arm64.app.tar.gz.sig"
+          cp "$MAC_INTEL_TAR" "official-release/ShowDesk-${APP_VERSION}-macOS-x86_64.app.tar.gz"
+          cp "$MAC_INTEL_SIG" "official-release/ShowDesk-${APP_VERSION}-macOS-x86_64.app.tar.gz.sig"
           cp "$WIN_EXE" "official-release/ShowDesk-${APP_VERSION}-Windows-x64-setup.exe"
           cp "$WIN_SIG" "official-release/ShowDesk-${APP_VERSION}-Windows-x64-setup.exe.sig"
           export APP_VERSION GITHUB_REF_NAME
@@ -300,6 +324,10 @@ jobs:
               'darwin-aarch64':{
                 signature:fs.readFileSync(`official-release/ShowDesk-${version}-macOS-arm64.app.tar.gz.sig`,'utf8').trim(),
                 url:base+`ShowDesk-${version}-macOS-arm64.app.tar.gz`
+              },
+              'darwin-x86_64':{
+                signature:fs.readFileSync(`official-release/ShowDesk-${version}-macOS-x86_64.app.tar.gz.sig`,'utf8').trim(),
+                url:base+`ShowDesk-${version}-macOS-x86_64.app.tar.gz`
               },
               'windows-x86_64':{
                 signature:fs.readFileSync(`official-release/ShowDesk-${version}-Windows-x64-setup.exe.sig`,'utf8').trim(),
@@ -326,7 +354,7 @@ jobs:
           if ! gh release view showdesk-stable-latest --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release create showdesk-stable-latest --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "ShowDesk Stable Updates" --notes "Signed ShowDesk stable updater feed." --prerelease
           fi
-          gh release upload showdesk-stable-latest official-release/ShowDesk-*-macOS-arm64.app.tar.gz official-release/ShowDesk-*-macOS-arm64.app.tar.gz.sig official-release/ShowDesk-*-Windows-x64-setup.exe official-release/ShowDesk-*-Windows-x64-setup.exe.sig official-release/latest.json --repo "${{ github.repository }}" --clobber
+          gh release upload showdesk-stable-latest official-release/ShowDesk-*-macOS-arm64.app.tar.gz official-release/ShowDesk-*-macOS-arm64.app.tar.gz.sig official-release/ShowDesk-*-macOS-x86_64.app.tar.gz official-release/ShowDesk-*-macOS-x86_64.app.tar.gz.sig official-release/ShowDesk-*-Windows-x64-setup.exe official-release/ShowDesk-*-Windows-x64-setup.exe.sig official-release/latest.json --repo "${{ github.repository }}" --clobber
       - name: Verify official downloads and stable updater feed
         env:
           GH_TOKEN: ${{ github.token }}
@@ -336,9 +364,10 @@ jobs:
           test "$(gh api "repos/${{ github.repository }}/releases/tags/${GITHUB_REF_NAME}" --jq '.draft')" = "false"
           gh api "repos/${{ github.repository }}/releases/tags/${GITHUB_REF_NAME}" --jq '.assets[].name' | sort > published-assets.txt
           grep -qx 'ShowDesk-macOS-Installer.dmg' published-assets.txt
+          grep -qx 'ShowDesk-macOS-Intel-Installer.dmg' published-assets.txt
           grep -qx 'ShowDesk-Windows-Installer.exe' published-assets.txt
           curl -fL --retry 3 --retry-delay 2 -H 'Cache-Control: no-cache' "https://github.com/${{ github.repository }}/releases/download/showdesk-stable-latest/latest.json" -o published-latest.json
-          node -e "const f=JSON.parse(require('fs').readFileSync('published-latest.json','utf8'));if(f.version!==require('./src-tauri/tauri.conf.json').version||!f.platforms?.['darwin-aarch64']||!f.platforms?.['windows-x86_64'])process.exit(1)"
+          node -e "const f=JSON.parse(require('fs').readFileSync('published-latest.json','utf8'));if(f.version!==require('./src-tauri/tauri.conf.json').version||!f.platforms?.['darwin-aarch64']||!f.platforms?.['darwin-x86_64']||!f.platforms?.['windows-x86_64'])process.exit(1)"
 
   publish-field-test:
     permissions:
@@ -351,18 +380,22 @@ jobs:
         with:
           pattern: ShowDesk-Beta2-Build059-Native-*
           path: field-test-input
-          merge-multiple: true
-      - name: Prepare two-file field-test release
+      - name: Prepare three-file field-test release
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p field-test-release
-          MAC_DMG="$(find field-test-input -type f -name '*.dmg' | head -n1)"
-          WIN_EXE="$(find field-test-input -type f -name '*-setup.exe' | head -n1)"
-          test -n "$MAC_DMG" && test -n "$WIN_EXE"
-          cp "$MAC_DMG" field-test-release/ShowDesk-macOS-Installer.dmg
+          ARM_DIR="field-test-input/ShowDesk-Beta2-Build059-Native-macos-arm64"
+          INTEL_DIR="field-test-input/ShowDesk-Beta2-Build059-Native-macos-x86_64"
+          WIN_DIR="field-test-input/ShowDesk-Beta2-Build059-Native-windows-x86_64"
+          MAC_ARM_DMG="$(find "$ARM_DIR" -type f -name '*.dmg' | head -n1)"
+          MAC_INTEL_DMG="$(find "$INTEL_DIR" -type f -name '*.dmg' | head -n1)"
+          WIN_EXE="$(find "$WIN_DIR" -type f -name '*-setup.exe' | head -n1)"
+          test -n "$MAC_ARM_DMG" && test -n "$MAC_INTEL_DMG" && test -n "$WIN_EXE"
+          cp "$MAC_ARM_DMG" field-test-release/ShowDesk-macOS-Installer.dmg
+          cp "$MAC_INTEL_DMG" field-test-release/ShowDesk-macOS-Intel-Installer.dmg
           cp "$WIN_EXE" field-test-release/ShowDesk-Windows-Installer.exe
-          test "$(find field-test-release -maxdepth 1 -type f | wc -l | tr -d ' ')" = "2"
+          test "$(find field-test-release -maxdepth 1 -type f | wc -l | tr -d ' ')" = "3"
       - name: Publish clean field-test release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -373,8 +406,8 @@ jobs:
           if ! gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release create "$TAG" --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "ShowDesk — Field Test" --notes "Current ShowDesk field-test installers. Choose the installer for your operating system." --prerelease
           fi
-          gh release upload "$TAG" field-test-release/ShowDesk-macOS-Installer.dmg field-test-release/ShowDesk-Windows-Installer.exe --repo "${{ github.repository }}" --clobber
-      - name: Verify exactly two tester downloads
+          gh release upload "$TAG" field-test-release/ShowDesk-macOS-Installer.dmg field-test-release/ShowDesk-macOS-Intel-Installer.dmg field-test-release/ShowDesk-Windows-Installer.exe --repo "${{ github.repository }}" --clobber
+      - name: Verify exactly three tester downloads
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -382,5 +415,5 @@ jobs:
           set -euo pipefail
           TAG="showdesk-field-test"
           COUNT="$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq '.assets | length')"
-          test "$COUNT" = "2"
-          test "$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq '.assets | map(.name) | sort | join(",")')" = "ShowDesk-Windows-Installer.exe,ShowDesk-macOS-Installer.dmg"
+          test "$COUNT" = "3"
+          test "$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq '.assets | map(.name) | sort | join(",")')" = "ShowDesk-Windows-Installer.exe,ShowDesk-macOS-Intel-Installer.dmg,ShowDesk-macOS-Installer.dmg"
