@@ -6,6 +6,8 @@ const vm = require('node:vm');
 
 const stable = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
 const beta = JSON.parse(fs.readFileSync('src-tauri/tauri.beta.conf.json', 'utf8'));
+const packageMetadata = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+const lockMetadata = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
 const stableWorkflow = fs.readFileSync('.github/workflows/build.yml', 'utf8');
 const betaWorkflow = fs.readFileSync('.github/workflows/beta.yml', 'utf8');
 const backendPrep = fs.readFileSync('scripts/prepare-tauri-backend.js', 'utf8');
@@ -21,11 +23,17 @@ const defaultCapability = JSON.parse(fs.readFileSync('src-tauri/capabilities/def
 
 assert.equal(stable.productName, 'ShowDesk');
 assert.equal(beta.productName, 'ShowDesk BETA');
+assert.equal(packageMetadata.version, stable.version, 'Beta source package metadata should track the stable version');
+assert.equal(lockMetadata.version, stable.version, 'The package lock should track the stable version');
+assert.ok(beta.version.startsWith(`${stable.version}-beta.`), 'The Beta Tauri config should use the current stable version as its base');
 assert.notEqual(stable.identifier, beta.identifier, 'Beta must install alongside the stable app');
 assert.equal(beta.bundle.macOS.signingIdentity, '-', 'Beta macOS apps must have a complete ad-hoc bundle signature');
 assert.ok(stable.plugins.updater.endpoints[0].includes('showdesk-stable-latest'));
 assert.ok(beta.plugins.updater.endpoints[0].includes('showdesk-beta-latest'));
 assert.match(betaWorkflow, /branches:\s*\[beta\]/, 'Beta workflow must follow the beta branch');
+assert.match(betaWorkflow, /git show origin\/main:src-tauri\/tauri\.conf\.json/, 'Beta versioning should read the current stable version from main');
+assert.equal((betaWorkflow.match(/BETA_VERSION: \$\{\{ needs\.version\.outputs\.beta_version \}\}/g) || []).length, 3, 'Beta builds and published updater feeds should share the version derived from main');
+assert.doesNotMatch(betaWorkflow, /1\.1\.0-beta/, 'Beta workflow must not remain pinned to an old stable version');
 assert.match(betaWorkflow, /os: macos-15-intel[\s\S]*?artifact: macos-x86_64/, 'The Beta workflow must build an Intel Mac app for field testing');
 assert.match(betaWorkflow, /darwin-x86_64/, 'Beta updater feeds must include signed Intel Mac updates');
 assert.match(betaWorkflow, /ShowDesk-BETA-macOS-Intel-Installer\.dmg/, 'The Beta download should have a dedicated Intel installer');
@@ -47,7 +55,7 @@ assert.match(hostApp, /function initializeUndockedWorkspace\(/, 'New windows mus
 assert.match(hostApp, /function adoptSharedHostConnection\(/, 'Detached Host windows must attach to the existing ATEM session');
 assert.match(hyperdeckServer, /status: 'host-connected'/, 'The local service must send the current Host snapshot to newly opened windows');
 assert.match(styles, /html\.undockedWorkspace \.floatingWorkspaceTabs\{display:none\}/, 'Detached workspaces must use a single-workspace window header');
-assert.match(betaWorkflow, /1\.1\.0-beta\.\$\{GITHUB_RUN_NUMBER\}/, 'Every Beta build must get an increasing updater version');
+assert.match(betaWorkflow, /BETA_VERSION="\$\{STABLE_VERSION\}-beta\.\$\{GITHUB_RUN_NUMBER\}"/, 'Every Beta build must get an increasing version based on the current stable release');
 assert.match(betaWorkflow, /SHOWDESK_CHANNEL:\s*beta/, 'Beta build must compile the beta runtime channel');
 assert.match(betaWorkflow, /name: Build isolated Beta application\n\s+shell: bash/, 'Cross-platform Beta build must use the shell syntax expected by its environment variables');
 assert.match(betaWorkflow, /--bundles nsis/, 'Windows Beta packaging must avoid MSI prerelease version restrictions');

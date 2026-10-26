@@ -22,8 +22,29 @@ jobs:
       - run: npm ci
       - run: npm run check
 
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      beta_version: ${{ steps.version.outputs.beta_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set Beta version from the current stable release
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin main
+          STABLE_VERSION="$(git show origin/main:src-tauri/tauri.conf.json | node -e 'let data="";process.stdin.on("data",chunk=>data+=chunk).on("end",()=>process.stdout.write(JSON.parse(data).version))')"
+          if [[ ! "$STABLE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid stable version from main: $STABLE_VERSION" >&2
+            exit 1
+          fi
+          BETA_VERSION="${STABLE_VERSION}-beta.${GITHUB_RUN_NUMBER}"
+          echo "beta_version=$BETA_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Beta version: $BETA_VERSION"
+
   build-beta:
-    needs: validate
+    needs: [validate, version]
     strategy:
       fail-fast: false
       matrix:
@@ -47,11 +68,12 @@ jobs:
       - run: npm ci
       - name: Prepare isolated Beta channel
         shell: bash
+        env:
+          BETA_VERSION: ${{ needs.version.outputs.beta_version }}
         run: |
           set -euo pipefail
           export SHOWDESK_CHANNEL=beta
           node scripts/prepare-channel-build.js
-          BETA_VERSION="1.1.0-beta.${GITHUB_RUN_NUMBER}"
           printf '{"version":"%s"}\n' "$BETA_VERSION" > "$RUNNER_TEMP/showdesk-beta-version.json"
           echo "Beta version: $BETA_VERSION"
       - name: Prepare packaged ShowDesk service
@@ -100,7 +122,7 @@ jobs:
   publish-beta:
     permissions:
       contents: write
-    needs: build-beta
+    needs: [build-beta, version]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -110,7 +132,7 @@ jobs:
       - name: Prepare Beta installers and update feed
         shell: bash
         env:
-          BETA_VERSION: 1.1.0-beta.${{ github.run_number }}
+          BETA_VERSION: ${{ needs.version.outputs.beta_version }}
         run: |
           set -euo pipefail
           mkdir -p beta-release
@@ -176,7 +198,7 @@ jobs:
       - name: Verify Beta updater feed
         shell: bash
         env:
-          BETA_VERSION: 1.1.0-beta.${{ github.run_number }}
+          BETA_VERSION: ${{ needs.version.outputs.beta_version }}
         run: |
           set -euo pipefail
           curl -fL --retry 3 --retry-delay 2 -H 'Cache-Control: no-cache' "https://github.com/${{ github.repository }}/releases/download/showdesk-beta-latest/latest.json?run=${{ github.run_id }}" -o published-beta.json
