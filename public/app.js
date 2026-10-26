@@ -31,6 +31,7 @@ let viewerConnectionAttempt=0;
 let activeConnectionMode=null;
 let intentionalDisconnect=false;
 let viewerReconnecting=false;
+let viewerWaitingForAtem=false;
 const standard=[];
 let inspectInputsExpanded=false;
 function $(id){return document.getElementById(id)}
@@ -264,16 +265,17 @@ function ensureViewerConnectionSubscription(transport){
    const ctx=viewerConnectionContext;if(!ctx)return;
    const {ip,btn,status,attempt}=ctx;if(attempt!==viewerConnectionAttempt)return;
    if(message.status==="viewer-connected"&&message.data){
-     enterViewerConnection(message.data,ctx);
+     const wasRecovering=viewerReconnecting||viewerWaitingForAtem;
+     viewerReconnecting=false;viewerWaitingForAtem=false;enterViewerConnection(message.data,ctx);
+     if(wasRecovering)recordConnectionIncident("recoveries","Viewer reconnected to ShowDesk Host at "+ip);
    }else if(message.status==="waiting"){
+     viewerReconnecting=false;viewerWaitingForAtem=true;
      status.textContent="ShowDesk Host reached at "+ip+". "+(message.reason||"Waiting for the Host to connect to an ATEM…");
      status.style.color="var(--amber)";btn.disabled=true;btn.textContent="WAITING FOR ATEM…";
+     updateConnectionHealth();refreshShowDeskSettings();
    }else if(message.status==="reconnecting"&&!intentionalDisconnect){
      if(!viewerReconnecting)recordConnectionIncident("interruptions","Viewer reconnecting to ShowDesk Host at "+ip);
      viewerReconnecting=true;updateConnectionHealth();
-   }else if(message.status==="viewer-connected"&&message.data){
-     const wasReconnecting=viewerReconnecting;viewerReconnecting=false;enterViewerConnection(message.data,ctx);
-     if(wasReconnecting)recordConnectionIncident("recoveries","Viewer reconnected to ShowDesk Host at "+ip);
    }
  });
 }
@@ -310,7 +312,7 @@ async function attemptHostReconnect(transport){
 }
 function enterViewerConnection(d,ctx=viewerConnectionContext){
  if(!d||!ctx||ctx.attempt!==viewerConnectionAttempt)return;
- const {ip}=ctx;connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="viewer";intentionalDisconnect=false;viewerReconnecting=false;rememberSuccessfulConnection("viewerHostIp",ip);saveNamedConnection("viewer",ip);applyShowDeskStartupWorkspace();syncHyperdeckTab();renderHyperdeckCards();
+ const {ip}=ctx;connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="viewer";intentionalDisconnect=false;viewerReconnecting=false;viewerWaitingForAtem=false;rememberSuccessfulConnection("viewerHostIp",ip);saveNamedConnection("viewer",ip);applyShowDeskStartupWorkspace();syncHyperdeckTab();renderHyperdeckCards();
  ensureLiveStateSubscription(window.ATEM_TRANSPORT);
  startConnectionHealth(window.ATEM_TRANSPORT);
  applyAtemStateUpdate(d);$("modelLabel").textContent=(d.name||d.productIdentifier||"ATEM Switcher")+" • "+ip;updateConnectionControls();$("setup").classList.add("hidden");addLog("SYSTEM","Viewer connected to ShowDesk Host at "+ip);render();
@@ -324,8 +326,8 @@ async function connectViewer(){
    status.textContent="Contacting ShowDesk Host at "+ip+" on port "+(window.SHOWDESK_CONFIG?.viewerPort||47822)+"…";
    const result=await transport.connectViewer(ip);if(attempt!==viewerConnectionAttempt)return;
    status.textContent="Host found — opening Viewer connection…";
-   if(result?.status==="waiting"){status.textContent="ShowDesk Host reached at "+ip+". "+(result.reason||"Waiting for the Host to connect to an ATEM…");status.style.color="var(--amber)";btn.disabled=true;btn.textContent="WAITING FOR ATEM…";return;}
-   enterViewerConnection(result?.data||result,viewerConnectionContext);
+   if(result?.status==="waiting"){viewerWaitingForAtem=true;viewerReconnecting=false;status.textContent="ShowDesk Host reached at "+ip+". "+(result.reason||"Waiting for the Host to connect to an ATEM…");status.style.color="var(--amber)";btn.disabled=true;btn.textContent="WAITING FOR ATEM…";updateConnectionHealth();refreshShowDeskSettings();return;}
+   if(activeConnectionMode!=="viewer"||connectedDevice?.ip!==ip)enterViewerConnection(result?.data||result,viewerConnectionContext);
  }catch(error){
    if(attempt!==viewerConnectionAttempt)return;
    status.textContent=(error?.message||String(error));status.style.color="var(--amber)";btn.disabled=false;btn.textContent="TRY AGAIN";
@@ -397,7 +399,7 @@ function updateConnectionHealth(){
   text.innerHTML=activeConnectionMode.toUpperCase()+' • RECONNECTING <span class="reconnectNetwork" aria-hidden="true"><span class="reconnectEndpoint"></span><span class="reconnectDots"><i></i><i></i><i></i></span><span class="reconnectEndpoint destination"></span></span>';
   flag.classList.add("reconnecting");
  }else{
-  text.textContent=activeConnectionMode.toUpperCase()+" • CONNECTED";
+  text.textContent=activeConnectionMode.toUpperCase()+(activeConnectionMode==="viewer"&&viewerWaitingForAtem?" • WAITING FOR ATEM":" • CONNECTED");
   flag.classList.remove("reconnecting");
  }
  const now=Date.now(),target=connectedDevice?.ip||"—",age=connectionStartedAt?formatConnectionAge(now-connectionStartedAt):"—",last=lastHealthAt?formatConnectionAge(now-lastHealthAt)+" ago":"awaiting activity";
@@ -421,7 +423,7 @@ function updateConnectionControls(){
 }
 async function disconnectShowDesk(){
  const transport=window.ATEM_TRANSPORT;if(!activeConnectionMode||!transport)return;
- intentionalDisconnect=true;viewerReconnecting=false;stopHostReconnect();
+ intentionalDisconnect=true;viewerReconnecting=false;viewerWaitingForAtem=false;stopHostReconnect();
  ++viewerConnectionAttempt;viewerConnectionContext=null;
  clearLiveStateSubscription();
  clearViewerCountSubscription();
@@ -440,7 +442,7 @@ function selectedME(){return (liveEngineering.mixEffects||[]).find(me=>me.index=
 function refreshShowDeskSettings(){
  const mode=activeConnectionMode==="host"?"HOST":activeConnectionMode==="viewer"?"VIEWER":"NOT CONNECTED";
  if($("settingsMode"))$("settingsMode").textContent=mode;
- if($("settingsConnection"))$("settingsConnection").textContent=activeConnectionMode?((viewerReconnecting||hostReconnecting)?"RECONNECTING":"CONNECTED"):"DISCONNECTED";
+ if($("settingsConnection"))$("settingsConnection").textContent=activeConnectionMode?((viewerReconnecting||hostReconnecting)?"RECONNECTING":viewerWaitingForAtem?"WAITING FOR ATEM":"CONNECTED"):"DISCONNECTED";
  if($("settingsDevice"))$("settingsDevice").textContent=connectedDevice?.name||connectedDevice?.productIdentifier||liveEngineering.productIdentifier||"—";
  if($("settingsAddress"))$("settingsAddress").textContent=connectedDevice?.ip||viewerConnectionContext?.ip||"—";
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
@@ -468,9 +470,8 @@ function setTab(tab){if(!["show","signal","engineering","hyperdecks"].includes(t
  if(tab==="signal"){renderPaths();requestAnimationFrame(explorerInitializeViewport)}
  if(tab==="hyperdecks")renderHyperdeckCards();
 }
-async function undockWorkspace(tab){if(!Object.hasOwn(workspaceTitles,tab)||(tab==="hyperdecks"&&!showDeskPreferences.hyperdeckMonitoring))return;const button=document.querySelector(`[data-undock-workspace="${tab}"]`);if(button?.disabled)return;const originalLabel=button?.querySelector("span")?.textContent;if(button){button.disabled=true;button.classList.add("isOpening");button.setAttribute("aria-busy","true");const label=button.querySelector("span");if(label)label.textContent="OPENING…"}const context={workspace:tab,connectionMode:activeConnectionMode,connectionHost:connectedDevice?.ip||""},invoke=tauriInvoke();try{if(invoke){await invoke("open_workspace_window",{workspace:tab,connectionMode:context.connectionMode,connectionHost:context.connectionHost});return}const url=new URL(location.href);url.searchParams.set("workspace",tab);url.searchParams.set("connectionMode",context.connectionMode||"");url.searchParams.set("connectionHost",context.connectionHost);if(!window.open(url.toString(),"_blank"))throw new Error("The browser blocked the new window")}catch(error){console.error("Could not open workspace window",error);toast(error.message||"Could not open workspace window")}finally{if(button){button.disabled=false;button.classList.remove("isOpening");button.removeAttribute("aria-busy");const label=button.querySelector("span");if(label&&originalLabel)label.textContent=originalLabel}}}
-function animateUndockedWorkspaceArrival(){const app=$("app");if(!app||window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)return;requestAnimationFrame(()=>requestAnimationFrame(()=>{app.classList.add("workspaceWindowArrival");setTimeout(()=>app.classList.remove("workspaceWindowArrival"),320)}))}
-function initializeUndockedWorkspace(){const params=new URLSearchParams(location.search),context=window.SHOWDESK_UNDOCKED_CONTEXT||{workspace:params.get("workspace"),connectionMode:params.get("connectionMode"),connectionHost:params.get("connectionHost")};const requested=context.workspace;if(!Object.hasOwn(workspaceTitles,requested)||(requested==="hyperdecks"&&!showDeskPreferences.hyperdeckMonitoring))return;undockedWorkspace=requested;document.documentElement.classList.add("undockedWorkspace");document.title=`ShowDesk — ${workspaceTitles[requested]}`;const controls=$("undockedWorkspaceControls");if(controls)controls.hidden=false;if($("undockedWorkspaceTitle"))$("undockedWorkspaceTitle").textContent=workspaceTitles[requested];setTab(requested);animateUndockedWorkspaceArrival();if(context.connectionMode==="viewer"&&validIpLike(context.connectionHost||"")){chooseConnectionMode("viewer");$("viewerHostIp").value=context.connectionHost;viewerInputChanged();connectViewer()}else if(context.connectionMode==="host"){const transport=window.ATEM_TRANSPORT;ensureHostConnectionSubscription(transport);ensureLiveStateSubscription(transport);transport?.attach?.().catch(error=>console.warn("Could not attach detached workspace to the existing Host session",error))}}
+async function undockWorkspace(tab){if(!Object.hasOwn(workspaceTitles,tab)||(tab==="hyperdecks"&&!showDeskPreferences.hyperdeckMonitoring))return;const button=document.querySelector(`[data-undock-workspace="${tab}"]`);if(button?.disabled)return;const originalLabel=button?.querySelector("span")?.textContent;if(button){button.disabled=true;button.setAttribute("aria-busy","true");const label=button.querySelector("span");if(label)label.textContent="OPENING…"}const context={workspace:tab,connectionMode:activeConnectionMode,connectionHost:connectedDevice?.ip||""},invoke=tauriInvoke();try{if(invoke){await invoke("open_workspace_window",{workspace:tab,connectionMode:context.connectionMode,connectionHost:context.connectionHost});return}const url=new URL(location.href);url.searchParams.set("workspace",tab);url.searchParams.set("connectionMode",context.connectionMode||"");url.searchParams.set("connectionHost",context.connectionHost);if(!window.open(url.toString(),"_blank"))throw new Error("The browser blocked the new window")}catch(error){console.error("Could not open workspace window",error);toast(error.message||"Could not open workspace window")}finally{if(button){button.disabled=false;button.removeAttribute("aria-busy");const label=button.querySelector("span");if(label&&originalLabel)label.textContent=originalLabel}}}
+function initializeUndockedWorkspace(){const params=new URLSearchParams(location.search),context=window.SHOWDESK_UNDOCKED_CONTEXT||{workspace:params.get("workspace"),connectionMode:params.get("connectionMode"),connectionHost:params.get("connectionHost")};const requested=context.workspace;if(!Object.hasOwn(workspaceTitles,requested)||(requested==="hyperdecks"&&!showDeskPreferences.hyperdeckMonitoring))return;undockedWorkspace=requested;document.documentElement.classList.add("undockedWorkspace");document.title=`ShowDesk — ${workspaceTitles[requested]}`;const controls=$("undockedWorkspaceControls");if(controls)controls.hidden=false;if($("undockedWorkspaceTitle"))$("undockedWorkspaceTitle").textContent=workspaceTitles[requested];setTab(requested);if(context.connectionMode==="viewer"&&validIpLike(context.connectionHost||"")){chooseConnectionMode("viewer");$("viewerHostIp").value=context.connectionHost;viewerInputChanged();connectViewer()}else if(context.connectionMode==="host"){const transport=window.ATEM_TRANSPORT;ensureHostConnectionSubscription(transport);ensureLiveStateSubscription(transport);transport?.attach?.().catch(error=>console.warn("Could not attach detached workspace to the existing Host session",error))}}
 async function redockWorkspace(){if(!undockedWorkspace)return;const invoke=tauriInvoke();if(invoke){try{await invoke("redock_workspace",{workspace:undockedWorkspace})}catch(error){console.error("Could not return workspace to main window",error);toast(error.message||"Could not return workspace to main window")}return}if(window.opener){window.close();return}document.documentElement.classList.remove("undockedWorkspace");$("undockedWorkspaceControls").hidden=true;undockedWorkspace=null;setTab("show")}
 function recordEvent(kind,msg,data={}){const e={iso:new Date().toISOString(),t:new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}),kind,msg,data};sessionEvents.unshift(e);if(sessionEvents.length>500)sessionEvents.length=500;logs=sessionEvents;lastChangeText=msg;return e}
 function addLog(kind,msg){recordEvent(kind,msg);renderLog()}

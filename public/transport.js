@@ -100,12 +100,18 @@
       const viewer = new WebSocket(url);
       viewerSocket = viewer;
       let settled = false;
+      let receivedSnapshot = false;
       const timer = setTimeout(() => { if (!settled) { settled = true; viewer.close(); reject(new Error('ShowDesk Host did not respond in time')); } }, 10000);
       viewer.addEventListener('error', () => { if (!settled) { settled = true; clearTimeout(timer); reject(new Error('Unable to reach ShowDesk Host at ' + target)); } });
       viewer.addEventListener('message', event => {
         let msg; try { msg = JSON.parse(event.data); } catch { return; }
-        if (msg.type === 'snapshot' && !settled) {
-          settled = true; clearTimeout(timer); socket = viewer; viewerReconnectEnabled=true; viewerReconnectHost=host; connectionSubscribers.forEach(fn=>fn({type:'connection',status:'viewer-connected',data:msg.data,reconnected:reconnecting})); resolve({ status:'connected', data:msg.data });
+        if (msg.type === 'snapshot') {
+          const wasWaiting=settled;
+          if(receivedSnapshot)return;
+          receivedSnapshot=true;
+          if(!settled){settled=true;clearTimeout(timer);resolve({status:'connected',data:msg.data});}
+          socket=viewer;viewerReconnectEnabled=true;viewerReconnectHost=host;
+          connectionSubscribers.forEach(fn=>fn({type:'connection',status:'viewer-connected',data:msg.data,reconnected:reconnecting||wasWaiting}));
         } else if (msg.type === 'state') subscribers.forEach(fn => fn(msg.data));
         else if (msg.type === 'connection') { connectionSubscribers.forEach(fn => fn(msg)); if (!settled && msg.status === 'waiting') { settled=true; clearTimeout(timer); socket=viewer; resolve({status:'waiting',reason:msg.reason}); } }
         else if (msg.type === 'health') healthSubscribers.forEach(fn => fn(msg));

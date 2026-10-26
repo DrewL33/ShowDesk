@@ -12,6 +12,10 @@ assert.match(app,/function enterViewerConnection[\s\S]*?ensureLiveStateSubscript
 assert.match(app,/function disconnectShowDesk[\s\S]*?clearLiveStateSubscription\(\)/,'Disconnect must clear the active live-state subscription');
 assert.match(app,/connectionInputChanged\(\);viewerInputChanged\(\)/,'Disconnect must revalidate retained Host and Viewer addresses');
 assert.match(transport,/function connectViewer[\s\S]*?viewerSocket = viewer/,'Direct Viewer socket must be tracked');
+assert.match(transport,/if \(msg\.type === 'snapshot'\) \{[\s\S]*?receivedSnapshot[\s\S]*?status:'viewer-connected'/,'Viewer must accept a fresh Host snapshot after first receiving a waiting response');
+assert.match(app,/viewerReconnecting=false;viewerWaitingForAtem=true[\s\S]*?WAITING FOR ATEM/,'A reachable Host waiting for its ATEM must clear Viewer reconnecting state');
+assert.match(app,/activeConnectionMode==="viewer"&&viewerWaitingForAtem\?" • WAITING FOR ATEM"/,'The connection indicator must distinguish an available Host from an active ATEM feed');
+assert.match(app,/wasRecovering=viewerReconnecting\|\|viewerWaitingForAtem[\s\S]*?Viewer reconnected to ShowDesk Host/,'Viewer recovery must be recorded after reconnecting or waiting for the Host');
 assert.match(transport,/disconnectViewer\(\) \{[\s\S]*?viewerSocket[\s\S]*?viewer\.close\(\)/,'Viewer disconnect must close the direct Viewer socket');
 const directDisconnect=transport.slice(transport.indexOf('disconnectViewer() {'));
 assert.ok(!directDisconnect.includes("request('disconnectViewerHost'")&&!directDisconnect.includes('request("disconnectViewerHost"'),'Direct Viewer disconnect must not use the retired backend relay');
@@ -150,7 +154,7 @@ assert.match(app,/message\?\.status!==\"disconnected\"/,'Host reconnect must beg
 assert.match(app,/const reconnecting=activeConnectionMode==="viewer"\?viewerReconnecting:activeConnectionMode==="host"\?hostReconnecting:false/,'Host connection flag must stop claiming CONNECTED while ATEM reconnects');
 assert.match(app,/function scheduleHostReconnect\(transport\)[\s\S]*?2000/,'Host reconnect must retry on a controlled two-second cadence');
 assert.match(app,/async function attemptHostReconnect\(transport\)[\s\S]*?transport\.connect\(ip\)/,'Host reconnect must reuse the established ATEM address through the existing read-only connect path');
-assert.match(app,/intentionalDisconnect=true;viewerReconnecting=false;stopHostReconnect\(\)/,'Intentional disconnect must cancel Host reconnect');
+assert.match(app,/intentionalDisconnect=true;viewerReconnecting=false;viewerWaitingForAtem=false;stopHostReconnect\(\)/,'Intentional disconnect must clear Viewer waiting and reconnect state');
 
 
 // Build065 compact reconnect indicator regression guards
