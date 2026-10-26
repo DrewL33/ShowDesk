@@ -16,6 +16,7 @@ assert.match(transport,/if \(msg\.type === 'snapshot'\) \{[\s\S]*?receivedSnapsh
 assert.match(app,/viewerReconnecting=false;viewerWaitingForAtem=true[\s\S]*?WAITING FOR ATEM/,'A reachable Host waiting for its ATEM must clear Viewer reconnecting state');
 assert.match(app,/activeConnectionMode==="viewer"&&viewerWaitingForAtem\?" • WAITING FOR ATEM"/,'The connection indicator must distinguish an available Host from an active ATEM feed');
 assert.match(app,/wasRecovering=viewerReconnecting\|\|viewerWaitingForAtem[\s\S]*?Viewer reconnected to ShowDesk Host/,'Viewer recovery must be recorded after reconnecting or waiting for the Host');
+assert.match(app,/message\?\.atemConnected===true\)\{viewerWaitingForAtem=false;updateConnectionHealth\(\);refreshShowDeskSettings\(\)\}/,'A positive Host heartbeat must clear stale Viewer waiting status after ATEM recovery');
 assert.match(transport,/disconnectViewer\(\) \{[\s\S]*?viewerSocket[\s\S]*?viewer\.close\(\)/,'Viewer disconnect must close the direct Viewer socket');
 const directDisconnect=transport.slice(transport.indexOf('disconnectViewer() {'));
 assert.ok(!directDisconnect.includes("request('disconnectViewerHost'")&&!directDisconnect.includes('request("disconnectViewerHost"'),'Direct Viewer disconnect must not use the retired backend relay');

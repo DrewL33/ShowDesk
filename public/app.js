@@ -408,7 +408,7 @@ function updateConnectionHealth(){
 function startConnectionHealth(transport){
  if(healthSubscription){healthSubscription();healthSubscription=null;}if(connectionHealthTimer){clearInterval(connectionHealthTimer);connectionHealthTimer=null;}
  connectionStartedAt=Date.now();lastHealthAt=Date.now();
- if(transport?.subscribeHealth)healthSubscription=transport.subscribeHealth(message=>{if(message?.atemConnected===false)return;markConnectionActivity();});
+ if(transport?.subscribeHealth)healthSubscription=transport.subscribeHealth(message=>{if(activeConnectionMode==="viewer"&&message?.atemConnected===false){viewerReconnecting=false;viewerWaitingForAtem=true;updateConnectionHealth();refreshShowDeskSettings();return}if(activeConnectionMode==="viewer"&&viewerWaitingForAtem&&message?.atemConnected===true){viewerWaitingForAtem=false;updateConnectionHealth();refreshShowDeskSettings()}if(message?.atemConnected===false)return;markConnectionActivity();});
  connectionHealthTimer=setInterval(updateConnectionHealth,1000);updateConnectionHealth();
 }
 function stopConnectionHealth(){if(healthSubscription){healthSubscription();healthSubscription=null;}if(connectionHealthTimer){clearInterval(connectionHealthTimer);connectionHealthTimer=null;}connectionStartedAt=null;lastHealthAt=null;}
