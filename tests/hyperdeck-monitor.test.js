@@ -54,7 +54,7 @@ function waitFor(predicate, timeoutMs = 1500) {
       if (transportCommands > transportInfoCount) {
         transportInfoCount = transportCommands;
         const clipTimecode = transportInfoCount === 1 ? '00:00:00:01' : '00:00:00:02';
-        const displayTimecode = transportStatus === 'preview' ? '14:25:02;46' : `14:25:02;${String(22 + transportInfoCount).padStart(2, '0')}`;
+        const displayTimecode = `14:25:02;${String(22 + transportInfoCount).padStart(2, '0')}`;
         socket.write(`208 transport info:\r\nstatus: ${transportStatus}\r\ntimecode: ${clipTimecode}\r\ndisplay timecode: ${displayTimecode}\r\nclip id: 12\r\n\r\n`);
       }
       const slotCommands = commands.filter(command => command === 'slot info').length;
@@ -105,15 +105,15 @@ function waitFor(predicate, timeoutMs = 1500) {
     fakeSocket.write('508 transport info:\r\nstatus: preview\r\ntimecode: 00:00:00:02\r\ndisplay timecode: 14:25:02;46\r\n\r\n');
     await waitFor(() => monitor.snapshot()[0]?.transport?.status === 'preview');
     const stoppedRecordingElapsedMs = monitor.snapshot()[0].recordingElapsedMs;
-    assert.equal(monitor.snapshot()[0].frontDisplayTimecode, '14:25:02;46', 'The front display readout should follow the deck-reported value after recording stops');
-    assert.equal(monitor.snapshot()[0].transport['display timecode'], '14:25:02;46', 'Expanded transport information should match the current front display timecode');
+    assert.equal(monitor.snapshot()[0].frontDisplayTimecode, '14:25:02;45', 'The counter should hold the last recording frame when recording stops');
+    assert.equal(monitor.snapshot()[0].transport['display timecode'], '14:25:02;45', 'Expanded transport information should hold the same frozen recording value');
     assert.equal(monitor.entries.get('deck1').displayTimecodeNotifications, false, 'Frame notifications should be disabled when recording stops');
     assert(monitor.entries.get('deck1').transportPoll, 'Transport-state polling should continue in preview mode');
     assert(monitor.entries.get('deck1').slotPoll, 'SSD time-remaining polling should continue even if a deck reports preview instead of record');
     fakeSocket.write('508 display timecode:\r\ntimecode: 14:25:03;00\r\n\r\n');
     await new Promise(resolve => setTimeout(resolve, 60));
     assert.equal(monitor.snapshot()[0].recordingElapsedMs, stoppedRecordingElapsedMs, 'Recording elapsed holds its value when recording stops');
-    assert.equal(monitor.snapshot()[0].frontDisplayTimecode, '14:25:02;46', 'Frame notifications remain disabled after stop, so linked timecode cannot advance the stopped readout between polls');
+    assert.equal(monitor.snapshot()[0].frontDisplayTimecode, '14:25:02;45', 'A linked deck timecode must not move this stopped deck counter');
     const entry = monitor.entries.get('deck1');
     monitor.onResponse(entry, { code: 202, header: 'slot info', fields: { 'slot id': '1', status: 'empty', 'recording time': '3600' } });
     assert.deepEqual(monitor.snapshot()[0].slots, [], 'Empty slots should be removed, including their stale SSD time remaining');

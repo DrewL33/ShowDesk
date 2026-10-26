@@ -151,10 +151,9 @@ class HyperDeckMonitor extends EventEmitter {
       else if (isRecording && entry.recordingStartedAt === null) entry.recordingStartedAt = now;
       else if (!isRecording && entry.recordingStartedAt !== null) { entry.recordingElapsedMs += Math.max(0, now - entry.recordingStartedAt); entry.recordingStartedAt = null; }
       const transportFields = { ...f };
-      // `display timecode` is the deck's current front-panel value in every
-      // transport state. Keep the record elapsed timer frozen at stop, but do
-      // not replace this live field with the last value captured while recording.
-      if (f['display timecode']) entry.frontDisplayTimecode = f['display timecode'];
+      if (isRecording && f['display timecode']) entry.frontDisplayTimecode = f['display timecode'];
+      else if (!entry.frontDisplayTimecode && f['display timecode']) entry.frontDisplayTimecode = f['display timecode'];
+      if (entry.frontDisplayTimecode && !isRecording) transportFields['display timecode'] = entry.frontDisplayTimecode;
       entry.transport = { ...entry.transport, ...transportFields };
       if (isRecording && !entry.displayTimecodeNotifications) {
         this.send(entry, 'notify: display timecode: true');
