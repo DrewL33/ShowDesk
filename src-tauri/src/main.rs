@@ -59,7 +59,7 @@ fn open_workspace_window(app: AppHandle, window: tauri::WebviewWindow, workspace
     let context = serde_json::json!({ "workspace": workspace, "connectionMode": connection_mode, "connectionHost": connection_host });
     let workspace_script = format!("window.SHOWDESK_UNDOCKED_CONTEXT = {};", serde_json::to_string(&context).map_err(|e| e.to_string())?);
     tauri::WebviewWindowBuilder::new(&app, label, tauri::WebviewUrl::App("index.html".into()))
-        .title(format!("ShowDesk — {title} · Separate Window"))
+        .title(format!("ShowDesk — {title}"))
         .inner_size(initial_width, initial_height)
         .min_inner_size(minimum_width, minimum_height)
         .resizable(true)

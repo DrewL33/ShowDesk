@@ -641,14 +641,11 @@ body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!importa
 .workspaceReturnButton{display:inline-flex;align-items:center;gap:8px;min-height:34px;padding:7px 10px}
 .workspaceReturnButton svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .workspaceReturnButton span{font-size:9px;font-weight:800;letter-spacing:.04em}
-.windowRoleBadge{display:inline-flex;align-items:center;justify-content:center;min-height:23px;padding:0 8px;border:1px solid #396b91;border-radius:5px;background:#142b3b;color:#a9d5fa;font-size:8px;font-weight:900;letter-spacing:.09em;white-space:nowrap}
-.detachedWindowBadge{border-color:#8a6d36;background:#302817;color:#f3d28d}
-html.undockedWorkspace .mainWindowBadge{display:none!important}
 html.undockedWorkspace .undockedWorkspaceControls{gap:10px}
 html.undockedWorkspace .undockedWorkspaceControls strong{margin-right:4px}
 html.undockedWorkspace .workspaceTopBar{min-height:62px;padding-top:10px}
 html.undockedWorkspace #app.wrap{padding-top:14px}
-@media(max-width:760px){html.undockedWorkspace .workspaceTopBar{grid-template-columns:minmax(0,1fr);padding:9px 12px 5px;min-height:54px}.undockedWorkspaceControls{grid-column:1;grid-row:1;justify-self:stretch;justify-content:space-between;gap:8px}.undockedWorkspaceControls strong{font-size:11px}.windowRoleBadge{min-height:21px;padding:0 6px;font-size:7px}.workspaceReturnButton{min-height:32px;padding:6px 8px}.workspaceReturnButton span{font-size:8px}html.undockedWorkspace #app.wrap{padding:10px 12px 20px!important}}
+@media(max-width:760px){html.undockedWorkspace .workspaceTopBar{grid-template-columns:minmax(0,1fr);padding:9px 12px 5px;min-height:54px}.undockedWorkspaceControls{grid-column:1;grid-row:1;justify-self:stretch;justify-content:space-between;gap:8px}.undockedWorkspaceControls strong{font-size:11px}.workspaceReturnButton{min-height:32px;padding:6px 8px}.workspaceReturnButton span{font-size:8px}html.undockedWorkspace #app.wrap{padding:10px 12px 20px!important}}
 @media(prefers-reduced-motion:reduce){.tab-show .showContent,.tab-signal .signalPage,.tab-engineering .eng,.tab-hyperdecks .hyperdeckPage{animation:none}.workspaceUndockButton,.workspaceUndockButton.isOpening svg{transition:none;animation:none!important}}
 
 /* HyperDeck Monitoring uses stacked, front-panel-inspired rack units. */

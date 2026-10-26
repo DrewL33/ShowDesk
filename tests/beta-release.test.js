@@ -49,7 +49,10 @@ assert.match(hostHtml, /data-undock-workspace="signal"[^>]*aria-label="Open Sign
 assert.doesNotMatch(hostHtml.match(/<nav class="floatingWorkspaceTabs"[\s\S]*?<\/nav>/)?.[0]||"", /undock-workspace/, 'Undock actions should live on workspace pages rather than in the tab strip');
 assert.match(hostHtml, /data-action="redock-workspace"/, 'Detached windows must provide a return-to-main action');
 assert.match(hostHtml, /workspaceReturnButton[\s\S]*?RETURN TO MAIN WINDOW/, 'The return action should use a clear window-return icon and label');
-assert.match(hostHtml, /detachedWindowBadge">DETACHED WINDOW[\s\S]*?mainWindowBadge">MAIN WINDOW/, 'Main and detached windows should be visually identifiable');
+assert.match(hostHtml, /id="undockedWorkspaceTitle"/, 'Detached windows should keep the detached workspace name visible');
+assert.doesNotMatch(hostHtml, />MAIN WINDOW<|>DETACHED WINDOW<|windowRoleBadge/, 'Window-role badges should not be shown in the workspace UI');
+assert.doesNotMatch(rust, /Separate Window/, 'Native detached-window titles should display the workspace name without a role suffix');
+assert.doesNotMatch(hostApp, /Separate Window/, 'Detached-window document titles should display the workspace name without a role suffix');
 assert.match(hostHtml, /data-settings-tab="guide"[^>]*>[\s\S]*?<span class="settingsNavGlyph" aria-hidden="true"><svg[\s\S]*?Feature Guide/, 'Settings must provide a Feature Guide section with its own icon');
 assert.match(hostHtml, /id="settingsSectionGuide"[\s\S]*?Signal Explorer[\s\S]*?HyperDeck Monitoring[\s\S]*?OPEN IN WINDOW[\s\S]*?upper-right corner/, 'The Feature Guide must explain the main workspaces and the updated detached-window control');
 assert.match(hostHtml, /data-settings-tab="guide"[^>]*>[\s\S]*?circle cx="12"[\s\S]*?Feature Guide/, 'Feature Guide must use an icon distinct from References');
