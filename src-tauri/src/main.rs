@@ -44,12 +44,24 @@ fn open_workspace_window(app: AppHandle, window: tauri::WebviewWindow, workspace
         return Ok(());
     }
     let label = format!("{prefix}{}", WORKSPACE_WINDOW_ID.fetch_add(1, Ordering::Relaxed));
+    // Tauri's window builder accepts logical pixels. Derive the initial size
+    // from the main window's display so a detached workspace opens at a useful
+    // size on both laptop panels and larger production monitors.
+    let (monitor_width, monitor_height) = window.current_monitor().ok().flatten().map(|monitor| {
+        let scale = monitor.scale_factor().max(1.0);
+        let size = monitor.size();
+        (size.width as f64 / scale, size.height as f64 / scale)
+    }).unwrap_or((1440.0, 900.0));
+    let minimum_width = monitor_width.min(600.0).max(440.0);
+    let minimum_height = monitor_height.min(500.0).max(400.0);
+    let initial_width = (monitor_width * 0.78).max(minimum_width).min(monitor_width);
+    let initial_height = (monitor_height * 0.80).max(minimum_height).min(monitor_height);
     let context = serde_json::json!({ "workspace": workspace, "connectionMode": connection_mode, "connectionHost": connection_host });
     let workspace_script = format!("window.SHOWDESK_UNDOCKED_CONTEXT = {};", serde_json::to_string(&context).map_err(|e| e.to_string())?);
     tauri::WebviewWindowBuilder::new(&app, label, tauri::WebviewUrl::App("index.html".into()))
-        .title(format!("ShowDesk — {title}"))
-        .inner_size(1440.0, 900.0)
-        .min_inner_size(1024.0, 700.0)
+        .title(format!("ShowDesk — {title} · Separate Window"))
+        .inner_size(initial_width, initial_height)
+        .min_inner_size(minimum_width, minimum_height)
         .resizable(true)
         .initialization_script(&workspace_script)
         .build()
@@ -62,6 +74,10 @@ fn redock_workspace(app: AppHandle, window: tauri::WebviewWindow, workspace: Str
     if !window.label().starts_with("workspace-") { return Err("This window does not have a detached workspace to return.".to_string()); }
     if workspace_title(&workspace).is_none() { return Err("Unknown ShowDesk workspace.".to_string()); }
     app.emit_to("main", "showdesk-redock-workspace", workspace).map_err(|e| e.to_string())?;
+    if let Some(main) = app.get_webview_window("main") {
+        main.show().map_err(|e| format!("Unable to show the main ShowDesk window: {e}"))?;
+        main.set_focus().map_err(|e| format!("Unable to focus the main ShowDesk window: {e}"))?;
+    }
     window.close().map_err(|e| format!("Unable to return this workspace to the main window: {e}"))
 }
 

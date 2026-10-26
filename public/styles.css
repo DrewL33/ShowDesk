@@ -631,6 +631,26 @@ body:has(.workspaceTopBar) #app.wrap{width:100%!important;max-width:none!importa
 .hyperdeckSetupPanel{margin-bottom:12px}.hyperdeckSetupPanel .head{align-items:center}.hyperdeckFieldList{margin:8px 0 2px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:5px}.hyperdeckFieldList>div{min-width:0;padding:7px;background:#0b1116;border:1px solid var(--line)}.hyperdeckFieldList dt{font-size:8px;color:var(--muted);overflow-wrap:anywhere}.hyperdeckFieldList dd{margin:4px 0 0;font-size:9px;overflow-wrap:anywhere}.hyperdeckSlot details,.hyperdeckReport{margin-top:8px}.hyperdeckSlot summary,.hyperdeckReport summary{cursor:pointer;color:#b8c6ce;font-size:8px;font-weight:800;letter-spacing:.05em}
 @media(max-width:700px){.hyperdeckFacts{grid-template-columns:repeat(2,minmax(0,1fr))}.hyperdeckForm{grid-template-columns:1fr 1fr}.hyperdeckForm button{grid-column:1/-1}}
 
+/* Detached workspaces should feel responsive while remaining calm on busy show screens. */
+.tab-show .showContent,.tab-signal .signalPage,.tab-engineering .eng,.tab-hyperdecks .hyperdeckPage{animation:workspaceArrive 180ms cubic-bezier(.2,.75,.25,1) both}
+@keyframes workspaceArrive{from{opacity:0;transform:translateY(7px) scale(.998)}to{opacity:1;transform:translateY(0) scale(1)}}
+.workspaceUndockButton{transition:background-color 140ms ease,border-color 140ms ease,color 140ms ease,opacity 140ms ease}
+.workspaceUndockButton:disabled{cursor:wait;opacity:.7}
+.workspaceUndockButton.isOpening svg{animation:workspaceOpenPulse 900ms ease-in-out infinite}
+@keyframes workspaceOpenPulse{50%{transform:translate(1px,-1px);opacity:.55}}
+.workspaceReturnButton{display:inline-flex;align-items:center;gap:8px;min-height:34px;padding:7px 10px}
+.workspaceReturnButton svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.workspaceReturnButton span{font-size:9px;font-weight:800;letter-spacing:.04em}
+.windowRoleBadge{display:inline-flex;align-items:center;justify-content:center;min-height:23px;padding:0 8px;border:1px solid #396b91;border-radius:5px;background:#142b3b;color:#a9d5fa;font-size:8px;font-weight:900;letter-spacing:.09em;white-space:nowrap}
+.detachedWindowBadge{border-color:#8a6d36;background:#302817;color:#f3d28d}
+html.undockedWorkspace .mainWindowBadge{display:none!important}
+html.undockedWorkspace .undockedWorkspaceControls{gap:10px}
+html.undockedWorkspace .undockedWorkspaceControls strong{margin-right:4px}
+html.undockedWorkspace .workspaceTopBar{min-height:62px;padding-top:10px}
+html.undockedWorkspace #app.wrap{padding-top:14px}
+@media(max-width:760px){html.undockedWorkspace .workspaceTopBar{grid-template-columns:minmax(0,1fr);padding:9px 12px 5px;min-height:54px}.undockedWorkspaceControls{grid-column:1;grid-row:1;justify-self:stretch;justify-content:space-between;gap:8px}.undockedWorkspaceControls strong{font-size:11px}.windowRoleBadge{min-height:21px;padding:0 6px;font-size:7px}.workspaceReturnButton{min-height:32px;padding:6px 8px}.workspaceReturnButton span{font-size:8px}html.undockedWorkspace #app.wrap{padding:10px 12px 20px!important}}
+@media(prefers-reduced-motion:reduce){.tab-show .showContent,.tab-signal .signalPage,.tab-engineering .eng,.tab-hyperdecks .hyperdeckPage{animation:none}.workspaceUndockButton,.workspaceUndockButton.isOpening svg{transition:none;animation:none!important}}
+
 /* HyperDeck Monitoring uses stacked, front-panel-inspired rack units. */
 .hyperdeckPage .hyperdeckCards{display:grid;grid-template-columns:minmax(0,1fr);gap:11px}
 .hyperdeckRackUnit{display:grid;grid-template-columns:21px minmax(0,1fr) 21px;align-items:stretch;min-width:0;overflow:hidden;background:#080b0d;border:1px solid #455158;box-shadow:0 9px 20px #0007,inset 0 1px #74808855}
