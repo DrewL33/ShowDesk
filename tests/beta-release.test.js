@@ -60,10 +60,13 @@ assert.match(hostApp, /guide:"Feature Guide"/, 'The Settings section heading mus
 assert.match(hostApp, /invoke\("open_workspace_window"/,'Workspace controls must call the native window command');
 assert.match(hostApp, /button\.classList\.add\("isOpening"\)[\s\S]*?OPENING…[\s\S]*?button\.disabled=false/, 'Opening a workspace should provide feedback and guard against repeated clicks');
 assert.match(hostApp, /function initializeUndockedWorkspace\(/, 'New windows must initialize directly into the selected workspace');
+assert.match(hostApp, /function animateUndockedWorkspaceArrival\(\)[\s\S]*?workspaceWindowArrival/, 'Every detached workspace should trigger a visible entrance transition');
+assert.match(hostApp, /setTab\(requested\);animateUndockedWorkspaceArrival\(\)/, 'Detached arrival animation should run even when Show View is already selected');
 assert.match(hostApp, /function adoptSharedHostConnection\(/, 'Detached Host windows must attach to the existing ATEM session');
 assert.match(hyperdeckServer, /status: 'host-connected'/, 'The local service must send the current Host snapshot to newly opened windows');
 assert.match(styles, /html\.undockedWorkspace \.floatingWorkspaceTabs\{display:none\}/, 'Detached workspaces must use a single-workspace window header');
 assert.match(styles, /animation:workspaceArrive 180ms[\s\S]*?prefers-reduced-motion:reduce[\s\S]*?animation:none/, 'Workspace transitions should be subtle and respect reduced-motion preferences');
+assert.match(styles, /animation:workspaceWindowArrive 260ms[\s\S]*?@keyframes workspaceWindowArrive/, 'Opening a detached workspace should animate its content into view');
 assert.match(styles, /@media\(max-width:760px\)[\s\S]*?html\.undockedWorkspace #app\.wrap/, 'Detached workspaces should adapt their controls and padding for tiled window widths');
 assert.match(betaWorkflow, /BETA_VERSION="\$\{STABLE_VERSION\}-beta\.\$\{GITHUB_RUN_NUMBER\}"/, 'Every Beta build must get an increasing version based on the current stable release');
 assert.match(betaWorkflow, /SHOWDESK_CHANNEL:\s*beta/, 'Beta build must compile the beta runtime channel');
