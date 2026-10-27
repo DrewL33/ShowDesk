@@ -12,11 +12,13 @@ assert.match(app,/function enterViewerConnection[\s\S]*?ensureLiveStateSubscript
 assert.match(app,/function disconnectShowDesk[\s\S]*?clearLiveStateSubscription\(\)/,'Disconnect must clear the active live-state subscription');
 assert.match(app,/connectionInputChanged\(\);viewerInputChanged\(\)/,'Disconnect must revalidate retained Host and Viewer addresses');
 assert.match(transport,/function connectViewer[\s\S]*?viewerSocket = viewer/,'Direct Viewer socket must be tracked');
-assert.match(transport,/if \(msg\.type === 'snapshot'\) \{[\s\S]*?receivedSnapshot[\s\S]*?status:'viewer-connected'/,'Viewer must accept a fresh Host snapshot after first receiving a waiting response');
+assert.match(transport,/if \(msg\.type === 'snapshot'\) \{[\s\S]*?status:'viewer-connected'/,'Viewer must accept fresh Host snapshots throughout the socket lifetime');
+assert.doesNotMatch(transport,/if\(receivedSnapshot\)return/,'A previous snapshot must not suppress the fresh snapshot sent after Host recovery');
 assert.match(app,/viewerReconnecting=false;viewerWaitingForAtem=true[\s\S]*?WAITING FOR ATEM/,'A reachable Host waiting for its ATEM must clear Viewer reconnecting state');
 assert.match(app,/activeConnectionMode==="viewer"&&viewerWaitingForAtem\?" • WAITING FOR ATEM"/,'The connection indicator must distinguish an available Host from an active ATEM feed');
 assert.match(app,/wasRecovering=viewerReconnecting\|\|viewerWaitingForAtem[\s\S]*?Viewer reconnected to ShowDesk Host/,'Viewer recovery must be recorded after reconnecting or waiting for the Host');
-assert.match(app,/message\?\.atemConnected===true\)\{viewerWaitingForAtem=false;updateConnectionHealth\(\);refreshShowDeskSettings\(\)\}/,'A positive Host heartbeat must clear stale Viewer waiting status after ATEM recovery');
+assert.match(app,/message\.status==="disconnected"\)[\s\S]*?viewerWaitingForAtem=true/,'An explicit ATEM disconnect must put the Viewer badge into waiting state');
+assert.match(app,/subscribeHealth\(message=>\{if\(message\?\.atemConnected===false\)return;markConnectionActivity\(\);\}\)/,'Periodic heartbeats must not toggle the Viewer badge between waiting and connected');
 assert.match(transport,/disconnectViewer\(\) \{[\s\S]*?viewerSocket[\s\S]*?viewer\.close\(\)/,'Viewer disconnect must close the direct Viewer socket');
 const directDisconnect=transport.slice(transport.indexOf('disconnectViewer() {'));
 assert.ok(!directDisconnect.includes("request('disconnectViewerHost'")&&!directDisconnect.includes('request("disconnectViewerHost"'),'Direct Viewer disconnect must not use the retired backend relay');
@@ -246,3 +248,27 @@ assert.match(app,/const hyperdeckOpenDetails=new Map\(\)/,'HyperDeck detail stat
 assert.match(app,/hyperdeckOpenDetails\.set\(card\.dataset\.hyperdeckCard,\[\.\.\.card\.querySelectorAll\("\.rackDetails details"\)\]\.map\(detail=>detail\.open\)\)/,'HyperDeck refresh must capture each deck’s expanded sections');
 assert.match(app,/data-hyperdeck-card="\$\{escapeShowDeskText\(deck\.id\)\}"/,'HyperDeck cards must have stable identities for detail-state restoration');
 assert.match(app,/hyperdeckOpenDetails\.get\(card\.dataset\.hyperdeckCard\)/,'HyperDeck refresh must restore expanded sections by deck identity');
+
+// A direct Viewer socket stays open while the Host reconnects its ATEM. A
+// waiting response must not prevent a later snapshot on that same socket.
+;(async()=>{
+ const vm=require('node:vm');
+ class FakeWebSocket{
+  static instances=[];
+  constructor(url){this.url=url;this.listeners={};FakeWebSocket.instances.push(this)}
+  addEventListener(type,callback){(this.listeners[type]??=[]).push(callback)}
+  emit(type,data){for(const callback of this.listeners[type]||[])callback({data:JSON.stringify(data)})}
+  close(){this.emit('close')}
+ }
+ const browser={SHOWDESK_CONFIG:{viewerPort:47822}};
+ vm.runInNewContext(transport,{window:browser,WebSocket:FakeWebSocket,setTimeout,clearTimeout,location:{protocol:'http:',host:'localhost'}});
+ const events=[];browser.ATEM_TRANSPORT.subscribeConnection(message=>events.push(message));
+ const first=browser.ATEM_TRANSPORT.connectViewer('192.168.1.20');
+ const socket=FakeWebSocket.instances.at(-1);
+ socket.emit('message',{type:'connection',status:'waiting',reason:'No ATEM'});
+ const result=await first;
+ assert.equal(result.status,'waiting','Initial Viewer connection should report a Host that is still waiting for ATEM');
+ socket.emit('message',{type:'snapshot',data:{name:'Recovered switcher'}});
+ assert.equal(events.filter(message=>message.status==='viewer-connected').length,1,'A recovered Host snapshot on the existing socket must restore connected state');
+ assert.equal(events.at(-1).data.name,'Recovered switcher');
+})().catch(error=>{console.error(error);process.exitCode=1});
