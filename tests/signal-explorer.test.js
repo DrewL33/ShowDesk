@@ -12,6 +12,15 @@ const context={
  explorerEscape:value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))
 };
 const explorer=vm.runInNewContext(app.slice(start,end)+'\n({explorerBuildGraph,explorerReach,explorerTrace,explorerDraw})',context);
+const focusStart=app.indexOf('function explorerFocusId('),focusEnd=app.indexOf('function explorerClear(',focusStart);
+assert.ok(focusStart>=0&&focusEnd>focusStart,'Signal Explorer focus state should remain testable');
+const focus=vm.runInNewContext('let explorerPinned=null,explorerHover=null;'+app.slice(focusStart,focusEnd)+'\n({explorerFocusId,explorerInspect})',{explorerHighlight(){}});
+focus.explorerInspect('Media Player 3 Key',true);
+focus.explorerInspect('Camera 1',false);
+assert.equal(focus.explorerFocusId(),'Media Player 3 Key','A pinned route must remain the only highlighted trace while the pointer crosses unrelated nodes');
+focus.explorerInspect('Media Player 3 Key',true);
+focus.explorerInspect('Camera 1',false);
+assert.equal(focus.explorerFocusId(),'Camera 1','Hover inspection should resume after the pinned route is toggled off');
 
 const traceGraph={edges:[
  {id:'source-a',from:'source-a',to:'bus-a'},
@@ -19,6 +28,7 @@ const traceGraph={edges:[
  {id:'selected-pgm',from:'selected',to:'processor'},
  {id:'processor-output',from:'processor',to:'output'},
  {id:'branch',from:'source-b',to:'other-bus'},
+ {id:'unrelated-preview',from:'camera-1',to:'me-2-preview'},
  {id:'cross-branch',from:'bus-a',to:'processor'}
 ],adjacency:{outgoing:new Map(),incoming:new Map()}};
 for(const edge of traceGraph.edges){
@@ -30,6 +40,7 @@ for(const edge of traceGraph.edges){
 const trace=explorer.explorerTrace(traceGraph,'selected');
 assert.deepEqual([...trace.nodes].sort(),['bus-a','output','processor','selected','source-a'].sort(),'A selected node should trace its connected upstream and downstream signal path');
 assert.deepEqual([...trace.edges].sort(),['bus-a','processor-output','selected-pgm','source-a'].sort(),'A trace should exclude neighboring and cross-branch edges');
+assert.ok(!trace.edges.has('unrelated-preview'),'A selected media-player key route must not light an unrelated camera-to-preview line');
 
 const inputs=Array.from({length:110},(_,i)=>({id:i+1,name:'Input '+(i+1)}));
 const mixEffects=Array.from({length:4},(_,i)=>({

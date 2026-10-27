@@ -731,7 +731,8 @@ function selectDestination(name){selectedDestination=name;renderPaths()}
 // Build072: stable full-workspace, bidirectional signal overview.
 let explorerPinned=null,explorerHover=null,explorerGraph=null,explorerTopology="",explorerRouteState="",explorerScale=1;
 const explorerEscape=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function explorerInspect(id,pin=false){if(pin)explorerPinned=explorerPinned===id?null:id;else explorerHover=id;explorerHighlight()}
+function explorerFocusId(){return explorerPinned||explorerHover}
+function explorerInspect(id,pin=false){if(pin){explorerPinned=explorerPinned===id?null:id;explorerHover=null}else if(!explorerPinned)explorerHover=id;explorerHighlight()}
 function explorerClear(){explorerPinned=null;explorerHover=null;explorerHighlight()}
 let explorerViewportInitialized=false;
 let explorerFitRequested=false;
@@ -795,7 +796,7 @@ function explorerTrace(graph,id){
 }
 function explorerHighlight(){
  const graph=explorerGraph,svg=document.querySelector("#explorerCanvas .signalOverview");if(!graph||!svg)return;
- const id=explorerHover||explorerPinned,node=graph.nodes.find(n=>n.id===id);
+ const id=explorerFocusId(),node=graph.nodes.find(n=>n.id===id);
  let active=null,activeEdges=null;
  if(node){
   // Trace only edges wholly on paths into or out of the inspected node.
@@ -1056,7 +1057,7 @@ function renderPaths(){
   explorerRouteState=routing;
  }
  const q=($("signalSearch")?.value||"").trim().toLowerCase();
- if(q){const match=graph.nodes.find(n=>n.label.toLowerCase().includes(q));if(match)explorerHover=match.id;else explorerHover=null}
+ if(q){explorerPinned=null;const match=graph.nodes.find(n=>n.label.toLowerCase().includes(q));if(match)explorerHover=match.id;else explorerHover=null}
  explorerHighlight();
 }
 function transitionPercent(position){const n=Number(position);if(!Number.isFinite(n))return null;return Math.max(0,Math.min(100,Math.round(n>100?n/100:n)))}
