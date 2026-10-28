@@ -131,6 +131,45 @@ function waitFor(predicate, timeoutMs = 1500) {
     assert.equal(commands.length, commandCount, 'renaming a deck must not reconnect or reinitialize its socket');
     monitor.configure([]);
     assert.equal(monitor.snapshot().length, 0);
+
+    let staleConnections = 0;
+    const silentAfterConnectDeck = net.createServer(socket => {
+      const connection = ++staleConnections;
+      socket.write('500 connection info:\r\nprotocol version: 1.8\r\nmodel: HyperDeck Studio HD Plus\r\n\r\n');
+      let buffer = '', transportReplies = 0, slotReplies = 0, delayedTransport = false, delayedSlots = false;
+      socket.on('data', chunk => {
+        buffer += chunk.toString();
+        while (buffer.includes('\n')) {
+          const index = buffer.indexOf('\n'), command = buffer.slice(0, index).replace(/\r$/, '');
+          buffer = buffer.slice(index + 1);
+          if (command === 'device info') socket.write('204 device info:\r\nmodel: HyperDeck Studio HD Plus\r\n\r\n');
+          if (command === 'transport info') {
+            if (connection > 1 && !delayedTransport) {
+              delayedTransport = true;
+              setTimeout(() => { if (!socket.destroyed) socket.write('208 transport info:\r\nstatus: preview\r\nspeed: 0\r\n\r\n'); }, 80);
+            } else if (connection === 1 && transportReplies++ === 0) socket.write('208 transport info:\r\nstatus: preview\r\nspeed: 0\r\n\r\n');
+          }
+          if (command === 'slot info') {
+            if (connection > 1 && !delayedSlots) {
+              delayedSlots = true;
+              setTimeout(() => { if (!socket.destroyed) socket.write('202 slot info:\r\nslot id: 1\r\nstatus: mounted\r\nrecording time: 3000\r\n\r\n'); }, 80);
+            } else if (connection === 1 && slotReplies++ === 0) socket.write('202 slot info:\r\nslot id: 1\r\nstatus: mounted\r\nrecording time: 3000\r\n\r\n');
+          }
+        }
+      });
+    });
+    await new Promise(resolve => silentAfterConnectDeck.listen(0, '127.0.0.1', resolve));
+    const recoveryMonitor = new HyperDeckMonitor({ reconnectMinMs: 15, transportPollIntervalMs: 20, staleTimeoutMs: 140 });
+    try {
+      recoveryMonitor.configure([{ id: 'stale-deck', name: 'Stale Deck', host: '127.0.0.1', port: silentAfterConnectDeck.address().port }]);
+      await waitFor(() => recoveryMonitor.snapshot()[0]?.transportUpdatedAt > 0 && recoveryMonitor.snapshot()[0]?.slotsUpdatedAt > 0);
+      const firstTransportAt = recoveryMonitor.snapshot()[0].transportUpdatedAt;
+      await waitFor(() => staleConnections >= 2 && recoveryMonitor.snapshot()[0]?.transportUpdatedAt > firstTransportAt, 1500);
+      assert(recoveryMonitor.snapshot()[0].transportUpdatedAt > firstTransportAt, 'A HyperDeck socket that stays open but stops replying should be reconnected and resume live transport updates');
+    } finally {
+      recoveryMonitor.close();
+      await new Promise(resolve => silentAfterConnectDeck.close(resolve));
+    }
   } finally {
     monitor.close();
     await new Promise(resolve => fakeDeck.close(resolve));

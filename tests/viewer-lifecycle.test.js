@@ -24,6 +24,9 @@ const directDisconnect=transport.slice(transport.indexOf('disconnectViewer() {')
 assert.ok(!directDisconnect.includes("request('disconnectViewerHost'")&&!directDisconnect.includes('request("disconnectViewerHost"'),'Direct Viewer disconnect must not use the retired backend relay');
 assert.match(transport,/subscribeHealth\(callback\)/,'Transport must expose read-only health subscriptions');
 assert.match(transport,/msg\.type === 'health'/,'Transport must forward Host health heartbeats');
+assert.match(transport,/HEARTBEAT_TIMEOUT_MS = 15000/,'A silent live-data socket must be treated as stale after three missed Host heartbeats');
+assert.match(transport,/function scheduleServiceReconnect\(\)/,'The local Host transport must reconnect after a dropped or silent socket');
+assert.match(transport,/if \(serviceSocket === ws\) serviceSocket = null/,'A stale socket must not clear a newer replacement connection');
 assert.match(app,/transport\.subscribe\(\(patch\)=>\{markConnectionActivity\(\)/,'Live state must count as healthy connection activity');
 assert.ok(!app.includes('• STALE'),'Operator-facing connection status must not show STALE while the transport remains connected');
 assert.match(app,/function startConnectionHealth[\s\S]*?subscribeHealth/,'Connected Host and Viewer modes must subscribe to health events');
@@ -254,14 +257,21 @@ assert.match(app,/hyperdeckOpenDetails\.get\(card\.dataset\.hyperdeckCard\)/,'Hy
 ;(async()=>{
  const vm=require('node:vm');
  class FakeWebSocket{
+  static OPEN=1;
+  static CLOSED=3;
   static instances=[];
-  constructor(url){this.url=url;this.listeners={};FakeWebSocket.instances.push(this)}
+  constructor(url){this.url=url;this.listeners={};this.readyState=FakeWebSocket.OPEN;FakeWebSocket.instances.push(this)}
   addEventListener(type,callback){(this.listeners[type]??=[]).push(callback)}
   emit(type,data){for(const callback of this.listeners[type]||[])callback({data:JSON.stringify(data)})}
-  close(){this.emit('close')}
+  close(){this.readyState=FakeWebSocket.CLOSED;this.emit('close')}
  }
  const browser={SHOWDESK_CONFIG:{viewerPort:47822}};
- vm.runInNewContext(transport,{window:browser,WebSocket:FakeWebSocket,setTimeout,clearTimeout,location:{protocol:'http:',host:'localhost'}});
+ let now=1000,nextTimer=0;const timers=new Map(),intervals=new Set();
+ const fakeSetTimeout=(fn,delay)=>{const id=++nextTimer;timers.set(id,{fn,delay});return id};
+ const fakeClearTimeout=id=>timers.delete(id);
+ const fakeSetInterval=fn=>{intervals.add(fn);return fn};
+ const fakeClearInterval=id=>intervals.delete(id);
+ vm.runInNewContext(transport,{window:browser,WebSocket:FakeWebSocket,Date:{now:()=>now},setTimeout:fakeSetTimeout,clearTimeout:fakeClearTimeout,setInterval:fakeSetInterval,clearInterval:fakeClearInterval,location:{protocol:'http:',host:'localhost'}});
  const events=[];browser.ATEM_TRANSPORT.subscribeConnection(message=>events.push(message));
  const first=browser.ATEM_TRANSPORT.connectViewer('192.168.1.20');
  const socket=FakeWebSocket.instances.at(-1);
@@ -271,4 +281,17 @@ assert.match(app,/hyperdeckOpenDetails\.get\(card\.dataset\.hyperdeckCard\)/,'Hy
  socket.emit('message',{type:'snapshot',data:{name:'Recovered switcher'}});
  assert.equal(events.filter(message=>message.status==='viewer-connected').length,1,'A recovered Host snapshot on the existing socket must restore connected state');
  assert.equal(events.at(-1).data.name,'Recovered switcher');
+ now+=16000;for(const check of intervals)check();
+ assert.equal(socket.readyState,FakeWebSocket.CLOSED,'The Viewer heartbeat test should force-close a silent connection after three missed beats');
+ assert.equal(events.at(-1).status,'reconnecting','A Viewer heartbeat timeout must enter the regular reconnect path');
+ assert.ok([...timers.values()].some(timer=>timer.delay===2000),'A stale Viewer feed should schedule the existing reconnect attempt');
+ browser.ATEM_TRANSPORT.disconnectViewer();timers.clear();
+ const attach=browser.ATEM_TRANSPORT.attach();await Promise.resolve();
+ const localSocket=FakeWebSocket.instances.at(-1);localSocket.emit('open');await attach;
+ now+=16000;for(const check of intervals)check();
+ assert.equal(localSocket.readyState,FakeWebSocket.CLOSED,'The local Host transport should close a socket that stops sending health heartbeats');
+ const serviceRetry=[...timers.values()].find(timer=>timer.delay===2000);assert.ok(serviceRetry,'A stale local Host feed should schedule service reconnection');
+ const retryRun=serviceRetry.fn();await Promise.resolve();
+ const recoveredSocket=FakeWebSocket.instances.at(-1);assert.notEqual(recoveredSocket,localSocket,'Service recovery should create a replacement WebSocket');
+ recoveredSocket.emit('open');await retryRun;
 })().catch(error=>{console.error(error);process.exitCode=1});

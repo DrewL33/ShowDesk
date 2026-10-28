@@ -1,5 +1,5 @@
 (() => {
-  let socket = null;
+  let serviceSocket = null;
   let viewerSocket = null;
   let seq = 0;
   const pending = new Map();
@@ -9,6 +9,22 @@
   const viewerCountSubscribers = new Set();
   const hyperdeckSubscribers = new Set();
   const hyperdeckAvailabilitySubscribers = new Set();
+  let serviceReconnectEnabled = false;
+  let serviceReconnectTimer = null;
+  let serviceReconnectInFlight = false;
+
+  const HEARTBEAT_TIMEOUT_MS = 15000;
+  function monitorSocketLiveness(ws, onStale) {
+    let lastMessageAt = Date.now();
+    const timer = setInterval(() => {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      if (Date.now() - lastMessageAt >= HEARTBEAT_TIMEOUT_MS) {
+        clearInterval(timer);
+        onStale();
+      }
+    }, 5000);
+    return { received() { lastMessageAt = Date.now(); }, stop() { clearInterval(timer); } };
+  }
 
   function isNativeTauri() {
     return !!window.__TAURI_INTERNALS__;
@@ -34,19 +50,25 @@
   }
 
   async function ensureSocket() {
-    if (socket && socket.readyState === WebSocket.OPEN) return socket;
+    serviceReconnectEnabled = true;
+    if (serviceSocket && serviceSocket.readyState === WebSocket.OPEN) return serviceSocket;
     await ensureNativeService();
-    if (socket && socket.readyState === WebSocket.CONNECTING) {
+    if (serviceSocket && serviceSocket.readyState === WebSocket.CONNECTING) {
       return new Promise((resolve, reject) => {
-        socket.addEventListener('open', () => resolve(socket), { once: true });
-        socket.addEventListener('error', () => reject(new Error('ShowDesk ATEM service could not be reached after native startup.')), { once: true });
+        serviceSocket.addEventListener('open', () => resolve(serviceSocket), { once: true });
+        serviceSocket.addEventListener('error', () => reject(new Error('ShowDesk ATEM service could not be reached after native startup.')), { once: true });
       });
     }
     return new Promise((resolve, reject) => {
-      socket = new WebSocket(serviceUrl());
-      socket.addEventListener('open', () => resolve(socket), { once: true });
-      socket.addEventListener('error', () => reject(new Error('ShowDesk ATEM service could not be reached after native startup.')), { once: true });
-      socket.addEventListener('message', (event) => {
+      const ws = new WebSocket(serviceUrl());
+      serviceSocket = ws;
+      const liveness = monitorSocketLiveness(ws, () => {
+        try { ws.close(4000, 'ShowDesk heartbeat timed out'); } catch { ws.close(); }
+      });
+      ws.addEventListener('open', () => resolve(ws), { once: true });
+      ws.addEventListener('error', () => reject(new Error('ShowDesk ATEM service could not be reached after native startup.')), { once: true });
+      ws.addEventListener('message', (event) => {
+        liveness.received();
         let msg;
         try { msg = JSON.parse(event.data); } catch { return; }
         if (msg.replyTo && pending.has(msg.replyTo)) {
@@ -63,15 +85,31 @@
         if (msg.type === 'hyperdecks') hyperdeckSubscribers.forEach(fn => fn(msg.data || []));
         if (msg.type === 'hyperdeckAvailability') hyperdeckAvailabilitySubscribers.forEach(fn => fn(msg.enabled === true));
       });
-      socket.addEventListener('close', () => {
-        socket = null;
+      ws.addEventListener('close', () => {
+        liveness.stop();
+        if (serviceSocket === ws) serviceSocket = null;
         for (const [id, item] of pending) {
           clearTimeout(item.timer);
           item.reject(new Error('ShowDesk service connection closed'));
           pending.delete(id);
         }
+        scheduleServiceReconnect();
       });
     });
+  }
+
+  function scheduleServiceReconnect() {
+    if (!serviceReconnectEnabled || serviceReconnectTimer || serviceReconnectInFlight) return;
+    serviceReconnectTimer = setTimeout(async () => {
+      serviceReconnectTimer = null;
+      if (!serviceReconnectEnabled || serviceReconnectInFlight) return;
+      serviceReconnectInFlight = true;
+      try { await ensureSocket(); } catch {}
+      finally {
+        serviceReconnectInFlight = false;
+        if (serviceReconnectEnabled && (!serviceSocket || serviceSocket.readyState !== WebSocket.OPEN)) scheduleServiceReconnect();
+      }
+    }, 2000);
   }
 
   async function request(type, payload = {}) {
@@ -99,26 +137,30 @@
     return new Promise((resolve, reject) => {
       const viewer = new WebSocket(url);
       viewerSocket = viewer;
+      const liveness = monitorSocketLiveness(viewer, () => {
+        try { viewer.close(4000, 'ShowDesk Host heartbeat timed out'); } catch { viewer.close(); }
+      });
       let settled = false;
       let waitingForAtem = false;
       const timer = setTimeout(() => { if (!settled) { settled = true; viewer.close(); reject(new Error('ShowDesk Host did not respond in time')); } }, 10000);
       viewer.addEventListener('error', () => { if (!settled) { settled = true; clearTimeout(timer); reject(new Error('Unable to reach ShowDesk Host at ' + target)); } });
       viewer.addEventListener('message', event => {
+        liveness.received();
         let msg; try { msg = JSON.parse(event.data); } catch { return; }
         if (msg.type === 'snapshot') {
           const wasWaiting=waitingForAtem;
           waitingForAtem=false;
           if(!settled){settled=true;clearTimeout(timer);resolve({status:'connected',data:msg.data});}
-          socket=viewer;viewerReconnectEnabled=true;viewerReconnectHost=host;
+          viewerReconnectEnabled=true;viewerReconnectHost=host;
           connectionSubscribers.forEach(fn=>fn({type:'connection',status:'viewer-connected',data:msg.data,reconnected:reconnecting||wasWaiting}));
         } else if (msg.type === 'state') subscribers.forEach(fn => fn(msg.data));
-        else if (msg.type === 'connection') { if(msg.status==='waiting'||msg.status==='disconnected')waitingForAtem=true;connectionSubscribers.forEach(fn => fn(msg)); if (!settled && msg.status === 'waiting') { settled=true; clearTimeout(timer); socket=viewer; resolve({status:'waiting',reason:msg.reason}); } }
+        else if (msg.type === 'connection') { if(msg.status==='waiting'||msg.status==='disconnected')waitingForAtem=true;connectionSubscribers.forEach(fn => fn(msg)); if (!settled && msg.status === 'waiting') { settled=true; clearTimeout(timer); resolve({status:'waiting',reason:msg.reason}); } }
         else if (msg.type === 'health') healthSubscribers.forEach(fn => fn(msg));
         else if (msg.type === 'hyperdecks') hyperdeckSubscribers.forEach(fn => fn(msg.data || []));
         else if (msg.type === 'hyperdeckAvailability') hyperdeckAvailabilitySubscribers.forEach(fn => fn(msg.enabled === true));
       });
       viewer.addEventListener('close', () => {
-        if (socket === viewer) socket = null;
+        liveness.stop();
         if (viewerSocket === viewer) viewerSocket = null;
         if (settled && viewerReconnectEnabled) scheduleViewerReconnect();
       });
@@ -155,7 +197,6 @@
       const viewer = viewerSocket;
       viewerSocket = null;
       if (viewer) { try { viewer.close(); } catch {} }
-      if (socket === viewer) socket = null;
       return Promise.resolve({ disconnected:true });
     }
   };

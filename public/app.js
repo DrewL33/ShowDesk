@@ -731,8 +731,8 @@ function selectDestination(name){selectedDestination=name;renderPaths()}
 // Build072: stable full-workspace, bidirectional signal overview.
 let explorerPinned=null,explorerHover=null,explorerGraph=null,explorerTopology="",explorerRouteState="",explorerScale=1;
 const explorerEscape=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function explorerFocusId(){return explorerPinned||explorerHover}
-function explorerInspect(id,pin=false){if(pin){explorerPinned=explorerPinned===id?null:id;explorerHover=null}else if(!explorerPinned)explorerHover=id;explorerHighlight()}
+function explorerFocusId(){return explorerHover||explorerPinned}
+function explorerInspect(id,pin=false){if(pin){const unpin=explorerPinned===id;explorerPinned=unpin?null:id;explorerHover=unpin?id:null}else explorerHover=id;explorerHighlight()}
 function explorerClear(){explorerPinned=null;explorerHover=null;explorerHighlight()}
 let explorerViewportInitialized=false;
 let explorerFitRequested=false;
@@ -786,9 +786,11 @@ function explorerReach(graph,id,reverse=false){
  return seen;
 }
 function explorerTrace(graph,id){
- const upstream=explorerReach(graph,id,true),downstream=explorerReach(graph,id,false);
+ const inspectAssignment=/^(?:usk(?:fill|key)|dsk(?:fill|key)):/.test(id);
+ const traceGraph={...graph,edges:graph.edges.filter(edge=>edge.kind!=="assigned"||edge.traceable===true||inspectAssignment),adjacency:null};
+ const upstream=explorerReach(traceGraph,id,true),downstream=explorerReach(traceGraph,id,false);
  const nodes=new Set([...upstream,...downstream]);
- const edges=new Set(graph.edges.filter(e=>
+ const edges=new Set(traceGraph.edges.filter(e=>
   (upstream.has(e.from)&&upstream.has(e.to))||
   (downstream.has(e.from)&&downstream.has(e.to))
  ).map(e=>e.id));
@@ -835,17 +837,17 @@ function explorerBuildGraph(){
   return add("src:"+id,input?.name||("Source "+id),"source","INPUTS");
  };
  inputs.forEach(i=>source(i.id));
- const connect=(from,to,kind="selected")=>{
+ const connect=(from,to,kind="selected",traceable)=>{
   const id=from+"->"+to;
   if(from===to||edgeIds.has(id))return;
   // ATEM cross-M/E selections can be legitimate, but a graph cycle is not
   // proof of a live feedback path. Suppress circular inferred connections.
   if(explorerReach({edges,adjacency},to,false).has(from))return;
-  edgeIds.add(id);edges.push({id,from,to,kind});
+  edgeIds.add(id);edges.push({id,from,to,kind,...(traceable===undefined?{}:{traceable})});
   if(!adjacency.outgoing.has(from))adjacency.outgoing.set(from,new Set());adjacency.outgoing.get(from).add(to);
   if(!adjacency.incoming.has(to))adjacency.incoming.set(to,new Set());adjacency.incoming.get(to).add(from);
  };
- const feed=(id,to,kind)=>{if(id===undefined||id===null||!Number.isFinite(Number(id)))return;connect(source(id),to,kind)};
+ const feed=(id,to,kind,traceable)=>{if(id===undefined||id===null||!Number.isFinite(Number(id)))return;connect(source(id),to,kind,traceable)};
  // Physical source -> bus -> processing output. Never create a reverse edge to an earlier column.
  mes.forEach(me=>{
   add("me:"+me.index,"M/E "+me.index+" · Processing","processor","M/E PROCESSORS");
@@ -860,14 +862,14 @@ function explorerBuildGraph(){
   (me.upstreamKeyers||[]).forEach(k=>{
    const fill=add("uskfill:"+me.index+":"+k.index,"M/E "+me.index+" · USK "+k.index+" Fill","bus","KEYER ASSIGNMENTS");
    const key=add("uskkey:"+me.index+":"+k.index,"M/E "+me.index+" · USK "+k.index+" Key","bus","KEYER ASSIGNMENTS");
-   feed(k.fillId,fill,"assigned");feed(k.keyId,key,"assigned");
-   // Reported assignment only; keyer state must be verified before claiming contribution.
+   feed(k.fillId,fill,"assigned",k.onAir===true);feed(k.keyId,key,"assigned",k.onAir===true);
+   if(k.onAir===true){connect(fill,"me:"+me.index,"assigned",true);connect(key,"me:"+me.index,"assigned",true)}
   });
  });
  dsks.forEach(k=>{
   const fill=add("dskfill:"+k.index,"DSK "+k.index+" · Fill","destination","DSK");
   const key=add("dskkey:"+k.index,"DSK "+k.index+" · Key","destination","DSK");
-  feed(k.fillId,fill,"assigned");feed(k.keyId,key,"assigned");
+  feed(k.fillId,fill,"assigned",k.onAir===true);feed(k.keyId,key,"assigned",k.onAir===true);
  });
  routing.forEach((r,i)=>{const id=add("aux:"+(r.busId??r.protocolBusId??r.rawIndex??i),r.name||("ATEM Routing "+(i+1)),"destination","AUX / ROUTING");feed(r.sourceId,id,"routing")});
  return {nodes,edges,adjacency};

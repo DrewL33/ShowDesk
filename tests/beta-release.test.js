@@ -63,6 +63,7 @@ assert.match(hostApp, /function initializeUndockedWorkspace\(/, 'New windows mus
 assert.doesNotMatch(hostApp, /animateUndockedWorkspaceArrival|workspaceWindowArrival/, 'Detached workspaces should not run entrance transitions');
 assert.match(hostApp, /function adoptSharedHostConnection\(/, 'Detached Host windows must attach to the existing ATEM session');
 assert.match(hyperdeckServer, /status: 'host-connected'/, 'The local service must send the current Host snapshot to newly opened windows');
+assert.match(hyperdeckServer, /const allowed = \[[^\]]*'transportUpdatedAt'[^\]]*'slotsUpdatedAt'/, 'Viewer HyperDeck snapshots must retain the recorder reply timestamps used to identify stale data');
 assert.match(styles, /html\.undockedWorkspace \.floatingWorkspaceTabs\{display:none\}/, 'Detached workspaces must use a single-workspace window header');
 assert.doesNotMatch(styles, /workspaceArrive|workspaceWindowArrive|workspaceOpenPulse/, 'Detached window entrance and button animations should be removed');
 assert.match(styles, /@media\(max-width:760px\)[\s\S]*?html\.undockedWorkspace #app\.wrap/, 'Detached workspaces should adapt their controls and padding for tiled window widths');
@@ -157,6 +158,8 @@ assert.equal(hyperdeckUi.hyperdeckTimerValue({ transport: { 'slot id': 2 }, slot
 const freshDeck = { id: 'freshness-test', status: 'connected', transportUpdatedAt: 1, slotsUpdatedAt: 1, recordingElapsedMs: 0, transport: { status: 'record', 'video format': '1080p2997', 'slot id': '2' }, slots: [{ id: '2', status: 'mounted', 'recording time available': '120' }] };
 hyperdeckUi.observeHyperdeckDataReceipts([freshDeck], 1000);
 assert.equal(hyperdeckUi.hyperdeckTimerValue(freshDeck, 'recordingElapsed', 2000), '00:00:00:29', 'A fresh recording timer should interpolate at the reported 29.97 fps rate');
+hyperdeckUi.observeHyperdeckDataReceipts([freshDeck], 2500);
+assert.equal(hyperdeckUi.hyperdeckDataAge(freshDeck, 'transport', 5000), 4000, 'Repeating a Viewer snapshot with the same protocol timestamp must not make old transport data appear fresh');
 assert.equal(hyperdeckUi.hyperdeckTimerValue(freshDeck, 'recordingElapsed', 5000), '00:00:00:00', 'The elapsed timer must stop interpolating when transport replies go stale');
 assert.equal(hyperdeckUi.hyperdeckTimerValue(freshDeck, 'recordingRemaining', 5000), '—', 'The SSD timer must not present stale capacity as a live countdown');
 assert.equal(hyperdeckUi.hyperdeckRecordingTimeRemaining(freshDeck.slots[0], freshDeck, 5000), 'RECORD TIME LEFT · STALE', 'The media slot should explain that its remaining-time value is stale');

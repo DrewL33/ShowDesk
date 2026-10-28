@@ -412,6 +412,7 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .signalOverview .overviewEdge.program{stroke:#d97878;stroke-width:1.8;opacity:.85}
 .signalOverview .overviewEdge.preview{stroke:#42b5ff;stroke-width:2.1;opacity:.95}
 .signalOverview .overviewEdge.assigned{stroke:#d5ad65;stroke-width:1.5;opacity:.72;stroke-dasharray:5 4}
+.signalOverview.is-filtered .overviewEdge.is-active.program{stroke:#ff8585;stroke-width:3;opacity:1;filter:drop-shadow(0 0 2px #ff858566)}
 .signalOverview.is-filtered .overviewEdge.is-active.preview{stroke:#42b5ff;stroke-width:3;opacity:1}
 .signalOverview.is-filtered .overviewEdge.is-active.routing,.signalOverview.is-filtered .overviewEdge.is-active.selected{stroke:#718c9b}
 .explorerLegend .legendStroke.preview{border-color:#42b5ff;border-top-width:3px}

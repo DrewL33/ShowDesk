@@ -35,11 +35,12 @@ function parseResponseBlock(lines) {
 }
 
 class HyperDeckMonitor extends EventEmitter {
-  constructor({ connect = net.createConnection, reconnectMinMs = 2000, transportPollIntervalMs = 1000 } = {}) {
+  constructor({ connect = net.createConnection, reconnectMinMs = 2000, transportPollIntervalMs = 1000, staleTimeoutMs = 5000 } = {}) {
     super();
     this.connect = connect;
     this.reconnectMinMs = reconnectMinMs;
     this.transportPollIntervalMs = transportPollIntervalMs;
+    this.staleTimeoutMs = staleTimeoutMs;
     this.entries = new Map();
   }
 
@@ -58,7 +59,7 @@ class HyperDeckMonitor extends EventEmitter {
         continue;
       }
       if (existing) this.remove(config.id);
-      const entry = { config, socket: null, retry: null, retryMs: this.reconnectMinMs, transportPoll: null, slotPoll: null, buffer: '', lines: [], info: {}, transport: {}, transportUpdatedAt: 0, slotsUpdatedAt: 0, frontDisplayTimecode: '', recordingElapsedMs: 0, recordingStartedAt: null, displayTimecodeNotifications: false, slots: {}, status: 'connecting', error: '' };
+      const entry = { config, socket: null, retry: null, retryMs: this.reconnectMinMs, transportPoll: null, slotPoll: null, connectedAt: 0, buffer: '', lines: [], info: {}, transport: {}, transportUpdatedAt: 0, slotsUpdatedAt: 0, frontDisplayTimecode: '', recordingElapsedMs: 0, recordingStartedAt: null, displayTimecodeNotifications: false, slots: {}, status: 'connecting', error: '' };
       this.entries.set(config.id, entry);
       this.open(entry);
     }
@@ -96,7 +97,7 @@ class HyperDeckMonitor extends EventEmitter {
     entry.socket = socket;
     entry.connectTimer = setTimeout(() => socket.destroy(new Error('HyperDeck connection timed out')), 10_000);
     entry.connectTimer.unref?.();
-    socket.on('connect', () => { if (entry.socket !== socket) return; clearTimeout(entry.connectTimer); entry.connectTimer = null; entry.status = 'connected'; entry.retryMs = this.reconnectMinMs; this.publish(); });
+    socket.on('connect', () => { if (entry.socket !== socket) return; clearTimeout(entry.connectTimer); entry.connectTimer = null; entry.connectedAt = Date.now(); entry.status = 'connected'; entry.retryMs = this.reconnectMinMs; this.publish(); });
     socket.on('data', data => { if (entry.socket === socket) this.consume(entry, data); });
     socket.on('error', error => { if (entry.socket === socket) entry.error = String(error.message || error).slice(0, 160); });
     socket.on('close', () => {
@@ -106,7 +107,7 @@ class HyperDeckMonitor extends EventEmitter {
       clearInterval(entry.slotPoll); entry.slotPoll = null;
       entry.displayTimecodeNotifications = false;
       if (entry.recordingStartedAt !== null) { entry.recordingElapsedMs += Math.max(0, Date.now() - entry.recordingStartedAt); entry.recordingStartedAt = null; }
-      entry.socket = null; entry.status = 'disconnected'; this.publish();
+      entry.socket = null; entry.connectedAt = 0; entry.status = 'disconnected'; this.publish();
       if (this.entries.has(entry.config.id)) {
         entry.retry = setTimeout(() => this.open(entry), entry.retryMs);
         entry.retry.unref?.(); entry.retryMs = Math.min(RECONNECT_MAX_MS, entry.retryMs * 2);
@@ -206,7 +207,17 @@ class HyperDeckMonitor extends EventEmitter {
 
   syncTransportPolling(entry) {
     if (entry.socket?.writable && !entry.transportPoll) {
-      entry.transportPoll = setInterval(() => this.send(entry, 'transport info'), this.transportPollIntervalMs);
+      entry.transportPoll = setInterval(() => {
+        const now = Date.now(), baseline = entry.connectedAt || now;
+        // A previous socket's last-reply timestamp must not make a newly
+        // reconnected socket look stale before its first status replies land.
+        const transportAt = Math.max(entry.transportUpdatedAt, baseline), slotsAt = Math.max(entry.slotsUpdatedAt, baseline);
+        if (now - transportAt > this.staleTimeoutMs || now - slotsAt > this.staleTimeoutMs) {
+          entry.socket?.destroy(new Error('HyperDeck stopped replying to status requests; reconnecting'));
+          return;
+        }
+        this.send(entry, 'transport info');
+      }, this.transportPollIntervalMs);
       entry.transportPoll.unref?.();
     } else if (!entry.socket?.writable && entry.transportPoll) {
       clearInterval(entry.transportPoll);
