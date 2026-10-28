@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 
 const app=fs.readFileSync('public/app.js','utf8');
+const styles=fs.readFileSync('public/styles.css','utf8');
 const start=app.indexOf('function explorerReach(');
 const end=app.indexOf('function transitionPercent(',start);
 assert.ok(start>=0&&end>start,'Signal Explorer functions should remain available');
@@ -47,6 +48,7 @@ const trace=explorer.explorerTrace(traceGraph,'selected');
 assert.deepEqual([...trace.nodes].sort(),['bus-a','output','processor','selected','source-a'].sort(),'A selected node should trace its connected upstream and downstream signal path');
 assert.deepEqual([...trace.edges].sort(),['bus-a','processor-output','selected-pgm','source-a'].sort(),'A trace should exclude neighboring and cross-branch edges');
 assert.ok(!trace.edges.has('unrelated-preview'),'A selected media-player key route must not light an unrelated camera-to-preview line');
+assert.ok(!trace.edges.has('cross-branch'),'A trace must not include a shortcut that bypasses the inspected node');
 assert.ok(!trace.edges.has('inactive-assignment'),'Inactive keyer assignments must not light up as part of an on-air source trace');
 const sourceTrace=explorer.explorerTrace(traceGraph,'source-a');
 assert.ok(sourceTrace.edges.has('active-assignment')&&sourceTrace.edges.has('active-keyer'),'An on-air keyer contribution should remain connected to its selected source');
@@ -78,4 +80,8 @@ assert.ok(explorer.explorerReach(graph,graph.nodes[0].id).size>0,'Indexed traver
 assert.ok(graph.edges.every(edge=>!explorer.explorerReach(graph,edge.to).has(edge.from)),'Cycle filtering should keep the overview graph acyclic');
 assert.match(svg,/aria-label="Live ATEM signal overview"/,'Signal Explorer should still produce its accessible SVG');
 assert.equal((svg.match(/class="overviewEdge /g)||[]).length,graph.edges.length,'Every route should be drawn exactly once');
+assert.match(styles,/\.signalOverview\.is-filtered \.overviewEdge:not\(\.is-active\)\{opacity:\.015\}/,'A trace must visually suppress every edge outside the selected route');
+assert.match(styles,/\.signalOverview\.is-filtered \.overviewDirection:not\(\.is-active\)\{opacity:0\}/,'Direction markers outside the selected route must stay hidden');
+assert.match(app,/const firstXs=sample\(xs,11\)/,'Signal Explorer must retain the stable wide fan-out channel layout');
+assert.match(app,/const overflowYs=ys\.filter\(y=>y>=bounds\.nodeBottom\+22\)/,'Long routes must retain dedicated overflow lanes instead of crowding node rows');
 console.log(`Signal Explorer graph/render regression passed (${graph.nodes.length} nodes, ${graph.edges.length} routes, ${elapsed.toFixed(1)} ms)`);

@@ -940,8 +940,9 @@ function explorerRoute(start,end,columns,lanes,bounds){
   const xs=[];
   for(let x=first.min;x<=first.max;x+=spacing)xs.push(x);
   const sample=(values,count)=>values.length<=count?values:Array.from({length:count},(_,i)=>values[Math.round(i*(values.length-1)/(count-1))]);
-  const firstXs=sample(xs,5);
-  const lastXs=to===from+1?firstXs:[last.min+8,(last.min+last.max)/2,last.max-8];
+  // Preserve the wider horizontal fan-out from the stable 1.1.5 layout.
+  const firstXs=sample(xs,11);
+  const lastXs=to===from+1?firstXs:sample(xs.map(x=>last.min+8+(x-first.min)),11);
   const ys=[];
   for(let row=0;row<15;row++)for(const offset of [-14,-7,0,7,14]){
    const y=TOP-18+row*ROW+offset;
@@ -953,7 +954,9 @@ function explorerRoute(start,end,columns,lanes,bounds){
   }else{
    const center=(start.y+end.y)/2;
    ys.sort((a,b)=>Math.abs(a-center)-Math.abs(b-center));
-   const routeYs=sample(ys.slice(0,12),12);
+   const nearbyYs=sample(ys.slice(0,12),12);
+   const overflowYs=ys.filter(y=>y>=bounds.nodeBottom+22);
+   const routeYs=[...new Set([...nearbyYs,...overflowYs])];
    for(const x of firstXs)for(const lastX of lastXs)for(const y of routeYs)
     candidates.push([start,{x,y:start.y},{x,y},{x:lastX,y},{x:lastX,y:end.y},end]);
   }

@@ -412,8 +412,6 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .signalOverview .overviewEdge.program{stroke:#d97878;stroke-width:1.8;opacity:.85}
 .signalOverview .overviewEdge.preview{stroke:#42b5ff;stroke-width:2.1;opacity:.95}
 .signalOverview .overviewEdge.assigned{stroke:#d5ad65;stroke-width:1.5;opacity:.72;stroke-dasharray:5 4}
-.signalOverview.is-filtered .overviewEdge.is-active.program{stroke:#ff8585;stroke-width:3;opacity:1;filter:drop-shadow(0 0 2px #ff858566)}
-.signalOverview.is-filtered .overviewEdge.is-active.preview{stroke:#42b5ff;stroke-width:3;opacity:1}
 .signalOverview.is-filtered .overviewEdge.is-active.routing,.signalOverview.is-filtered .overviewEdge.is-active.selected{stroke:#718c9b}
 .explorerLegend .legendStroke.preview{border-color:#42b5ff;border-top-width:3px}
 .explorerLegend .legendStroke.routing{border-color:#465d69}
@@ -424,6 +422,11 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .signalOverview .overviewEdgeHalo{fill:none;stroke:#0d1921;stroke-width:3.7;opacity:.85;pointer-events:none}
 .signalOverview.is-filtered .overviewEdgeHalo:not(.is-active){opacity:.06}
 .signalOverview.is-filtered .overviewEdgeHalo.is-active{opacity:1;stroke-width:5}
+
+/* During a trace, only edges on the selected route remain visible. */
+.signalOverview.is-filtered .overviewEdge:not(.is-active){opacity:.015}
+.signalOverview.is-filtered .overviewEdgeHalo:not(.is-active),
+.signalOverview.is-filtered .overviewDirection:not(.is-active){opacity:0}
 
 /* Build080: lane separation is primary; keep crossings subtle. */
 .signalOverview .overviewEdgeHalo{stroke-width:2.8;opacity:.6}
