@@ -61,7 +61,6 @@ fn open_workspace_window(app: AppHandle, window: tauri::WebviewWindow, workspace
     tauri::WebviewWindowBuilder::new(&app, label, tauri::WebviewUrl::App("index.html".into()))
         .title(format!("ShowDesk — {title}"))
         .inner_size(initial_width, initial_height)
-        .min_inner_size(minimum_width, minimum_height)
         .resizable(true)
         .initialization_script(&workspace_script)
         .build()

@@ -10,6 +10,8 @@ const rust=fs.readFileSync('src-tauri/src/main.rs','utf8');
 const bootstrap=html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
 assert.ok(bootstrap,'The detached-window startup marker should run before styles render');
 assert.match(rust,/classList\.add\('undockedStartup'\)/,'Native detached windows should mark themselves during webview initialization');
+const nativeWindowBuilder=rust.slice(rust.indexOf('tauri::WebviewWindowBuilder::new'),rust.indexOf('.build()',rust.indexOf('tauri::WebviewWindowBuilder::new')));
+assert.ok(!nativeWindowBuilder.includes('.min_inner_size('),'Detached windows must allow OS tiling below their preferred initial size');
 assert.match(styles,/html\.undockedStartup #setup\{display:none!important\}/,'The connection overlay must not flash over a detached workspace');
 
 const classes=new Set();
