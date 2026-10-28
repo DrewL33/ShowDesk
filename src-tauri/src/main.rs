@@ -57,7 +57,7 @@ fn open_workspace_window(app: AppHandle, window: tauri::WebviewWindow, workspace
     let initial_width = (monitor_width * 0.78).max(minimum_width).min(monitor_width);
     let initial_height = (monitor_height * 0.80).max(minimum_height).min(monitor_height);
     let context = serde_json::json!({ "workspace": workspace, "connectionMode": connection_mode, "connectionHost": connection_host });
-    let workspace_script = format!("window.SHOWDESK_UNDOCKED_CONTEXT = {};", serde_json::to_string(&context).map_err(|e| e.to_string())?);
+    let workspace_script = format!("window.SHOWDESK_UNDOCKED_CONTEXT = {}; if (document.documentElement) document.documentElement.classList.add('undockedStartup');", serde_json::to_string(&context).map_err(|e| e.to_string())?);
     tauri::WebviewWindowBuilder::new(&app, label, tauri::WebviewUrl::App("index.html".into()))
         .title(format!("ShowDesk — {title}"))
         .inner_size(initial_width, initial_height)

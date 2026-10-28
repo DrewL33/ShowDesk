@@ -819,3 +819,4 @@ html.undockedWorkspace #app.wrap{padding-top:14px}
 /* Keep read-only HyperDeck values visibly tied to recent protocol replies. */
 .rackFreshness{margin-left:5px;color:#55d7a7;font-size:8px;font-weight:800;letter-spacing:.06em;white-space:nowrap}
 .rackFreshness.isStale{color:#e8b56b}
+html.undockedStartup #setup{display:none!important}
