@@ -6,7 +6,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
-use tauri::menu::{MenuBuilder, SubmenuBuilder};
+use tauri::menu::{MenuBuilder, SubmenuBuilder, WINDOW_SUBMENU_ID};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
@@ -362,7 +362,14 @@ fn main() {
             let help_menu = SubmenuBuilder::new(app, "Help")
                 .text("check_for_updates_help", "Check for Updates…")
                 .build()?;
-            let menu = MenuBuilder::new(app).items(&[&app_menu, &help_menu]).build()?;
+            let window_menu = SubmenuBuilder::new(app, "Window")
+                .id(WINDOW_SUBMENU_ID)
+                .minimize()
+                .maximize()
+                .separator()
+                .close_window()
+                .build()?;
+            let menu = MenuBuilder::new(app).items(&[&app_menu, &window_menu, &help_menu]).build()?;
             app.set_menu(menu)?;
             app.on_menu_event(|app, event| {
                 if event.id() == "check_for_updates" || event.id() == "check_for_updates_help" {
