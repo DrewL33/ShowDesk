@@ -35,6 +35,7 @@ assert.match(betaWorkflow, /git show origin\/main:src-tauri\/tauri\.conf\.json/,
 assert.equal((betaWorkflow.match(/BETA_VERSION: \$\{\{ needs\.version\.outputs\.beta_version \}\}/g) || []).length, 3, 'Beta builds and published updater feeds should share the version derived from main');
 assert.doesNotMatch(betaWorkflow, /1\.1\.0-beta/, 'Beta workflow must not remain pinned to an old stable version');
 assert.match(betaWorkflow, /os: macos-15-intel[\s\S]*?artifact: macos-x86_64/, 'The Beta workflow must build an Intel Mac app for field testing');
+assert.match(betaWorkflow, /os: macos-15\s+artifact: macos-arm64/, 'The Beta workflow must build Apple silicon apps on the supported macOS 15 runner');
 assert.match(betaWorkflow, /darwin-x86_64/, 'Beta updater feeds must include signed Intel Mac updates');
 assert.match(betaWorkflow, /ShowDesk-BETA-macOS-Intel-Installer\.dmg/, 'The Beta download should have a dedicated Intel installer');
 assert.match(backendPrep, /process\.arch === 'x64' \? 'x86_64' : process\.arch/, 'The macOS runtime packager must map Intel Node and lipo architecture names');
