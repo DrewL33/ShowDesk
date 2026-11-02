@@ -43,10 +43,11 @@ assert.match(rust, /fn create_workspace_window[\s\S]*?WebviewWindowBuilder::new/
 assert.match(rust, /format!\("workspace-\{workspace\}"\)/, 'Detached workspace window labels must stay stable so their OS window state can be restored');
 assert.match(rust, /restore_workspace_windows[\s\S]*?state\.saved\(\)/, 'Saved detached workspaces must reopen after the main connection is restored');
 assert.match(rust, /tauri_plugin_window_state::\{Builder as WindowStateBuilder, StateFlags\}/, 'Native window positions, sizes, and maximized state must be persisted across launches');
-assert.doesNotMatch(rust, /\.accelerator\(/, 'Native menu accelerators must not override user-configurable shortcuts');
+assert.equal((rust.match(/\.accelerator\(/g) || []).length, 1, 'Only the native full-screen menu item should declare a fixed accelerator');
 assert.match(rust, /fn toggle_fullscreen[\s\S]*?window\.set_fullscreen\(next\)/, 'ShowDesk must toggle native full screen in the focused window');
 assert.match(rust, /redock_workspace, toggle_fullscreen\]/, 'The native full-screen command must be available to the frontend');
-assert.match(rust, /toggle_fullscreen", "Toggle Full Screen"/, 'The View menu must expose a full-screen action');
+assert.match(rust, /toggle_fullscreen", "Toggle Full Screen"\)\s*\.accelerator\("Cmd\+F"\)/, 'The native full-screen menu action must display Command+F');
+assert.match(rust, /SubmenuBuilder::new\(app, "View "\)/, 'The View menu title must avoid macOS injecting its system Fn+F full-screen item');
 assert.match(hostHtml, /data-settings-tab="shortcuts"[\s\S]*?id="settingsSectionShortcuts"[\s\S]*?id="settingsShortcutList"[\s\S]*?reset-shortcuts/, 'Settings must provide editable shortcuts and a reset action');
 assert.match(hostApp, /id:"fullscreen",label:"Toggle full screen",mac:"Meta\+F"/, 'Mac full screen must default to Command+F');
 assert.match(hostApp, /function captureShowDeskShortcut[\s\S]*?already assigned/, 'Shortcut capture must reject duplicate assignments');

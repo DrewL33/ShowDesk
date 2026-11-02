@@ -440,13 +440,18 @@ fn main() {
             let hyperdeck_item = MenuItemBuilder::with_id("workspace_hyperdecks", "HyperDeck Monitoring").build(app)?;
             let fit_signal_item = MenuItemBuilder::with_id("signal_fit", "Fit Signal Explorer").build(app)?;
             let clear_signal_item = MenuItemBuilder::with_id("signal_clear", "Clear Signal Trace").build(app)?;
-            let fullscreen_item = MenuItemBuilder::with_id("toggle_fullscreen", "Toggle Full Screen").build(app)?;
+            let fullscreen_item = MenuItemBuilder::with_id("toggle_fullscreen", "Toggle Full Screen")
+                .accelerator("Cmd+F")
+                .build(app)?;
             let disconnect_item = MenuItemBuilder::with_id("disconnect_showdesk", "Disconnect…").build(app)?;
             let app_menu = SubmenuBuilder::new(app, "ShowDesk")
                 .item(&about_item).item(&settings_item).item(&updates_item)
                 .separator().item(&show_item).item(&signal_item).item(&inspect_item).item(&hyperdeck_item)
                 .separator().item(&disconnect_item).separator().quit().build()?;
-            let view_menu = SubmenuBuilder::new(app, "View")
+            // macOS automatically appends its system Full Screen command to a menu titled exactly
+            // "View" (using the user's system shortcut, which may be Fn+F). The custom item above
+            // owns this action so the displayed shortcut stays ⌘F.
+            let view_menu = SubmenuBuilder::new(app, "View ")
                 .item(&fullscreen_item).separator().item(&fit_signal_item).item(&clear_signal_item).build()?;
             let help_menu = SubmenuBuilder::new(app, "Help")
                 .text("check_for_updates_help", "Check for Updates…")
