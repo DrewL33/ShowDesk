@@ -11,6 +11,7 @@ const lockMetadata = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
 const stableWorkflow = fs.readFileSync('.github/workflows/build.yml', 'utf8');
 const betaWorkflow = fs.readFileSync('.github/workflows/beta.yml', 'utf8');
 const backendPrep = fs.readFileSync('scripts/prepare-tauri-backend.js', 'utf8');
+const serviceSupervisor = fs.readFileSync('src/service-supervisor.js', 'utf8');
 const rust = fs.readFileSync('src-tauri/src/main.rs', 'utf8');
 const runtimeConfig = fs.readFileSync('public/runtime-config.js', 'utf8');
 const mobile = fs.readFileSync('public/mobile-viewer.html', 'utf8');
@@ -52,6 +53,8 @@ assert.match(rust, /fn toggle_fullscreen[\s\S]*?window\.set_fullscreen\(next\)/,
 assert.match(rust, /redock_workspace, toggle_fullscreen\]/, 'The native full-screen command must be available to the frontend');
 assert.match(rust, /toggle_fullscreen", "Toggle Full Screen"\)\s*\.accelerator\("CmdOrCtrl\+F"\)/, 'The native full-screen menu action must map Command+F on Mac and Control+F on Windows');
 assert.match(betaWorkflow, /Smoke test packaged Beta service[\s\S]*SHOWDESK_PORT: '47831'[\s\S]*SHOWDESK_VIEWER_PORT: '47832'/, 'Beta builds must smoke test the packaged service on the isolated Beta ports');
+assert.match(serviceSupervisor, /windowsHide: process\.platform === 'win32'/, 'The bundled Windows ATEM service must not open a visible Node console');
+assert.match(rust, /command\.creation_flags\(0x08000000\)/, 'The native Windows app must suppress the bundled Node supervisor console');
 assert.match(rust, /SubmenuBuilder::new\(app, "View "\)/, 'The View menu title must avoid macOS injecting its system Fn+F full-screen item');
 assert.match(hostHtml, /data-settings-tab="shortcuts"[\s\S]*?id="settingsSectionShortcuts"[\s\S]*?id="settingsShortcutList"[\s\S]*?reset-shortcuts/, 'Settings must provide editable shortcuts and a reset action');
 assert.match(hostHtml, /id="settingsSectionUpdates"[\s\S]*?id="settingsReleaseNotes"/, 'Settings Updates must include a release history list');

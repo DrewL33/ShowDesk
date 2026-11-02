@@ -224,7 +224,8 @@ fn spawn_atem_service(app: &AppHandle) -> Result<Child, String> {
     let stdout = OpenOptions::new().create(true).append(true).open(&log_path).map_err(|e| e.to_string())?;
     let stderr = stdout.try_clone().map_err(|e| e.to_string())?;
 
-    Command::new(&node)
+    let mut command = Command::new(&node);
+    command
         .arg(supervisor)
         .arg(node)
         .arg(server)
@@ -236,8 +237,15 @@ fn spawn_atem_service(app: &AppHandle) -> Result<Child, String> {
         // crashes or is force-quit, even when the service's event loop is stuck.
         .stdin(Stdio::piped())
         .stdout(Stdio::from(stdout))
-        .stderr(Stdio::from(stderr))
-        .spawn()
+        .stderr(Stdio::from(stderr));
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        // A GUI app has no console. Prevent Windows from flashing one for this
+        // bundled Node process whenever the service starts or reconnects.
+        command.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+    command.spawn()
         .map_err(|e| format!("Unable to launch bundled ATEM service: {e}. Log: {}", log_path.display()))
 }
 
