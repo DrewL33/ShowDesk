@@ -39,10 +39,15 @@ assert.match(betaWorkflow, /os: macos-15\s+artifact: macos-arm64/, 'The Beta wor
 assert.match(betaWorkflow, /darwin-x86_64/, 'Beta updater feeds must include signed Intel Mac updates');
 assert.match(betaWorkflow, /ShowDesk-BETA-macOS-Intel-Installer\.dmg/, 'The Beta download should have a dedicated Intel installer');
 assert.match(backendPrep, /process\.arch === 'x64' \? 'x86_64' : process\.arch/, 'The macOS runtime packager must map Intel Node and lipo architecture names');
-assert.match(rust, /fn open_workspace_window[\s\S]*?WebviewWindowBuilder::new/, 'Tauri must open detached workspaces as native windows');
+assert.match(rust, /fn create_workspace_window[\s\S]*?WebviewWindowBuilder::new/, 'Tauri must open detached workspaces as native windows');
+assert.match(rust, /format!\("workspace-\{workspace\}"\)/, 'Detached workspace window labels must stay stable so their OS window state can be restored');
+assert.match(rust, /restore_workspace_windows[\s\S]*?state\.saved\(\)/, 'Saved detached workspaces must reopen after the main connection is restored');
+assert.match(rust, /tauri_plugin_window_state::\{Builder as WindowStateBuilder, StateFlags\}/, 'Native window positions, sizes, and maximized state must be persisted across launches');
+assert.match(rust, /CmdOrCtrl\+1[\s\S]*?CmdOrCtrl\+2[\s\S]*?CmdOrCtrl\+3/, 'Native menu shortcuts must switch between the primary workspaces');
+assert.match(rust, /CmdOrCtrl\+Shift\+F[\s\S]*?CmdOrCtrl\+Shift\+Backspace/, 'The View menu must expose fit and clear-trace shortcuts for Signal Explorer');
 assert.match(rust, /use tauri::menu::\{[^}]*WINDOW_SUBMENU_ID[^}]*\}/, 'The native macOS Window menu must use Tauri’s recognized menu identifier');
 assert.match(rust, /SubmenuBuilder::new\(app, "Window"\)[\s\S]*?\.id\(WINDOW_SUBMENU_ID\)[\s\S]*?\.minimize\(\)[\s\S]*?\.maximize\(\)[\s\S]*?\.close_window\(\)/, 'ShowDesk must register a native Window menu so macOS can add its built-in Move & Resize tile choices');
-assert.match(rust, /MenuBuilder::new\(app\)\.items\(&\[&app_menu, &window_menu, &help_menu\]\)/, 'The native Window menu must be included in the macOS app menu');
+assert.match(rust, /MenuBuilder::new\(app\)\.items\(&\[&app_menu, &view_menu, &window_menu, &help_menu\]\)/, 'The native View and Window menus must be included in the app menu');
 assert.match(rust, /current_monitor\(\)[\s\S]*?scale_factor\(\)[\s\S]*?\.inner_size\(initial_width, initial_height\)/, 'Detached windows should open at a display-aware preferred size');
 assert.doesNotMatch(rust.slice(rust.indexOf('tauri::WebviewWindowBuilder::new'), rust.indexOf('.build()', rust.indexOf('tauri::WebviewWindowBuilder::new'))), /\.min_inner_size\(/, 'Detached windows must be allowed to shrink to the OS tile bounds');
 assert.match(rust, /fn redock_workspace[\s\S]*?showdesk-redock-workspace/, 'Detached workspaces must be able to return to the main window');

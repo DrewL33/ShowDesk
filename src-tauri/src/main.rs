@@ -3,17 +3,62 @@
 use std::fs::{self, OpenOptions};
 use std::net::{SocketAddr, TcpStream};
 use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Mutex, atomic::{AtomicBool, Ordering}};
 use std::time::{Duration, Instant};
-use tauri::menu::{MenuBuilder, SubmenuBuilder, WINDOW_SUBMENU_ID};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder, WINDOW_SUBMENU_ID};
+use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_updater::UpdaterExt;
+use tauri_plugin_window_state::{Builder as WindowStateBuilder, StateFlags};
 
 struct AtemService(Mutex<Option<Child>>);
 struct UpdaterBusy(Mutex<bool>);
-static WORKSPACE_WINDOW_ID: AtomicU64 = AtomicU64::new(1);
+struct DetachedWorkspaceState {
+    path: std::path::PathBuf,
+    workspaces: Mutex<Vec<String>>,
+    exiting: AtomicBool,
+}
+
+impl DetachedWorkspaceState {
+    fn load(path: std::path::PathBuf) -> Self {
+        let workspaces = fs::read(&path).ok()
+            .and_then(|contents| serde_json::from_slice::<Vec<String>>(&contents).ok())
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|workspace| workspace_title(workspace).is_some())
+            .collect();
+        Self { path, workspaces: Mutex::new(workspaces), exiting: AtomicBool::new(false) }
+    }
+
+    fn persist(&self, workspaces: &[String]) -> Result<(), String> {
+        if let Some(parent) = self.path.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        let contents = serde_json::to_vec(workspaces).map_err(|error| error.to_string())?;
+        fs::write(&self.path, contents).map_err(|error| error.to_string())
+    }
+
+    fn add(&self, workspace: &str) -> Result<(), String> {
+        let mut workspaces = self.workspaces.lock().map_err(|_| "Workspace restore state is unavailable.".to_string())?;
+        if !workspaces.iter().any(|item| item == workspace) {
+            workspaces.push(workspace.to_string());
+            self.persist(&workspaces)?;
+        }
+        Ok(())
+    }
+
+    fn remove(&self, workspace: &str) -> Result<(), String> {
+        let mut workspaces = self.workspaces.lock().map_err(|_| "Workspace restore state is unavailable.".to_string())?;
+        let previous_len = workspaces.len();
+        workspaces.retain(|item| item != workspace);
+        if workspaces.len() != previous_len { self.persist(&workspaces)?; }
+        Ok(())
+    }
+
+    fn saved(&self) -> Result<Vec<String>, String> {
+        self.workspaces.lock().map(|items| items.clone()).map_err(|_| "Workspace restore state is unavailable.".to_string())
+    }
+}
 
 fn workspace_title(workspace: &str) -> Option<&'static str> {
     match workspace {
@@ -33,17 +78,13 @@ fn close_detached_workspace_windows(app: &AppHandle) {
     }
 }
 
-#[tauri::command]
-fn open_workspace_window(app: AppHandle, window: tauri::WebviewWindow, workspace: String, connection_mode: Option<String>, connection_host: Option<String>) -> Result<(), String> {
-    if window.label() != "main" { return Err("Only the main ShowDesk window can open another workspace window.".to_string()); }
+fn create_workspace_window(app: &AppHandle, window: &tauri::WebviewWindow, workspace: &str, connection_mode: Option<String>, connection_host: Option<String>) -> Result<(), String> {
     let title = workspace_title(&workspace).ok_or_else(|| "Unknown ShowDesk workspace.".to_string())?;
-    let prefix = format!("workspace-{workspace}-");
-    if let Some(existing) = app.webview_windows().into_iter().find(|(label, _)| label.starts_with(&prefix)).map(|(_, window)| window) {
+    if let Some(existing) = app.webview_windows().into_iter().find(|(label, _)| label == &format!("workspace-{workspace}")).map(|(_, window)| window) {
         existing.show().map_err(|e| format!("Unable to show the existing workspace window: {e}"))?;
         existing.set_focus().map_err(|e| format!("Unable to focus the existing workspace window: {e}"))?;
         return Ok(());
     }
-    let label = format!("{prefix}{}", WORKSPACE_WINDOW_ID.fetch_add(1, Ordering::Relaxed));
     // Tauri's window builder accepts logical pixels. Derive the initial size
     // from the main window's display so a detached workspace opens at a useful
     // size on both laptop panels and larger production monitors.
@@ -58,20 +99,47 @@ fn open_workspace_window(app: AppHandle, window: tauri::WebviewWindow, workspace
     let initial_height = (monitor_height * 0.80).max(minimum_height).min(monitor_height);
     let context = serde_json::json!({ "workspace": workspace, "connectionMode": connection_mode, "connectionHost": connection_host });
     let workspace_script = format!("window.SHOWDESK_UNDOCKED_CONTEXT = {}; if (document.documentElement) document.documentElement.classList.add('undockedStartup');", serde_json::to_string(&context).map_err(|e| e.to_string())?);
-    tauri::WebviewWindowBuilder::new(&app, label, tauri::WebviewUrl::App("index.html".into()))
+    let restored_workspace = workspace.to_string();
+    let restored_app = app.clone();
+    let created = tauri::WebviewWindowBuilder::new(app, format!("workspace-{workspace}"), tauri::WebviewUrl::App("index.html".into()))
         .title(format!("ShowDesk — {title}"))
         .inner_size(initial_width, initial_height)
         .resizable(true)
         .initialization_script(&workspace_script)
         .build()
-        .map(|_| ())
-        .map_err(|e| format!("Unable to open {title} in a new window: {e}"))
+        .map_err(|e| format!("Unable to open {title} in a new window: {e}"))?;
+    created.on_window_event(move |event| {
+        if matches!(event, WindowEvent::CloseRequested { .. }) {
+            let state = restored_app.state::<DetachedWorkspaceState>();
+            if !state.exiting.load(Ordering::Relaxed) { let _ = state.remove(&restored_workspace); }
+        }
+    });
+    app.state::<DetachedWorkspaceState>().add(workspace)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn open_workspace_window(app: AppHandle, window: tauri::WebviewWindow, workspace: String, connection_mode: Option<String>, connection_host: Option<String>) -> Result<(), String> {
+    if window.label() != "main" { return Err("Only the main ShowDesk window can open another workspace window.".to_string()); }
+    create_workspace_window(&app, &window, &workspace, connection_mode, connection_host)
+}
+
+#[tauri::command]
+fn restore_workspace_windows(app: AppHandle, window: tauri::WebviewWindow, connection_mode: String, connection_host: String, hyperdeck_monitoring: bool) -> Result<(), String> {
+    if window.label() != "main" { return Err("Only the main ShowDesk window can restore workspaces.".to_string()); }
+    let state = app.state::<DetachedWorkspaceState>();
+    for workspace in state.saved()? {
+        if workspace == "hyperdecks" && !hyperdeck_monitoring { continue; }
+        create_workspace_window(&app, &window, &workspace, Some(connection_mode.clone()), Some(connection_host.clone()))?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
 fn redock_workspace(app: AppHandle, window: tauri::WebviewWindow, workspace: String) -> Result<(), String> {
     if !window.label().starts_with("workspace-") { return Err("This window does not have a detached workspace to return.".to_string()); }
     if workspace_title(&workspace).is_none() { return Err("Unknown ShowDesk workspace.".to_string()); }
+    app.state::<DetachedWorkspaceState>().remove(&workspace)?;
     app.emit_to("main", "showdesk-redock-workspace", workspace).map_err(|e| e.to_string())?;
     if let Some(main) = app.get_webview_window("main") {
         main.show().map_err(|e| format!("Unable to show the main ShowDesk window: {e}"))?;
@@ -276,7 +344,7 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
 async fn run_manual_update_check(app: AppHandle) {
     // Native menu checks share the same frontend updater flow. This avoids a
     // second updater controller independently checking/downloading updates.
-    let _ = app.emit("showdesk-native-menu", "check-for-updates");
+    emit_native_menu_action(&app, "check-for-updates");
 }
 
 fn show_about(app: &AppHandle) {
@@ -330,15 +398,25 @@ fn open_showdesk_repository() -> Result<(), String> {
     }
 }
 
+fn emit_native_menu_action(app: &AppHandle, action: &str) {
+    let focused = app.webview_windows().into_values().find(|window| window.is_focused().unwrap_or(false));
+    if let Some(window) = focused.or_else(|| app.get_webview_window("main")) {
+        let _ = window.emit("showdesk-native-menu", action);
+    }
+}
+
 fn main() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(WindowStateBuilder::default().with_state_flags(StateFlags::POSITION | StateFlags::SIZE | StateFlags::MAXIMIZED).build())
         .manage(AtemService(Mutex::new(None)))
         .manage(UpdaterBusy(Mutex::new(false)))
-        .invoke_handler(tauri::generate_handler![ensure_atem_service, save_log_report, check_for_update, install_update, open_showdesk_repository, open_workspace_window, redock_workspace])
+        .invoke_handler(tauri::generate_handler![ensure_atem_service, save_log_report, check_for_update, install_update, open_showdesk_repository, open_workspace_window, restore_workspace_windows, redock_workspace])
         .setup(|app| {
+            let restore_path = app.path().app_config_dir()?.join("detached-workspaces.json");
+            app.manage(DetachedWorkspaceState::load(restore_path));
             // Start eagerly, but do not prevent the UI from opening if the
             // service fails. The frontend retries through ensure_atem_service
             // and can show the precise native startup error.
@@ -346,19 +424,22 @@ fn main() {
                 eprintln!("[ShowDesk ATEM service] {error}");
             }
 
+            let about_item = MenuItemBuilder::with_id("about_showdesk", "About ShowDesk").build(app)?;
+            let settings_item = MenuItemBuilder::with_id("settings_showdesk", "Settings…").build(app)?;
+            let updates_item = MenuItemBuilder::with_id("check_for_updates", "Check for Updates…").build(app)?;
+            let show_item = MenuItemBuilder::with_id("workspace_show", "Show View").accelerator("CmdOrCtrl+1").build(app)?;
+            let signal_item = MenuItemBuilder::with_id("workspace_signal", "Signal Explorer").accelerator("CmdOrCtrl+2").build(app)?;
+            let inspect_item = MenuItemBuilder::with_id("workspace_engineering", "Inspect").accelerator("CmdOrCtrl+3").build(app)?;
+            let hyperdeck_item = MenuItemBuilder::with_id("workspace_hyperdecks", "HyperDeck Monitoring").accelerator("CmdOrCtrl+4").build(app)?;
+            let fit_signal_item = MenuItemBuilder::with_id("signal_fit", "Fit Signal Explorer").accelerator("CmdOrCtrl+Shift+F").build(app)?;
+            let clear_signal_item = MenuItemBuilder::with_id("signal_clear", "Clear Signal Trace").accelerator("CmdOrCtrl+Shift+Backspace").build(app)?;
+            let disconnect_item = MenuItemBuilder::with_id("disconnect_showdesk", "Disconnect…").build(app)?;
             let app_menu = SubmenuBuilder::new(app, "ShowDesk")
-                .text("about_showdesk", "About ShowDesk")
-                .text("settings_showdesk", "Settings…")
-                .text("check_for_updates", "Check for Updates…")
-                .separator()
-                .text("workspace_show", "Show View")
-                .text("workspace_signal", "Signal Explorer")
-                .text("workspace_engineering", "Inspect")
-                .separator()
-                .text("disconnect_showdesk", "Disconnect…")
-                .separator()
-                .quit()
-                .build()?;
+                .item(&about_item).item(&settings_item).item(&updates_item)
+                .separator().item(&show_item).item(&signal_item).item(&inspect_item).item(&hyperdeck_item)
+                .separator().item(&disconnect_item).separator().quit().build()?;
+            let view_menu = SubmenuBuilder::new(app, "View")
+                .item(&fit_signal_item).item(&clear_signal_item).build()?;
             let help_menu = SubmenuBuilder::new(app, "Help")
                 .text("check_for_updates_help", "Check for Updates…")
                 .build()?;
@@ -369,24 +450,30 @@ fn main() {
                 .separator()
                 .close_window()
                 .build()?;
-            let menu = MenuBuilder::new(app).items(&[&app_menu, &window_menu, &help_menu]).build()?;
+            let menu = MenuBuilder::new(app).items(&[&app_menu, &view_menu, &window_menu, &help_menu]).build()?;
             app.set_menu(menu)?;
             app.on_menu_event(|app, event| {
                 if event.id() == "check_for_updates" || event.id() == "check_for_updates_help" {
                     let app = app.clone();
                     tauri::async_runtime::spawn(async move { run_manual_update_check(app).await; });
                 } else if event.id() == "settings_showdesk" {
-                    let _ = app.emit("showdesk-native-menu", "settings");
+                    emit_native_menu_action(app, "settings");
                 } else if event.id() == "workspace_show" {
-                    let _ = app.emit("showdesk-native-menu", "show");
+                    emit_native_menu_action(app, "show");
                 } else if event.id() == "workspace_signal" {
-                    let _ = app.emit("showdesk-native-menu", "signal");
+                    emit_native_menu_action(app, "signal");
                 } else if event.id() == "workspace_engineering" {
-                    let _ = app.emit("showdesk-native-menu", "engineering");
+                    emit_native_menu_action(app, "engineering");
+                } else if event.id() == "workspace_hyperdecks" {
+                    emit_native_menu_action(app, "hyperdecks");
+                } else if event.id() == "signal_fit" {
+                    emit_native_menu_action(app, "signal-fit");
+                } else if event.id() == "signal_clear" {
+                    emit_native_menu_action(app, "signal-clear");
                 } else if event.id() == "about_showdesk" {
                     show_about(app);
                 } else if event.id() == "disconnect_showdesk" {
-                    let _ = app.emit("showdesk-native-menu", "disconnect");
+                    emit_native_menu_action(app, "disconnect");
                 }
             });
             Ok(())
@@ -397,11 +484,13 @@ fn main() {
     app.run(|app_handle, event| {
         if let tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::CloseRequested { .. }, .. } = &event {
             if label == "main" {
+                if let Some(state) = app_handle.try_state::<DetachedWorkspaceState>() { state.exiting.store(true, Ordering::Relaxed); }
                 close_detached_workspace_windows(app_handle);
                 app_handle.exit(0);
             }
         }
         if matches!(&event, tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }) {
+            if let Some(state) = app_handle.try_state::<DetachedWorkspaceState>() { state.exiting.store(true, Ordering::Relaxed); }
             close_detached_workspace_windows(app_handle);
             stop_atem_service(app_handle);
         }

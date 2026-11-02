@@ -98,7 +98,7 @@ console.log('Viewer lifecycle, health, toolbar, and Viewer-count regression chec
  assert(app.includes('ShowDesk will not download it until you choose Download Update.'),'Startup check must not auto-download');
  assert(app.includes('if(showDeskUpdater.operation)'),'Frontend must reject overlapping updater operations');
  assert(rust.includes('struct UpdaterBusy(Mutex<bool>);'),'Native updater must have a concurrency guard');
- assert(rust.includes('app.emit("showdesk-native-menu", "check-for-updates")'),'Native menu must route through the shared frontend updater');
+ assert(rust.includes('emit_native_menu_action(&app, "check-for-updates")'),'Native menu must route the focused window through the shared frontend updater');
  assert(!rust.includes('Install the update and restart ShowDesk?'),'Rust must not own a second install prompt');
  assert(app.includes('if(!progress){$("updateProgressFill").style.width="";$("updateProgressPercent").textContent="";$("updateProgressBytes").textContent="";}'),'Non-progress updater states must clear stale download progress');
  assert(app.includes('setUpdateModal({title:"ShowDesk is up to date",message:"You are running the latest published version."})'),'Current-version state must render the up-to-date modal without requesting progress UI');
