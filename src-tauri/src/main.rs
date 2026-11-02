@@ -441,11 +441,81 @@ fn emit_native_menu_action(app: &AppHandle, action: &str) {
     }
 }
 
+fn initialize_native_menu(app: &mut tauri::App) -> Result<(), String> {
+    let about_item = MenuItemBuilder::with_id("about_showdesk", "About ShowDesk").build(app).map_err(|e| e.to_string())?;
+    let settings_item = MenuItemBuilder::with_id("settings_showdesk", "Settings…").build(app).map_err(|e| e.to_string())?;
+    let updates_item = MenuItemBuilder::with_id("check_for_updates", "Check for Updates…").build(app).map_err(|e| e.to_string())?;
+    let show_item = MenuItemBuilder::with_id("workspace_show", "Show View").build(app).map_err(|e| e.to_string())?;
+    let signal_item = MenuItemBuilder::with_id("workspace_signal", "Signal Explorer").build(app).map_err(|e| e.to_string())?;
+    let inspect_item = MenuItemBuilder::with_id("workspace_engineering", "Inspect").build(app).map_err(|e| e.to_string())?;
+    let hyperdeck_item = MenuItemBuilder::with_id("workspace_hyperdecks", "HyperDeck Monitoring").build(app).map_err(|e| e.to_string())?;
+    let fit_signal_item = MenuItemBuilder::with_id("signal_fit", "Fit Signal Explorer").build(app).map_err(|e| e.to_string())?;
+    let clear_signal_item = MenuItemBuilder::with_id("signal_clear", "Clear Signal Trace").build(app).map_err(|e| e.to_string())?;
+    let fullscreen_item = MenuItemBuilder::with_id("toggle_fullscreen", "Toggle Full Screen")
+        .accelerator("CmdOrCtrl+F")
+        .build(app)
+        .map_err(|e| e.to_string())?;
+    let disconnect_item = MenuItemBuilder::with_id("disconnect_showdesk", "Disconnect…").build(app).map_err(|e| e.to_string())?;
+    let app_menu = SubmenuBuilder::new(app, "ShowDesk")
+        .item(&about_item).item(&settings_item).item(&updates_item)
+        .separator().item(&show_item).item(&signal_item).item(&inspect_item).item(&hyperdeck_item)
+        .separator().item(&disconnect_item).separator().quit().build().map_err(|e| e.to_string())?;
+    // macOS automatically appends its system Full Screen command to a menu titled exactly
+    // "View" (using the user's system shortcut). This custom item owns the action so the
+    // displayed shortcut stays ⌘F.
+    let view_menu = SubmenuBuilder::new(app, "View ")
+        .item(&fullscreen_item).separator().item(&fit_signal_item).item(&clear_signal_item)
+        .build().map_err(|e| e.to_string())?;
+    let help_menu = SubmenuBuilder::new(app, "Help")
+        .text("check_for_updates_help", "Check for Updates…")
+        .build().map_err(|e| e.to_string())?;
+    let window_menu = SubmenuBuilder::new(app, "Window")
+        .id(WINDOW_SUBMENU_ID)
+        .minimize()
+        .maximize()
+        .separator()
+        .close_window()
+        .build().map_err(|e| e.to_string())?;
+    let menu = MenuBuilder::new(app).items(&[&app_menu, &view_menu, &window_menu, &help_menu]).build().map_err(|e| e.to_string())?;
+    app.set_menu(menu).map_err(|e| e.to_string())?;
+    app.on_menu_event(|app, event| {
+        if event.id() == "check_for_updates" || event.id() == "check_for_updates_help" {
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move { run_manual_update_check(app).await; });
+        } else if event.id() == "settings_showdesk" {
+            emit_native_menu_action(app, "settings");
+        } else if event.id() == "workspace_show" {
+            emit_native_menu_action(app, "show");
+        } else if event.id() == "workspace_signal" {
+            emit_native_menu_action(app, "signal");
+        } else if event.id() == "workspace_engineering" {
+            emit_native_menu_action(app, "engineering");
+        } else if event.id() == "workspace_hyperdecks" {
+            emit_native_menu_action(app, "hyperdecks");
+        } else if event.id() == "signal_fit" {
+            emit_native_menu_action(app, "signal-fit");
+        } else if event.id() == "signal_clear" {
+            emit_native_menu_action(app, "signal-clear");
+        } else if event.id() == "toggle_fullscreen" {
+            emit_native_menu_action(app, "fullscreen");
+        } else if event.id() == "about_showdesk" {
+            show_about(app);
+        } else if event.id() == "disconnect_showdesk" {
+            emit_native_menu_action(app, "disconnect");
+        }
+    });
+    Ok(())
+}
+
 fn main() {
     record_startup("Rust main entered");
     let default_panic_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |panic| {
-        record_startup(&format!("panic: {panic:?}"));
+        let payload = panic.payload().downcast_ref::<&str>().copied()
+            .or_else(|| panic.payload().downcast_ref::<String>().map(String::as_str))
+            .unwrap_or("non-string panic payload");
+        let location = panic.location().map(|location| format!("{}:{}", location.file(), location.line())).unwrap_or_else(|| "unknown location".to_string());
+        record_startup(&format!("panic: {payload} at {location}"));
         default_panic_hook(panic);
     }));
 
@@ -471,67 +541,13 @@ fn main() {
                 record_startup("ATEM service started");
             }
 
-            let about_item = MenuItemBuilder::with_id("about_showdesk", "About ShowDesk").build(app)?;
-            let settings_item = MenuItemBuilder::with_id("settings_showdesk", "Settings…").build(app)?;
-            let updates_item = MenuItemBuilder::with_id("check_for_updates", "Check for Updates…").build(app)?;
-            let show_item = MenuItemBuilder::with_id("workspace_show", "Show View").build(app)?;
-            let signal_item = MenuItemBuilder::with_id("workspace_signal", "Signal Explorer").build(app)?;
-            let inspect_item = MenuItemBuilder::with_id("workspace_engineering", "Inspect").build(app)?;
-            let hyperdeck_item = MenuItemBuilder::with_id("workspace_hyperdecks", "HyperDeck Monitoring").build(app)?;
-            let fit_signal_item = MenuItemBuilder::with_id("signal_fit", "Fit Signal Explorer").build(app)?;
-            let clear_signal_item = MenuItemBuilder::with_id("signal_clear", "Clear Signal Trace").build(app)?;
-            let fullscreen_item = MenuItemBuilder::with_id("toggle_fullscreen", "Toggle Full Screen")
-                .accelerator("Cmd+F")
-                .build(app)?;
-            let disconnect_item = MenuItemBuilder::with_id("disconnect_showdesk", "Disconnect…").build(app)?;
-            let app_menu = SubmenuBuilder::new(app, "ShowDesk")
-                .item(&about_item).item(&settings_item).item(&updates_item)
-                .separator().item(&show_item).item(&signal_item).item(&inspect_item).item(&hyperdeck_item)
-                .separator().item(&disconnect_item).separator().quit().build()?;
-            // macOS automatically appends its system Full Screen command to a menu titled exactly
-            // "View" (using the user's system shortcut, which may be Fn+F). The custom item above
-            // owns this action so the displayed shortcut stays ⌘F.
-            let view_menu = SubmenuBuilder::new(app, "View ")
-                .item(&fullscreen_item).separator().item(&fit_signal_item).item(&clear_signal_item).build()?;
-            let help_menu = SubmenuBuilder::new(app, "Help")
-                .text("check_for_updates_help", "Check for Updates…")
-                .build()?;
-            let window_menu = SubmenuBuilder::new(app, "Window")
-                .id(WINDOW_SUBMENU_ID)
-                .minimize()
-                .maximize()
-                .separator()
-                .close_window()
-                .build()?;
-            let menu = MenuBuilder::new(app).items(&[&app_menu, &view_menu, &window_menu, &help_menu]).build()?;
-            app.set_menu(menu)?;
-            record_startup("Native menus initialized");
-            app.on_menu_event(|app, event| {
-                if event.id() == "check_for_updates" || event.id() == "check_for_updates_help" {
-                    let app = app.clone();
-                    tauri::async_runtime::spawn(async move { run_manual_update_check(app).await; });
-                } else if event.id() == "settings_showdesk" {
-                    emit_native_menu_action(app, "settings");
-                } else if event.id() == "workspace_show" {
-                    emit_native_menu_action(app, "show");
-                } else if event.id() == "workspace_signal" {
-                    emit_native_menu_action(app, "signal");
-                } else if event.id() == "workspace_engineering" {
-                    emit_native_menu_action(app, "engineering");
-                } else if event.id() == "workspace_hyperdecks" {
-                    emit_native_menu_action(app, "hyperdecks");
-                } else if event.id() == "signal_fit" {
-                    emit_native_menu_action(app, "signal-fit");
-                } else if event.id() == "signal_clear" {
-                    emit_native_menu_action(app, "signal-clear");
-                } else if event.id() == "toggle_fullscreen" {
-                    emit_native_menu_action(app, "fullscreen");
-                } else if event.id() == "about_showdesk" {
-                    show_about(app);
-                } else if event.id() == "disconnect_showdesk" {
-                    emit_native_menu_action(app, "disconnect");
-                }
-            });
+            record_startup("Native menu initialization started");
+            if let Err(error) = initialize_native_menu(app) {
+                eprintln!("[ShowDesk native menu] {error}");
+                record_startup(&format!("Native menu initialization failed: {error}"));
+            } else {
+                record_startup("Native menus initialized");
+            }
             Ok(())
         })
         .build(tauri::generate_context!())

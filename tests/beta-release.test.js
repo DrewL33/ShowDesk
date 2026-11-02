@@ -50,7 +50,8 @@ assert.match(rust, /tauri_plugin_window_state::\{Builder as WindowStateBuilder, 
 assert.equal((rust.match(/\.accelerator\(/g) || []).length, 1, 'Only the native full-screen menu item should declare a fixed accelerator');
 assert.match(rust, /fn toggle_fullscreen[\s\S]*?window\.set_fullscreen\(next\)/, 'ShowDesk must toggle native full screen in the focused window');
 assert.match(rust, /redock_workspace, toggle_fullscreen\]/, 'The native full-screen command must be available to the frontend');
-assert.match(rust, /toggle_fullscreen", "Toggle Full Screen"\)\s*\.accelerator\("Cmd\+F"\)/, 'The native full-screen menu action must display Command+F');
+assert.match(rust, /toggle_fullscreen", "Toggle Full Screen"\)\s*\.accelerator\("CmdOrCtrl\+F"\)/, 'The native full-screen menu action must map Command+F on Mac and Control+F on Windows');
+assert.match(betaWorkflow, /Smoke test packaged Beta service[\s\S]*SHOWDESK_PORT: '47831'[\s\S]*SHOWDESK_VIEWER_PORT: '47832'/, 'Beta builds must smoke test the packaged service on the isolated Beta ports');
 assert.match(rust, /SubmenuBuilder::new\(app, "View "\)/, 'The View menu title must avoid macOS injecting its system Fn+F full-screen item');
 assert.match(hostHtml, /data-settings-tab="shortcuts"[\s\S]*?id="settingsSectionShortcuts"[\s\S]*?id="settingsShortcutList"[\s\S]*?reset-shortcuts/, 'Settings must provide editable shortcuts and a reset action');
 assert.match(hostHtml, /id="settingsSectionUpdates"[\s\S]*?id="settingsReleaseNotes"/, 'Settings Updates must include a release history list');

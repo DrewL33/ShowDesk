@@ -80,6 +80,25 @@ jobs:
         run: |
           npm run bundle
           node scripts/prepare-tauri-backend.js
+      - name: Smoke test packaged Beta service
+        shell: bash
+        env:
+          SHOWDESK_NO_OPEN: '1'
+          SHOWDESK_PORT: '47831'
+          SHOWDESK_VIEWER_PORT: '47832'
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            src-tauri/resources/backend/runtime/node.exe src-tauri/resources/backend/src/server.js > beta-backend.log 2>&1 &
+          else
+            src-tauri/resources/backend/runtime/node src-tauri/resources/backend/src/server.js > beta-backend.log 2>&1 &
+          fi
+          SERVICE_PID=$!
+          cleanup() { kill "$SERVICE_PID" 2>/dev/null || true; }
+          trap cleanup EXIT
+          sleep 3
+          node -e "const WebSocket=require('ws');const ws=new WebSocket('ws://127.0.0.1:47831/ws');const t=setTimeout(()=>process.exit(1),5000);ws.on('open',()=>{clearTimeout(t);ws.close();process.exit(0)});ws.on('error',()=>process.exit(1))"
+          node -e "const http=require('http');const req=http.get('http://127.0.0.1:47832/health',res=>{let b='';res.on('data',c=>b+=c);res.on('end',()=>{const j=JSON.parse(b);process.exit(res.statusCode===200&&j.service==='ShowDesk Viewer'?0:1)})});req.setTimeout(5000,()=>{req.destroy();process.exit(1)});req.on('error',()=>process.exit(1))"
+          node -e "const WebSocket=require('ws');const ws=new WebSocket('ws://127.0.0.1:47832/viewer');const t=setTimeout(()=>process.exit(1),5000);ws.on('message',raw=>{const m=JSON.parse(raw.toString());if(m.type==='connection'&&m.status==='waiting'){clearTimeout(t);ws.close();process.exit(0)}});ws.on('error',()=>process.exit(1))"
       - name: Generate native app icons
         run: npx tauri icon src-tauri/icons/icon.svg
       - name: Build isolated Beta application
