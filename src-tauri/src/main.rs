@@ -1,10 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::net::{SocketAddr, TcpStream};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Mutex, atomic::{AtomicBool, Ordering}};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder, WINDOW_SUBMENU_ID};
 use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
@@ -17,6 +18,34 @@ struct DetachedWorkspaceState {
     path: std::path::PathBuf,
     workspaces: Mutex<Vec<String>>,
     exiting: AtomicBool,
+}
+
+// Windows GUI builds have no attached console, and a failure while creating
+// the native app/menu can otherwise look like an unexplained silent exit.
+// Record the earliest startup stages before Tauri has initialized its paths.
+#[cfg(target_os = "windows")]
+fn startup_log_path() -> Option<std::path::PathBuf> {
+    let root = std::env::var_os("LOCALAPPDATA")?;
+    let identifier = if option_env!("SHOWDESK_CHANNEL") == Some("beta") {
+        "app.showdesk.beta-preview"
+    } else {
+        "app.showdesk.beta"
+    };
+    Some(std::path::PathBuf::from(root).join(identifier).join("logs").join("startup.log"))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn startup_log_path() -> Option<std::path::PathBuf> {
+    None
+}
+
+fn record_startup(message: &str) {
+    let Some(path) = startup_log_path() else { return; };
+    let Some(parent) = path.parent() else { return; };
+    if fs::create_dir_all(parent).is_err() { return; }
+    let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) else { return; };
+    let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|duration| duration.as_secs()).unwrap_or_default();
+    let _ = writeln!(file, "{timestamp} {message}");
 }
 
 impl DetachedWorkspaceState {
@@ -413,6 +442,13 @@ fn emit_native_menu_action(app: &AppHandle, action: &str) {
 }
 
 fn main() {
+    record_startup("Rust main entered");
+    let default_panic_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic| {
+        record_startup(&format!("panic: {panic:?}"));
+        default_panic_hook(panic);
+    }));
+
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
@@ -422,6 +458,7 @@ fn main() {
         .manage(UpdaterBusy(Mutex::new(false)))
         .invoke_handler(tauri::generate_handler![ensure_atem_service, save_log_report, check_for_update, install_update, open_showdesk_repository, open_workspace_window, restore_workspace_windows, redock_workspace, toggle_fullscreen])
         .setup(|app| {
+            record_startup("Tauri setup started");
             let restore_path = app.path().app_config_dir()?.join("detached-workspaces.json");
             app.manage(DetachedWorkspaceState::load(restore_path));
             // Start eagerly, but do not prevent the UI from opening if the
@@ -429,6 +466,9 @@ fn main() {
             // and can show the precise native startup error.
             if let Err(error) = ensure_service_running(&app.handle()) {
                 eprintln!("[ShowDesk ATEM service] {error}");
+                record_startup(&format!("ATEM service startup failed: {error}"));
+            } else {
+                record_startup("ATEM service started");
             }
 
             let about_item = MenuItemBuilder::with_id("about_showdesk", "About ShowDesk").build(app)?;
@@ -465,6 +505,7 @@ fn main() {
                 .build()?;
             let menu = MenuBuilder::new(app).items(&[&app_menu, &view_menu, &window_menu, &help_menu]).build()?;
             app.set_menu(menu)?;
+            record_startup("Native menus initialized");
             app.on_menu_event(|app, event| {
                 if event.id() == "check_for_updates" || event.id() == "check_for_updates_help" {
                     let app = app.clone();
@@ -496,6 +537,7 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building ShowDesk");
 
+    record_startup("Tauri app built; entering event loop");
     app.run(|app_handle, event| {
         if let tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::CloseRequested { .. }, .. } = &event {
             if label == "main" {
@@ -505,6 +547,7 @@ fn main() {
             }
         }
         if matches!(&event, tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }) {
+            record_startup("Tauri event loop exiting");
             if let Some(state) = app_handle.try_state::<DetachedWorkspaceState>() { state.exiting.store(true, Ordering::Relaxed); }
             close_detached_workspace_windows(app_handle);
             stop_atem_service(app_handle);
