@@ -35,6 +35,7 @@ let hasConnected = false;
 let hostReferenceAttention = { attached: false, name: '', categories: [] };
 const clients = new Set();
 const viewerClients = new Set();
+const viewerRelayCache = new Map();
 const hyperDeckMonitor = new HyperDeckMonitor();
 let hostHyperdeckMonitoringEnabled = false;
 function viewerHyperdeckSnapshot() {
@@ -108,6 +109,10 @@ function discovery(state) {
 function broadcast(message) {
   const payload = JSON.stringify(message);
   for (const ws of clients) if (ws.readyState === 1) ws.send(payload);
+}
+function relayToOtherClients(source, message) {
+  const payload = JSON.stringify(message);
+  for (const ws of clients) if (ws !== source && ws.readyState === 1) ws.send(payload);
 }
 function broadcastHealthHeartbeat() {
   const message = { type: 'health', at: Date.now(), atemConnected: hasConnected };
@@ -280,18 +285,27 @@ wss.on('connection', (ws) => {
   }
   ws.send(JSON.stringify({ type: 'hyperdecks', data: hyperDeckMonitor.snapshot() }));
   ws.send(JSON.stringify({ type: 'hyperdeckAvailability', enabled: hostHyperdeckMonitoringEnabled }));
+  for (const message of viewerRelayCache.values()) ws.send(JSON.stringify(message));
   ws.on('close', () => clients.delete(ws));
   ws.on('message', async raw => {
     let msg;
     try { msg = JSON.parse(raw.toString()); } catch { return; }
     const reply = (ok, data, error) => ws.send(JSON.stringify({ replyTo: msg.id, ok, data, error }));
     try {
+      if (msg.type === 'viewerRelay') {
+        const data = msg.data;
+        if (!data || !['state', 'connection', 'health', 'hyperdecks', 'hyperdeckAvailability', 'viewerCount', 'referenceAttention'].includes(data.type)) return;
+        const shared = { ...data, sharedViewer: true };
+        viewerRelayCache.set(data.type, shared);
+        relayToOtherClients(ws, shared);
+        return;
+      }
       if (msg.type === 'referenceAttention') {
         hostReferenceAttention = normalizeReferenceAttention(msg.data);
         broadcastViewers({ type: 'referenceAttention', data: hostReferenceAttention });
         return reply(true, { published: true });
       }
-      if (msg.type === 'connect') return reply(true, await connectAtem(msg.ip));
+      if (msg.type === 'connect') { viewerRelayCache.clear(); return reply(true, await connectAtem(msg.ip)); }
       if (msg.type === 'configureHyperdecks') {
         hostHyperdeckMonitoringEnabled = msg.enabled === true;
         broadcastHyperdeckAvailability();

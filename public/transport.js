@@ -12,6 +12,7 @@
   let serviceReconnectEnabled = false;
   let serviceReconnectTimer = null;
   let serviceReconnectInFlight = false;
+  let viewerRelayEnabled = false;
 
   const HEARTBEAT_TIMEOUT_MS = 15000;
   function monitorSocketLiveness(ws, onStale) {
@@ -128,7 +129,13 @@
 
   let viewerReconnectTimer = null, viewerReconnectHost = null, viewerReconnectEnabled = false, viewerReconnectInFlight = false;
   function stopViewerReconnect(){ viewerReconnectEnabled=false; viewerReconnectHost=null; viewerReconnectInFlight=false; if(viewerReconnectTimer){clearTimeout(viewerReconnectTimer);viewerReconnectTimer=null;} }
-  function scheduleViewerReconnect(){ if(!viewerReconnectEnabled||!viewerReconnectHost||viewerReconnectTimer||viewerReconnectInFlight)return; connectionSubscribers.forEach(fn=>fn({type:'connection',status:'reconnecting',reason:'ShowDesk Host connection lost'})); viewerReconnectTimer=setTimeout(async()=>{viewerReconnectTimer=null;if(!viewerReconnectEnabled||viewerReconnectInFlight)return;viewerReconnectInFlight=true;try{await connectViewer(viewerReconnectHost,true);}catch{}finally{viewerReconnectInFlight=false;if(viewerReconnectEnabled&&!viewerSocket)scheduleViewerReconnect();}},2000); }
+  function scheduleViewerReconnect(){ if(!viewerReconnectEnabled||!viewerReconnectHost||viewerReconnectTimer||viewerReconnectInFlight)return; const message={type:'connection',status:'reconnecting',reason:'ShowDesk Host connection lost'};publishViewerRelay(message);connectionSubscribers.forEach(fn=>fn(message)); viewerReconnectTimer=setTimeout(async()=>{viewerReconnectTimer=null;if(!viewerReconnectEnabled||viewerReconnectInFlight)return;viewerReconnectInFlight=true;try{await connectViewer(viewerReconnectHost,true);}catch{}finally{viewerReconnectInFlight=false;if(viewerReconnectEnabled&&!viewerSocket)scheduleViewerReconnect();}},2000); }
+
+  function publishViewerRelay(message){
+    if(!viewerRelayEnabled||!message)return;
+    const send=ws=>{if(ws?.readyState===WebSocket.OPEN&&typeof ws.send==='function')ws.send(JSON.stringify({type:'viewerRelay',data:message}));};
+    if(serviceSocket?.readyState===WebSocket.OPEN)send(serviceSocket);else ensureSocket().then(send).catch(()=>{});
+  }
 
   async function connectViewer(host, reconnecting = false) {
     const target = host.trim().replace(/^wss?:\/\//, '').replace(/\/$/, '');
@@ -152,17 +159,18 @@
           waitingForAtem=false;
           if(!settled){settled=true;clearTimeout(timer);resolve({status:'connected',data:msg.data});}
           viewerReconnectEnabled=true;viewerReconnectHost=host;
+          publishViewerRelay({type:'connection',status:'viewer-connected',data:msg.data,ip:target});
           connectionSubscribers.forEach(fn=>fn({type:'connection',status:'viewer-connected',data:msg.data,reconnected:reconnecting||wasWaiting}));
-        } else if (msg.type === 'state') subscribers.forEach(fn => fn(msg.data));
-        else if (msg.type === 'connection') { if(msg.status==='waiting'||msg.status==='disconnected')waitingForAtem=true;connectionSubscribers.forEach(fn => fn(msg)); if (!settled && msg.status === 'waiting') { settled=true; clearTimeout(timer); resolve({status:'waiting',reason:msg.reason}); } }
-        else if (msg.type === 'health') healthSubscribers.forEach(fn => fn(msg));
-        else if (msg.type === 'hyperdecks') hyperdeckSubscribers.forEach(fn => fn(msg.data || []));
-        else if (msg.type === 'hyperdeckAvailability') hyperdeckAvailabilitySubscribers.forEach(fn => fn(msg.enabled === true));
+        } else if (msg.type === 'state') { publishViewerRelay(msg); subscribers.forEach(fn => fn(msg.data)); }
+        else if (msg.type === 'connection') { if(msg.status==='waiting'||msg.status==='disconnected')waitingForAtem=true;publishViewerRelay({...msg,ip:target});connectionSubscribers.forEach(fn => fn(msg)); if (!settled && msg.status === 'waiting') { settled=true; clearTimeout(timer); resolve({status:'waiting',reason:msg.reason}); } }
+        else if (msg.type === 'health') { publishViewerRelay(msg);healthSubscribers.forEach(fn => fn(msg)); }
+        else if (msg.type === 'hyperdecks') { publishViewerRelay(msg);hyperdeckSubscribers.forEach(fn => fn(msg.data || [])); }
+        else if (msg.type === 'hyperdeckAvailability') { publishViewerRelay(msg);hyperdeckAvailabilitySubscribers.forEach(fn => fn(msg.enabled === true)); }
       });
       viewer.addEventListener('close', () => {
         liveness.stop();
         if (viewerSocket === viewer) viewerSocket = null;
-        if (settled && viewerReconnectEnabled) scheduleViewerReconnect();
+        if (settled && viewerReconnectEnabled) { publishViewerRelay({type:'connection',status:'disconnected',reason:'ShowDesk Host connection lost',ip:target});scheduleViewerReconnect(); }
       });
     });
   }
@@ -174,7 +182,8 @@
     subscribeHyperdecks(callback) { hyperdeckSubscribers.add(callback); return () => hyperdeckSubscribers.delete(callback); },
     subscribeHyperdeckAvailability(callback) { hyperdeckAvailabilitySubscribers.add(callback); return () => hyperdeckAvailabilitySubscribers.delete(callback); },
     publishReferenceAttention(data) { return request('referenceAttention', { data }); },
-    connectViewer(host) { return connectViewer(host); },
+    connectViewer(host, relayToWorkspaceWindows = true) { viewerRelayEnabled = relayToWorkspaceWindows; return connectViewer(host); },
+    publishViewerRelay(message) { publishViewerRelay(message); },
     subscribe(callback) {
       subscribers.add(callback);
       return () => subscribers.delete(callback);
@@ -193,6 +202,8 @@
     },
     disconnect() { return request('disconnect'); },
     disconnectViewer() {
+      if(viewerRelayEnabled)publishViewerRelay({type:'connection',status:'viewer-disconnected',intentional:true});
+      viewerRelayEnabled=false;
       stopViewerReconnect();
       const viewer = viewerSocket;
       viewerSocket = null;

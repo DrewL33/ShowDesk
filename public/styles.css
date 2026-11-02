@@ -538,6 +538,7 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .settingsWindow .settingsSelectOptions button:hover,.settingsWindow .settingsSelectOptions button:focus-visible{background:#2d4b5c;color:white;outline:none}
 .settingsWindow .settingsSelectOptions button[aria-selected="true"]{background:#28475a;color:#fff;font-weight:700}
 .settingsWindow .settingsNavGlyph svg{display:block}
+.settingsShortcutList{display:grid;gap:7px;margin:16px 0 20px}.settingsShortcutRow{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:46px;padding:7px 10px;background:#142630;border:1px solid #304651;border-radius:5px;color:#e3edf1;font-size:12px}.settingsShortcutKey{min-width:112px;padding:7px 12px;background:#1d3542;border:1px solid #466374;border-radius:5px;color:#f1f7fa;font-family:inherit;font-size:12px;font-weight:600;letter-spacing:.03em;cursor:pointer}.settingsShortcutKey:hover,.settingsShortcutKey:focus-visible{border-color:#72b4d4;outline:2px solid #72b4d455;outline-offset:1px}.settingsShortcutRow .settingsShortcutKey:active{background:#284858}.settingsShortcutList+.settingsFooter{display:flex;align-items:center;flex-wrap:wrap;gap:12px}.settingsShortcutList+.settingsFooter [role="status"]{color:#9eafba;font-size:11px}
 @media(max-width:570px){.settingsWindow .settingsSelect{width:140px}.settingsWindow .settingsSelectOptions{min-width:180px}}
 
 /* Build088: compact saved connection picker, shared across Host and Viewer. */
@@ -592,6 +593,7 @@ html body{padding-left:0!important}
 .undockedWorkspaceControls[hidden]{display:none!important}
 .undockedWorkspaceControls strong{color:#e7edf1;font-size:13px;font-weight:800;letter-spacing:.04em}
 html.undockedWorkspace .floatingWorkspaceTabs{display:none}
+html.undockedWorkspace #setup,html.undockedWorkspace #disconnectBtn,html.undockedWorkspace [data-settings-tab="connections"]{display:none!important}
 html.undockedWorkspace .workspaceTopBar{grid-template-columns:1fr auto 1fr}
 html.undockedWorkspace #app.wrap{padding:20px 24px 32px}
 @media(max-width:1050px){.undockedWorkspaceControls{grid-column:1;grid-row:1;justify-self:center}}

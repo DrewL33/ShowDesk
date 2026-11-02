@@ -127,6 +127,7 @@
   <div class="settingsBrand"><span>SHOWDESK</span><h2 id="settingsTitle">Settings</h2></div>
   <nav class="settingsTabs" aria-label="Settings sections">
    <button type="button" data-settings-tab="general"><span class="settingsNavGlyph">⚙</span>General</button>
+   <button type="button" data-settings-tab="shortcuts"><span class="settingsNavGlyph">⌘</span>Shortcuts</button>
    <button type="button" data-settings-tab="guide"><span class="settingsNavGlyph" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.7 9a2.4 2.4 0 1 1 4.1 1.7c-1.2 1.1-1.8 1.5-1.8 3"/><path d="M12 17h.01"/></svg></span>Feature Guide</button>
    <button type="button" data-settings-tab="hyperdeck"><span class="settingsNavGlyph">▣</span>HyperDeck Monitor</button>
    <button type="button" data-settings-tab="connections"><span class="settingsNavGlyph">⌁</span>Connections</button>
@@ -145,6 +146,11 @@
     <label class="settingsControlRow" for="settingsAutoConnect"><span>Auto-connect on launch</span><input id="settingsAutoConnect" type="checkbox" data-change-action="auto-connect"></label>
     <h3>UPDATES</h3>
     <label class="settingsControlRow" for="settingsAutoUpdates"><span>Check for updates on launch</span><input id="settingsAutoUpdates" type="checkbox" data-change-action="auto-updates"></label>
+   </section>
+   <section id="settingsSectionShortcuts" class="settingsSection" hidden>
+    <p>Choose your own keyboard shortcuts for common ShowDesk actions. Shortcuts are saved on this computer and work in each ShowDesk window. They pause while you type in a text field.</p>
+    <div id="settingsShortcutList" class="settingsShortcutList"></div>
+    <div class="settingsFooter"><button class="settingsAction" type="button" data-action="reset-shortcuts">RESET TO DEFAULTS</button><span id="settingsShortcutStatus" role="status" aria-live="polite">Shortcuts are saved on this computer.</span></div>
    </section>
    <section id="settingsSectionGuide" class="settingsSection" hidden>
     <h3>WORKSPACES</h3>

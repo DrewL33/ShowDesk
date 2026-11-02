@@ -148,6 +148,13 @@ fn redock_workspace(app: AppHandle, window: tauri::WebviewWindow, workspace: Str
     window.close().map_err(|e| format!("Unable to return this workspace to the main window: {e}"))
 }
 
+#[tauri::command]
+fn toggle_fullscreen(window: tauri::WebviewWindow) -> Result<bool, String> {
+    let next = !window.is_fullscreen().map_err(|error| error.to_string())?;
+    window.set_fullscreen(next).map_err(|error| error.to_string())?;
+    Ok(next)
+}
+
 fn showdesk_ports() -> (&'static str, &'static str) {
     if option_env!("SHOWDESK_CHANNEL") == Some("beta") {
         ("47831", "47832")
@@ -413,7 +420,7 @@ fn main() {
         .plugin(WindowStateBuilder::default().with_state_flags(StateFlags::POSITION | StateFlags::SIZE | StateFlags::MAXIMIZED).build())
         .manage(AtemService(Mutex::new(None)))
         .manage(UpdaterBusy(Mutex::new(false)))
-        .invoke_handler(tauri::generate_handler![ensure_atem_service, save_log_report, check_for_update, install_update, open_showdesk_repository, open_workspace_window, restore_workspace_windows, redock_workspace])
+        .invoke_handler(tauri::generate_handler![ensure_atem_service, save_log_report, check_for_update, install_update, open_showdesk_repository, open_workspace_window, restore_workspace_windows, redock_workspace, toggle_fullscreen])
         .setup(|app| {
             let restore_path = app.path().app_config_dir()?.join("detached-workspaces.json");
             app.manage(DetachedWorkspaceState::load(restore_path));
@@ -427,19 +434,20 @@ fn main() {
             let about_item = MenuItemBuilder::with_id("about_showdesk", "About ShowDesk").build(app)?;
             let settings_item = MenuItemBuilder::with_id("settings_showdesk", "Settings…").build(app)?;
             let updates_item = MenuItemBuilder::with_id("check_for_updates", "Check for Updates…").build(app)?;
-            let show_item = MenuItemBuilder::with_id("workspace_show", "Show View").accelerator("CmdOrCtrl+1").build(app)?;
-            let signal_item = MenuItemBuilder::with_id("workspace_signal", "Signal Explorer").accelerator("CmdOrCtrl+2").build(app)?;
-            let inspect_item = MenuItemBuilder::with_id("workspace_engineering", "Inspect").accelerator("CmdOrCtrl+3").build(app)?;
-            let hyperdeck_item = MenuItemBuilder::with_id("workspace_hyperdecks", "HyperDeck Monitoring").accelerator("CmdOrCtrl+4").build(app)?;
-            let fit_signal_item = MenuItemBuilder::with_id("signal_fit", "Fit Signal Explorer").accelerator("CmdOrCtrl+Shift+F").build(app)?;
-            let clear_signal_item = MenuItemBuilder::with_id("signal_clear", "Clear Signal Trace").accelerator("CmdOrCtrl+Shift+Backspace").build(app)?;
+            let show_item = MenuItemBuilder::with_id("workspace_show", "Show View").build(app)?;
+            let signal_item = MenuItemBuilder::with_id("workspace_signal", "Signal Explorer").build(app)?;
+            let inspect_item = MenuItemBuilder::with_id("workspace_engineering", "Inspect").build(app)?;
+            let hyperdeck_item = MenuItemBuilder::with_id("workspace_hyperdecks", "HyperDeck Monitoring").build(app)?;
+            let fit_signal_item = MenuItemBuilder::with_id("signal_fit", "Fit Signal Explorer").build(app)?;
+            let clear_signal_item = MenuItemBuilder::with_id("signal_clear", "Clear Signal Trace").build(app)?;
+            let fullscreen_item = MenuItemBuilder::with_id("toggle_fullscreen", "Toggle Full Screen").build(app)?;
             let disconnect_item = MenuItemBuilder::with_id("disconnect_showdesk", "Disconnect…").build(app)?;
             let app_menu = SubmenuBuilder::new(app, "ShowDesk")
                 .item(&about_item).item(&settings_item).item(&updates_item)
                 .separator().item(&show_item).item(&signal_item).item(&inspect_item).item(&hyperdeck_item)
                 .separator().item(&disconnect_item).separator().quit().build()?;
             let view_menu = SubmenuBuilder::new(app, "View")
-                .item(&fit_signal_item).item(&clear_signal_item).build()?;
+                .item(&fullscreen_item).separator().item(&fit_signal_item).item(&clear_signal_item).build()?;
             let help_menu = SubmenuBuilder::new(app, "Help")
                 .text("check_for_updates_help", "Check for Updates…")
                 .build()?;
@@ -470,6 +478,8 @@ fn main() {
                     emit_native_menu_action(app, "signal-fit");
                 } else if event.id() == "signal_clear" {
                     emit_native_menu_action(app, "signal-clear");
+                } else if event.id() == "toggle_fullscreen" {
+                    emit_native_menu_action(app, "fullscreen");
                 } else if event.id() == "about_showdesk" {
                     show_about(app);
                 } else if event.id() == "disconnect_showdesk" {

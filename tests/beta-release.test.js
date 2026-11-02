@@ -43,8 +43,15 @@ assert.match(rust, /fn create_workspace_window[\s\S]*?WebviewWindowBuilder::new/
 assert.match(rust, /format!\("workspace-\{workspace\}"\)/, 'Detached workspace window labels must stay stable so their OS window state can be restored');
 assert.match(rust, /restore_workspace_windows[\s\S]*?state\.saved\(\)/, 'Saved detached workspaces must reopen after the main connection is restored');
 assert.match(rust, /tauri_plugin_window_state::\{Builder as WindowStateBuilder, StateFlags\}/, 'Native window positions, sizes, and maximized state must be persisted across launches');
-assert.match(rust, /CmdOrCtrl\+1[\s\S]*?CmdOrCtrl\+2[\s\S]*?CmdOrCtrl\+3/, 'Native menu shortcuts must switch between the primary workspaces');
-assert.match(rust, /CmdOrCtrl\+Shift\+F[\s\S]*?CmdOrCtrl\+Shift\+Backspace/, 'The View menu must expose fit and clear-trace shortcuts for Signal Explorer');
+assert.doesNotMatch(rust, /\.accelerator\(/, 'Native menu accelerators must not override user-configurable shortcuts');
+assert.match(rust, /fn toggle_fullscreen[\s\S]*?window\.set_fullscreen\(next\)/, 'ShowDesk must toggle native full screen in the focused window');
+assert.match(rust, /redock_workspace, toggle_fullscreen\]/, 'The native full-screen command must be available to the frontend');
+assert.match(rust, /toggle_fullscreen", "Toggle Full Screen"/, 'The View menu must expose a full-screen action');
+assert.match(hostHtml, /data-settings-tab="shortcuts"[\s\S]*?id="settingsSectionShortcuts"[\s\S]*?id="settingsShortcutList"[\s\S]*?reset-shortcuts/, 'Settings must provide editable shortcuts and a reset action');
+assert.match(hostApp, /id:"fullscreen",label:"Toggle full screen",mac:"Meta\+F"/, 'Mac full screen must default to Command+F');
+assert.match(hostApp, /function captureShowDeskShortcut[\s\S]*?already assigned/, 'Shortcut capture must reject duplicate assignments');
+assert.match(hostApp, /Fn\(\?=\\\+\|\$\)[\s\S]*?replacement/, 'Saved Fn shortcuts should migrate to Command when they do not conflict');
+assert.match(hostApp, /showDeskShortcutCapture[\s\S]*?function toggleShowDeskFullscreen/, 'Shortcut changes must be captured and applied within ShowDesk');
 assert.match(rust, /use tauri::menu::\{[^}]*WINDOW_SUBMENU_ID[^}]*\}/, 'The native macOS Window menu must use Tauri’s recognized menu identifier');
 assert.match(rust, /SubmenuBuilder::new\(app, "Window"\)[\s\S]*?\.id\(WINDOW_SUBMENU_ID\)[\s\S]*?\.minimize\(\)[\s\S]*?\.maximize\(\)[\s\S]*?\.close_window\(\)/, 'ShowDesk must register a native Window menu so macOS can add its built-in Move & Resize tile choices');
 assert.match(rust, /MenuBuilder::new\(app\)\.items\(&\[&app_menu, &view_menu, &window_menu, &help_menu\]\)/, 'The native View and Window menus must be included in the app menu');
@@ -94,7 +101,7 @@ assert.match(hostHtml, /data-settings-tab="hyperdeck"[^>]*>[^<]*<span class="set
 assert.match(hostHtml, /id="settingsSectionHyperdeck"[\s\S]*?id="settingsHyperdeckEnabled"/, 'The Settings section should own the HyperDeck Monitoring toggle');
 assert.match(hostHtml, /id="settingsHyperdeckAddresses"/, 'Settings should list only known-good HyperDeck IP addresses');
 assert.match(hostHtml, /data-action="view-hyperdecks"[^>]*>VIEW DECKS/, 'Settings should provide one action to open the HyperDecks monitor');
-assert.match(hostApp, /sections=\["general","guide","hyperdeck","connections"/, 'Settings navigation should show the guide alongside the HyperDeck section');
+assert.match(hostApp, /sections=\["general","shortcuts","guide","hyperdeck","connections"/, 'Settings navigation should show shortcuts alongside the other sections');
 assert.match(hostApp, /hyperdeck:"HyperDeck Monitor"/, 'The Settings page title should use the HyperDeck Monitor name');
 assert.match(hostApp, /SHOWDESK_HYPERDECK_ADDRESSES_KEY="showdesk\.hyperdeck-known-addresses\.v1"/, 'Confirmed HyperDeck addresses should persist separately from current monitor devices');
 assert.match(hostApp, /String\(deck\.status\|\|""\)\.toLowerCase\(\)!=="connected"\)continue/, 'Only successfully connected HyperDecks should be added to saved addresses');

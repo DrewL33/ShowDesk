@@ -281,13 +281,16 @@ assert.match(app,/hyperdeckOpenDetails\.get\(card\.dataset\.hyperdeckCard\)/,'Hy
  socket.emit('message',{type:'snapshot',data:{name:'Recovered switcher'}});
  assert.equal(events.filter(message=>message.status==='viewer-connected').length,1,'A recovered Host snapshot on the existing socket must restore connected state');
  assert.equal(events.at(-1).data.name,'Recovered switcher');
+ await Promise.resolve();await Promise.resolve();
+ const relaySocket=FakeWebSocket.instances.find(item=>item.url.endsWith('/ws'));
+ if(relaySocket){relaySocket.emit('open');await Promise.resolve();}
  now+=16000;for(const check of intervals)check();
  assert.equal(socket.readyState,FakeWebSocket.CLOSED,'The Viewer heartbeat test should force-close a silent connection after three missed beats');
  assert.equal(events.at(-1).status,'reconnecting','A Viewer heartbeat timeout must enter the regular reconnect path');
  assert.ok([...timers.values()].some(timer=>timer.delay===2000),'A stale Viewer feed should schedule the existing reconnect attempt');
  browser.ATEM_TRANSPORT.disconnectViewer();timers.clear();
  const attach=browser.ATEM_TRANSPORT.attach();await Promise.resolve();
- const localSocket=FakeWebSocket.instances.at(-1);localSocket.emit('open');await attach;
+ const localSocket=relaySocket||FakeWebSocket.instances.at(-1);if(!relaySocket)localSocket.emit('open');await attach;
  now+=16000;for(const check of intervals)check();
  assert.equal(localSocket.readyState,FakeWebSocket.CLOSED,'The local Host transport should close a socket that stops sending health heartbeats');
  const serviceRetry=[...timers.values()].find(timer=>timer.delay===2000);assert.ok(serviceRetry,'A stale local Host feed should schedule service reconnection');
