@@ -172,7 +172,7 @@ function saveShowDeskShortcuts(){try{localStorage.setItem(SHOWDESK_SHORTCUTS_KEY
 function shortcutDisplay(value){return value.split("+").map(part=>showDeskIsMac?({Meta:"⌘",Ctrl:"⌃",Alt:"⌥",Shift:"⇧",ArrowUp:"↑",ArrowDown:"↓",Backspace:"⌫",Enter:"↩",",":","}[part]||part):({Meta:"Win",ArrowUp:"↑",ArrowDown:"↓",Backspace:"Backspace",Enter:"Enter"}[part]||part)).join(showDeskIsMac?"":" + ")}
 function renderShowDeskShortcuts(){const root=$("settingsShortcutList");if(!root)return;root.innerHTML=SHOWDESK_SHORTCUTS.map(item=>`<div class="settingsShortcutRow"><span>${escapeShowDeskText(item.label)}</span><button class="settingsShortcutKey" type="button" data-action="capture-shortcut" data-shortcut-id="${item.id}" aria-label="Change shortcut for ${escapeShowDeskText(item.label)}">${showDeskShortcutCapture===item.id?"Press shortcut…":escapeShowDeskText(shortcutDisplay(showDeskShortcuts[item.id]))}</button></div>`).join("")}
 const SHOWDESK_RELEASE_NOTES=[
- {version:"1.1.5 Beta",date:"November 2, 2026",beta:true,groups:[{label:"Added",items:["Open workspaces in separate windows that share the same connection.","Restore detached workspaces and arrange windows with your computer’s tiling controls.","Choose your own keyboard shortcuts, including ⌘F for full screen on Mac."]},{label:"Improved",items:["Main and detached windows fit more cleanly into OS-provided tiles.","Signal Explorer highlights only the selected route and keeps active Program and Preview paths easy to see.","Viewer windows recover more reliably when the Host reconnects.","HyperDeck status and timecode updates are clearer and more dependable."]},{label:"Minor bug fixes",items:["Other small fixes and refinements."]}]},
+ {version:"1.1.5 Beta",date:"November 2, 2026",beta:true,groups:[{label:"Added",items:["Open workspaces in separate windows that share the same connection.","Restore detached workspaces and arrange windows with your computer’s tiling controls.","Choose your own keyboard shortcuts, including ⌘F for full screen on Mac."]},{label:"Improved",items:["Main and detached windows fit more cleanly into OS-provided tiles.","Returning a detached workspace keeps the main window on its current view.","Signal Explorer highlights only the selected route and keeps active Program and Preview paths easy to see.","Viewer windows recover more reliably when the Host reconnects.","HyperDeck status and timecode updates are clearer and more dependable."]},{label:"Minor bug fixes",items:["Improved compatibility when importing reference files.","Other small fixes and refinements."]}]},
  {version:"1.1.5",date:"October 25, 2026",groups:[{label:"Added",items:["Support for Intel Macs.","A clearer product guide with smaller screenshots you can open for a larger preview."]},{label:"Improved",items:["Signal Explorer route tracing and HyperDeck status details."]},{label:"Minor bug fixes",items:["Other small fixes and refinements."]}]},
  {version:"1.1.4",date:"October 25, 2026",groups:[{label:"Improved",items:["HyperDeck information is organized into simpler, easier-to-scan sections."]},{label:"Minor bug fixes",items:["Other small fixes and refinements."]}]},
  {version:"1.1.3",date:"October 25, 2026",groups:[{label:"Improved",items:["Signal Explorer shows complete source-to-destination routes again."]},{label:"Minor bug fixes",items:["Other small fixes and refinements."]}]},
@@ -732,7 +732,7 @@ function restorePersistedReference(){
 async function importReferenceFile(event){
  const file=event.target.files?.[0];if(!file)return;
  try{
-   const text=await file.text();let ref;
+   const text=await readReferenceFile(file);let ref;
    if(file.name.toLowerCase().endsWith(".json")){ref=normalizeReferenceObject(JSON.parse(text));}
    else {ref=parseXmlReference(text);}
    const configValues=window.ShowDeskReferenceComparison?.configurationChecks(ref.metadata||{},{}).length||0;
@@ -742,6 +742,13 @@ async function importReferenceFile(event){
    recordEvent("REFERENCE",`Reference attached: ${file.name}`,{routes:Object.keys(ref.routes).length});persistReference();updateReferenceUI();render();toast("Reference attached");
  }catch(err){toast("Reference not imported");alert("ShowDesk could not use this reference file. "+err.message+"\n\nImport an ATEM Software Control XML profile, ShowDesk JSON reference, or compatible XML reference.");}
  event.target.value="";
+}
+function readReferenceFile(file){
+ if(typeof file.text==="function")return file.text();
+ return new Promise((resolve,reject)=>{
+  if(typeof FileReader==="undefined"){reject(new Error("This version of ShowDesk cannot read local files. Please update ShowDesk and try again."));return}
+  const reader=new FileReader();reader.onload=()=>resolve(String(reader.result??""));reader.onerror=()=>reject(reader.error||new Error("The selected file could not be read."));reader.onabort=()=>reject(new Error("Reading the selected file was canceled."));reader.readAsText(file);
+ });
 }
 function clearReference(){
  if(!baselineState.attached)return;const old=baselineState.name;baselineState.attached=false;baselineState.name="";baselineState.loadedAt=null;baselineState.pgm=null;baselineState.pvw=null;baselineState.metadata={};Object.keys(baselineState.routes).forEach(k=>delete baselineState.routes[k]);recordEvent("REFERENCE",`Reference removed: ${old}`);persistReference();updateReferenceUI();render();toast("Reference removed");
@@ -1312,8 +1319,8 @@ function showUpdateProgress(detail={}){
 }
 async function ensureUpdateProgressListener(){
  const internals=window.__TAURI_INTERNALS__;if(!internals)return;const listen=internals.event?.listen;
- if(typeof listen==="function"){await listen("showdesk-update-progress",event=>showUpdateProgress(event.payload||{}));await listen("showdesk-redock-workspace",event=>setTab(event.payload));await listen("showdesk-native-menu",event=>handleShowDeskNativeMenu(event.payload));return;}
- if(typeof internals.invoke==="function"){const transform=internals.transformCallback;if(typeof transform!=="function")throw new Error("Tauri event bridge is unavailable.");for(const [event,handler] of [["showdesk-update-progress",e=>showUpdateProgress(e.payload||{})],["showdesk-redock-workspace",e=>setTab(e.payload)],["showdesk-native-menu",e=>handleShowDeskNativeMenu(e.payload)]]){const id=transform(handler);await internals.invoke("plugin:event|listen",{event,target:{kind:"Any"},handler:id});}}
+ if(typeof listen==="function"){await listen("showdesk-update-progress",event=>showUpdateProgress(event.payload||{}));await listen("showdesk-native-menu",event=>handleShowDeskNativeMenu(event.payload));return;}
+ if(typeof internals.invoke==="function"){const transform=internals.transformCallback;if(typeof transform!=="function")throw new Error("Tauri event bridge is unavailable.");for(const [event,handler] of [["showdesk-update-progress",e=>showUpdateProgress(e.payload||{})],["showdesk-native-menu",e=>handleShowDeskNativeMenu(e.payload)]]){const id=transform(handler);await internals.invoke("plugin:event|listen",{event,target:{kind:"Any"},handler:id});}}
 }
 function handleShowDeskNativeMenu(action){if(action==="check-for-updates")checkForShowDeskUpdate(true);else if(action==="disconnect")disconnectShowDesk();else if(action==="settings")openShowDeskSettings();else if(["show","signal","engineering","hyperdecks"].includes(action))setTab(action);else if(action==="signal-fit")runShowDeskShortcut("fit");else if(action==="signal-clear")runShowDeskShortcut("clear");else if(action==="fullscreen")toggleShowDeskFullscreen()}
 async function installShowDeskUpdate(){

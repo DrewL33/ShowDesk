@@ -169,7 +169,6 @@ fn redock_workspace(app: AppHandle, window: tauri::WebviewWindow, workspace: Str
     if !window.label().starts_with("workspace-") { return Err("This window does not have a detached workspace to return.".to_string()); }
     if workspace_title(&workspace).is_none() { return Err("Unknown ShowDesk workspace.".to_string()); }
     app.state::<DetachedWorkspaceState>().remove(&workspace)?;
-    app.emit_to("main", "showdesk-redock-workspace", workspace).map_err(|e| e.to_string())?;
     if let Some(main) = app.get_webview_window("main") {
         main.show().map_err(|e| format!("Unable to show the main ShowDesk window: {e}"))?;
         main.set_focus().map_err(|e| format!("Unable to focus the main ShowDesk window: {e}"))?;

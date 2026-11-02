@@ -69,8 +69,8 @@ assert.match(rust, /SubmenuBuilder::new\(app, "Window"\)[\s\S]*?\.id\(WINDOW_SUB
 assert.match(rust, /MenuBuilder::new\(app\)\.items\(&\[&app_menu, &view_menu, &window_menu, &help_menu\]\)/, 'The native View and Window menus must be included in the app menu');
 assert.match(rust, /current_monitor\(\)[\s\S]*?scale_factor\(\)[\s\S]*?\.inner_size\(initial_width, initial_height\)/, 'Detached windows should open at a display-aware preferred size');
 assert.doesNotMatch(rust.slice(rust.indexOf('tauri::WebviewWindowBuilder::new'), rust.indexOf('.build()', rust.indexOf('tauri::WebviewWindowBuilder::new'))), /\.min_inner_size\(/, 'Detached windows must be allowed to shrink to the OS tile bounds');
-assert.match(rust, /fn redock_workspace[\s\S]*?showdesk-redock-workspace/, 'Detached workspaces must be able to return to the main window');
-assert.match(rust, /showdesk-redock-workspace[\s\S]*?main\.show\(\)[\s\S]*?main\.set_focus\(\)/, 'Returning a workspace should reveal and focus the main window');
+assert.match(rust, /fn redock_workspace[\s\S]*?main\.show\(\)[\s\S]*?main\.set_focus\(\)[\s\S]*?window\.close\(\)/, 'Returning a workspace should reveal the main window and close only the detached copy');
+assert.doesNotMatch(rust, /emit_to\("main",\s*"showdesk-redock-workspace"/, 'Returning a workspace must not change the main window selection');
 assert.match(rust, /CloseRequested[\s\S]*?label == "main"[\s\S]*?close_detached_workspace_windows[\s\S]*?app_handle\.exit\(0\)/, 'Closing the main window must close detached workspaces and quit ShowDesk');
 assert.ok(defaultCapability.windows.includes('workspace-*'), 'Detached windows must receive the app event capability');
 assert.match(hostHtml, /data-undock-workspace="signal"/, 'Signal Explorer must have an accessible undock control');
