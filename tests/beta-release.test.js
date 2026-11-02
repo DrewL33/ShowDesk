@@ -22,6 +22,8 @@ const hyperdeckServer = fs.readFileSync('src/server.js', 'utf8');
 const defaultCapability = JSON.parse(fs.readFileSync('src-tauri/capabilities/default.json', 'utf8'));
 
 assert.equal(stable.productName, 'ShowDesk');
+assert.equal(stable.app.windows[0].minWidth, 600, 'The main window must be allowed to fit into macOS half-screen tiles');
+assert.equal(stable.app.windows[0].minHeight, 450, 'The main window must be allowed to fit into short OS-provided tiles');
 assert.equal(beta.productName, 'ShowDesk BETA');
 assert.equal(packageMetadata.version, stable.version, 'Beta source package metadata should track the stable version');
 assert.equal(lockMetadata.version, stable.version, 'The package lock should track the stable version');
@@ -49,6 +51,9 @@ assert.match(rust, /redock_workspace, toggle_fullscreen\]/, 'The native full-scr
 assert.match(rust, /toggle_fullscreen", "Toggle Full Screen"\)\s*\.accelerator\("Cmd\+F"\)/, 'The native full-screen menu action must display Command+F');
 assert.match(rust, /SubmenuBuilder::new\(app, "View "\)/, 'The View menu title must avoid macOS injecting its system Fn+F full-screen item');
 assert.match(hostHtml, /data-settings-tab="shortcuts"[\s\S]*?id="settingsSectionShortcuts"[\s\S]*?id="settingsShortcutList"[\s\S]*?reset-shortcuts/, 'Settings must provide editable shortcuts and a reset action');
+assert.match(hostHtml, /id="settingsSectionUpdates"[\s\S]*?id="settingsReleaseNotes"/, 'Settings Updates must include a release history list');
+assert.match(hostApp, /function renderShowDeskReleaseNotes\([\s\S]*?SHOWDESK_RELEASE_NOTES\.filter\(item=>!item\.beta\|\|beta\)/, 'Release history should show Beta-only changes only in Beta builds');
+assert.match(hostApp, /label:"Minor bug fixes"/, 'Small corrections should be grouped under a Minor bug fixes heading');
 assert.match(hostApp, /id:"fullscreen",label:"Toggle full screen",mac:"Meta\+F"/, 'Mac full screen must default to Command+F');
 assert.match(hostApp, /function captureShowDeskShortcut[\s\S]*?already assigned/, 'Shortcut capture must reject duplicate assignments');
 assert.match(hostApp, /Fn\(\?=\\\+\|\$\)[\s\S]*?replacement/, 'Saved Fn shortcuts should migrate to Command when they do not conflict');

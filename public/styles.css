@@ -515,6 +515,18 @@ html,body{background:var(--sd-bg)!important;color:var(--sd-text)!important;font-
 .settingsWindow .settingsVersionLine{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:25px}
 .settingsWindow .settingsVersionLine strong{font-size:17px}
 .settingsWindow .settingsVersionLine>span{font-size:10px;color:#a3b7c2}
+.settingsWindow .settingsReleaseHeader{margin-top:26px;padding-top:18px;border-top:1px solid #30414b}
+.settingsWindow .settingsReleaseHeader h3{margin:0 0 5px!important}
+.settingsWindow .settingsReleaseHeader p{margin:0 0 13px;color:#9eafba;font-size:11px;line-height:1.45}
+.settingsWindow .settingsReleaseNotes{display:grid;gap:10px}
+.settingsWindow .settingsReleaseCard{padding:12px 13px;background:#14232c;border:1px solid #30414b;border-radius:5px}
+.settingsWindow .settingsReleaseCard>header{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:9px}
+.settingsWindow .settingsReleaseCard>header strong{color:#edf4f7;font-size:12px}
+.settingsWindow .settingsReleaseCard>header time{color:#91a4ae;font-size:9px;white-space:nowrap}
+.settingsWindow .settingsReleaseGroup+.settingsReleaseGroup{margin-top:9px}
+.settingsWindow .settingsReleaseGroup>b{color:#9ec6df;font-size:9px;letter-spacing:.06em}
+.settingsWindow .settingsReleaseGroup ul{margin:4px 0 0;padding-left:16px;color:#c2cdd2;font-size:10px;line-height:1.5}
+.settingsWindow .settingsReleaseGroup li+li{margin-top:2px}
 .settingsWindow .settingsAboutBrand{display:flex;flex-direction:column;gap:5px;padding-bottom:22px;border-bottom:1px solid #30414b}
 .settingsWindow .settingsAboutBrand strong{font-size:20px}
 .settingsWindow .settingsAboutBrand span{font-size:11px;color:#a5b7c1}
