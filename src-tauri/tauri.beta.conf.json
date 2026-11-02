@@ -14,8 +14,8 @@
         "title": "ShowDesk BETA",
         "width": 1440,
         "height": 900,
-        "minWidth": 1024,
-        "minHeight": 700,
+        "minWidth": 600,
+        "minHeight": 450,
         "resizable": true
       }
     ]

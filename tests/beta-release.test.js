@@ -25,6 +25,8 @@ assert.equal(stable.productName, 'ShowDesk');
 assert.equal(stable.app.windows[0].minWidth, 600, 'The main window must be allowed to fit into macOS half-screen tiles');
 assert.equal(stable.app.windows[0].minHeight, 450, 'The main window must be allowed to fit into short OS-provided tiles');
 assert.equal(beta.productName, 'ShowDesk BETA');
+assert.equal(beta.app.windows[0].minWidth, 600, 'The Beta main window must be allowed to fit into macOS half-screen tiles');
+assert.equal(beta.app.windows[0].minHeight, 450, 'The Beta main window must be allowed to fit into short OS-provided tiles');
 assert.equal(packageMetadata.version, stable.version, 'Beta source package metadata should track the stable version');
 assert.equal(lockMetadata.version, stable.version, 'The package lock should track the stable version');
 assert.ok(beta.version.startsWith(`${stable.version}-beta.`), 'The Beta Tauri config should use the current stable version as its base');
