@@ -22,12 +22,39 @@ jobs:
       - run: npm ci
       - run: npm run check
 
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      beta_version: ${{ steps.version.outputs.beta_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set Beta version from the current stable release
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin main
+          STABLE_VERSION="$(git show origin/main:src-tauri/tauri.conf.json | node -e 'let data="";process.stdin.on("data",chunk=>data+=chunk).on("end",()=>process.stdout.write(JSON.parse(data).version))')"
+          if [[ ! "$STABLE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid stable version from main: $STABLE_VERSION" >&2
+            exit 1
+          fi
+          BETA_VERSION="${STABLE_VERSION}-beta.${GITHUB_RUN_NUMBER}"
+          echo "beta_version=$BETA_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Beta version: $BETA_VERSION"
+
   build-beta:
-    needs: validate
+    needs: [validate, version]
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, windows-latest]
+        include:
+          - os: macos-15
+            artifact: macos-arm64
+          - os: macos-15-intel
+            artifact: macos-x86_64
+          - os: windows-latest
+            artifact: windows-x86_64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -41,17 +68,37 @@ jobs:
       - run: npm ci
       - name: Prepare isolated Beta channel
         shell: bash
+        env:
+          BETA_VERSION: ${{ needs.version.outputs.beta_version }}
         run: |
           set -euo pipefail
           export SHOWDESK_CHANNEL=beta
           node scripts/prepare-channel-build.js
-          BETA_VERSION="1.1.0-beta.${GITHUB_RUN_NUMBER}"
           printf '{"version":"%s"}\n' "$BETA_VERSION" > "$RUNNER_TEMP/showdesk-beta-version.json"
           echo "Beta version: $BETA_VERSION"
       - name: Prepare packaged ShowDesk service
         run: |
           npm run bundle
           node scripts/prepare-tauri-backend.js
+      - name: Smoke test packaged Beta service
+        shell: bash
+        env:
+          SHOWDESK_NO_OPEN: '1'
+          SHOWDESK_PORT: '47831'
+          SHOWDESK_VIEWER_PORT: '47832'
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            src-tauri/resources/backend/runtime/node.exe src-tauri/resources/backend/src/server.js > beta-backend.log 2>&1 &
+          else
+            src-tauri/resources/backend/runtime/node src-tauri/resources/backend/src/server.js > beta-backend.log 2>&1 &
+          fi
+          SERVICE_PID=$!
+          cleanup() { kill "$SERVICE_PID" 2>/dev/null || true; }
+          trap cleanup EXIT
+          sleep 3
+          node -e "const WebSocket=require('ws');const ws=new WebSocket('ws://127.0.0.1:47831/ws');const t=setTimeout(()=>process.exit(1),5000);ws.on('open',()=>{clearTimeout(t);ws.close();process.exit(0)});ws.on('error',()=>process.exit(1))"
+          node -e "const http=require('http');const req=http.get('http://127.0.0.1:47832/health',res=>{let b='';res.on('data',c=>b+=c);res.on('end',()=>{const j=JSON.parse(b);process.exit(res.statusCode===200&&j.service==='ShowDesk Viewer'?0:1)})});req.setTimeout(5000,()=>{req.destroy();process.exit(1)});req.on('error',()=>process.exit(1))"
+          node -e "const WebSocket=require('ws');const ws=new WebSocket('ws://127.0.0.1:47832/viewer');const t=setTimeout(()=>process.exit(1),5000);ws.on('message',raw=>{const m=JSON.parse(raw.toString());if(m.type==='connection'&&m.status==='waiting'){clearTimeout(t);ws.close();process.exit(0)}});ws.on('error',()=>process.exit(1))"
       - name: Generate native app icons
         run: npx tauri icon src-tauri/icons/icon.svg
       - name: Build isolated Beta application
@@ -82,7 +129,7 @@ jobs:
           fi
       - uses: actions/upload-artifact@v4
         with:
-          name: ShowDesk-BETA-${{ runner.os }}
+          name: ShowDesk-BETA-${{ matrix.artifact }}
           path: |
             src-tauri/target/release/bundle/dmg/*.dmg
             src-tauri/target/release/bundle/nsis/*-setup.exe
@@ -94,31 +141,39 @@ jobs:
   publish-beta:
     permissions:
       contents: write
-    needs: build-beta
+    needs: [build-beta, version]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           pattern: ShowDesk-BETA-*
           path: beta-input
-          merge-multiple: true
       - name: Prepare Beta installers and update feed
         shell: bash
         env:
-          BETA_VERSION: 1.1.0-beta.${{ github.run_number }}
+          BETA_VERSION: ${{ needs.version.outputs.beta_version }}
         run: |
           set -euo pipefail
           mkdir -p beta-release
-          MAC_DMG="$(find beta-input -type f -name '*.dmg' -print -quit)"
-          WIN_EXE="$(find beta-input -type f -name '*-setup.exe' -print -quit)"
-          MAC_TAR="$(find beta-input -type f -name '*.app.tar.gz' -print -quit)"
-          MAC_SIG="$(find beta-input -type f -name '*.app.tar.gz.sig' -print -quit)"
-          WIN_SIG="$(find beta-input -type f -name '*-setup.exe.sig' -print -quit)"
-          test -n "$MAC_DMG" && test -n "$WIN_EXE" && test -n "$MAC_TAR" && test -n "$MAC_SIG" && test -n "$WIN_SIG"
-          cp "$MAC_DMG" beta-release/ShowDesk-BETA-macOS-Installer.dmg
+          ARM_DIR=beta-input/ShowDesk-BETA-macos-arm64
+          INTEL_DIR=beta-input/ShowDesk-BETA-macos-x86_64
+          WIN_DIR=beta-input/ShowDesk-BETA-windows-x86_64
+          MAC_ARM_DMG="$(find "$ARM_DIR" -type f -name '*.dmg' -print -quit)"
+          MAC_INTEL_DMG="$(find "$INTEL_DIR" -type f -name '*.dmg' -print -quit)"
+          WIN_EXE="$(find "$WIN_DIR" -type f -name '*-setup.exe' -print -quit)"
+          MAC_ARM_TAR="$(find "$ARM_DIR" -type f -name '*.app.tar.gz' -print -quit)"
+          MAC_ARM_SIG="$(find "$ARM_DIR" -type f -name '*.app.tar.gz.sig' -print -quit)"
+          MAC_INTEL_TAR="$(find "$INTEL_DIR" -type f -name '*.app.tar.gz' -print -quit)"
+          MAC_INTEL_SIG="$(find "$INTEL_DIR" -type f -name '*.app.tar.gz.sig' -print -quit)"
+          WIN_SIG="$(find "$WIN_DIR" -type f -name '*-setup.exe.sig' -print -quit)"
+          test -n "$MAC_ARM_DMG" && test -n "$MAC_INTEL_DMG" && test -n "$WIN_EXE" && test -n "$MAC_ARM_TAR" && test -n "$MAC_ARM_SIG" && test -n "$MAC_INTEL_TAR" && test -n "$MAC_INTEL_SIG" && test -n "$WIN_SIG"
+          cp "$MAC_ARM_DMG" beta-release/ShowDesk-BETA-macOS-Installer.dmg
+          cp "$MAC_INTEL_DMG" beta-release/ShowDesk-BETA-macOS-Intel-Installer.dmg
           cp "$WIN_EXE" beta-release/ShowDesk-BETA-Windows-Installer.exe
-          cp "$MAC_TAR" "beta-release/ShowDesk-BETA-${BETA_VERSION}-macOS-arm64.app.tar.gz"
-          cp "$MAC_SIG" "beta-release/ShowDesk-BETA-${BETA_VERSION}-macOS-arm64.app.tar.gz.sig"
+          cp "$MAC_ARM_TAR" "beta-release/ShowDesk-BETA-${BETA_VERSION}-macOS-arm64.app.tar.gz"
+          cp "$MAC_ARM_SIG" "beta-release/ShowDesk-BETA-${BETA_VERSION}-macOS-arm64.app.tar.gz.sig"
+          cp "$MAC_INTEL_TAR" "beta-release/ShowDesk-BETA-${BETA_VERSION}-macOS-x86_64.app.tar.gz"
+          cp "$MAC_INTEL_SIG" "beta-release/ShowDesk-BETA-${BETA_VERSION}-macOS-x86_64.app.tar.gz.sig"
           cp "$WIN_EXE" "beta-release/ShowDesk-BETA-${BETA_VERSION}-Windows-x64-setup.exe"
           cp "$WIN_SIG" "beta-release/ShowDesk-BETA-${BETA_VERSION}-Windows-x64-setup.exe.sig"
           export BETA_VERSION
@@ -135,6 +190,10 @@ jobs:
                 signature:fs.readFileSync(`beta-release/ShowDesk-BETA-${version}-macOS-arm64.app.tar.gz.sig`,'utf8').trim(),
                 url:base+`ShowDesk-BETA-${version}-macOS-arm64.app.tar.gz`
               },
+              'darwin-x86_64':{
+                signature:fs.readFileSync(`beta-release/ShowDesk-BETA-${version}-macOS-x86_64.app.tar.gz.sig`,'utf8').trim(),
+                url:base+`ShowDesk-BETA-${version}-macOS-x86_64.app.tar.gz`
+              },
               'windows-x86_64':{
                 signature:fs.readFileSync(`beta-release/ShowDesk-BETA-${version}-Windows-x64-setup.exe.sig`,'utf8').trim(),
                 url:base+`ShowDesk-BETA-${version}-Windows-x64-setup.exe`
@@ -143,7 +202,7 @@ jobs:
           };
           fs.writeFileSync('beta-release/latest.json',JSON.stringify(feed,null,2)+'\n');
           NODE
-          node -e "const f=JSON.parse(require('fs').readFileSync('beta-release/latest.json','utf8'));if(f.version!==process.env.BETA_VERSION||!f.platforms?.['darwin-aarch64']||!f.platforms?.['windows-x86_64'])process.exit(1)"
+          node -e "const f=JSON.parse(require('fs').readFileSync('beta-release/latest.json','utf8'));if(f.version!==process.env.BETA_VERSION||!f.platforms?.['darwin-aarch64']||!f.platforms?.['darwin-x86_64']||!f.platforms?.['windows-x86_64'])process.exit(1)"
       - name: Publish independent Beta update channel
         env:
           GH_TOKEN: ${{ github.token }}
@@ -158,8 +217,8 @@ jobs:
       - name: Verify Beta updater feed
         shell: bash
         env:
-          BETA_VERSION: 1.1.0-beta.${{ github.run_number }}
+          BETA_VERSION: ${{ needs.version.outputs.beta_version }}
         run: |
           set -euo pipefail
           curl -fL --retry 3 --retry-delay 2 -H 'Cache-Control: no-cache' "https://github.com/${{ github.repository }}/releases/download/showdesk-beta-latest/latest.json?run=${{ github.run_id }}" -o published-beta.json
-          node -e "const f=JSON.parse(require('fs').readFileSync('published-beta.json','utf8'));if(f.version!==process.env.BETA_VERSION||!f.platforms?.['darwin-aarch64']||!f.platforms?.['windows-x86_64'])process.exit(1)"
+          node -e "const f=JSON.parse(require('fs').readFileSync('published-beta.json','utf8'));if(f.version!==process.env.BETA_VERSION||!f.platforms?.['darwin-aarch64']||!f.platforms?.['darwin-x86_64']||!f.platforms?.['windows-x86_64'])process.exit(1)"

@@ -1,10 +1,19 @@
-# ShowDesk 1.1.5
+# ShowDesk 1.2.0
 
-ShowDesk 1.1.5 adds a native Intel Mac download alongside the Apple silicon version.
+ShowDesk 1.2 brings Beta improvements to the stable app, with more dependable monitoring and flexible multi-window workflows.
 
-## New
+## What’s new
 
-- Install ShowDesk on Intel Macs using the new dedicated installer.
-- Receive signed app updates on Intel Macs, alongside Apple silicon and Windows.
+- Open workspaces in separate windows, restore them on launch, and arrange them with your computer’s window tiling.
+- Customize keyboard shortcuts, including ⌘F for full screen on Mac.
+- Signal Explorer highlights only the selected route and keeps active Program and Preview paths clear.
+- Viewer reconnects and HyperDeck status updates are more dependable.
+- Reference imports work more reliably, with other minor bug fixes.
 
-ShowDesk remains read-only: it monitors switcher and HyperDeck state and does not send control commands to either device.
+## Downloads
+
+- **macOS (Apple silicon):** `ShowDesk-macOS-Installer.dmg`
+- **macOS (Intel):** `ShowDesk-macOS-Intel-Installer.dmg`
+- **Windows (64-bit):** `ShowDesk-Windows-Installer.exe`
+
+ShowDesk is a read-only companion. It monitors ATEM and HyperDeck status and does not send control commands.

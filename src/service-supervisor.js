@@ -11,6 +11,7 @@ if (!nodePath || !serverPath) {
 const service = spawn(nodePath, [serverPath], {
   cwd: require('node:path').dirname(require('node:path').dirname(serverPath)),
   env: { ...process.env, SHOWDESK_NO_OPEN: '1' },
+  windowsHide: process.platform === 'win32',
   stdio: ['ignore', 'inherit', 'inherit']
 });
 

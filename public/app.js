@@ -25,12 +25,14 @@ let connectionHealthTimer=null;
 let connectionStartedAt=null;
 let lastHealthAt=null;
 let undockedWorkspace=null;
+let detachedWorkspaceRestoreStarted=false;
 const CONNECTION_STALE_MS=12000;
 let viewerConnectionContext=null;
 let viewerConnectionAttempt=0;
 let activeConnectionMode=null;
 let intentionalDisconnect=false;
 let viewerReconnecting=false;
+let viewerWaitingForAtem=false;
 const standard=[];
 let inspectInputsExpanded=false;
 function $(id){return document.getElementById(id)}
@@ -66,6 +68,8 @@ const hyperdeckOpenDetails=new Map();
 function hyperdeckDeckSignature(decks){return JSON.stringify(decks.map(deck=>({id:deck.id,name:deck.name,host:deck.host,port:deck.port,status:deck.status,error:deck.error,model:deck.model,deviceName:deck.deviceName,softwareVersion:deck.softwareVersion,protocolVersion:deck.protocolVersion,deviceInfo:deck.deviceInfo,transport:Object.fromEntries(Object.entries(deck.transport||{}).filter(([key])=>!(["display timecode","timecode"].includes(key.toLowerCase()))).sort(([a],[b])=>a.localeCompare(b))),slots:deck.slots})))}
 function hyperdeckTimecode(deck){const transport=deck.transport||{};return deck.frontDisplayTimecode||transport["display timecode"]||"--:--:--:--"}
 const hyperdeckClockReceipts=new Map();
+const hyperdeckDataReceipts=new Map();
+const HYPERDECK_DATA_STALE_MS=3000;
 const hyperdeckClipTimecodeSamples=new Map();
 const hyperdeckRecordingTimeSamples=new Map();
 const hyperdeckTimerLabels={recordingElapsed:"RECORDING ELAPSED",frontDisplayTimecode:"FRONT DISPLAY TIMECODE",clipTimecode:"CLIP / TIMELINE TIMECODE",recordingRemaining:"SSD RECORD TIME LEFT"};
@@ -73,20 +77,22 @@ function formatHyperdeckElapsed(deck,elapsedMs=Number(deck.recordingElapsedMs)||
 function hyperdeckRecordingTimeSeconds(slot){const value=slot?.["recording time available"]??slot?.["recording time"];if(value===undefined||value===null||String(value).trim()==="")return null;const seconds=Number(value);return Number.isFinite(seconds)&&seconds>=0?seconds:null}
 function visibleHyperdeckSlots(deck){return(deck?.slots||[]).filter(slot=>{const id=String(slot?.id||slot?.["slot id"]||slot?.["slot name"]||"").trim().toLowerCase(),status=String(slot?.status||"").trim().toLowerCase();return id!==""&&id!=="none"&&status!==""&&status!=="unknown"&&status!=="empty"})}
 function hyperdeckTimerSlots(deck){return(deck?.slots||[]).filter(slot=>{const id=String(slot?.id||slot?.["slot id"]||slot?.["slot name"]||"").trim().toLowerCase(),status=String(slot?.status||"").trim().toLowerCase();return id!==""&&id!=="none"&&status!=="unknown"&&status!=="empty"})}
+function observeHyperdeckDataReceipts(decks,now=Date.now()){for(const deck of decks||[]){const id=String(deck.id),previous=hyperdeckDataReceipts.get(id)||{},next={...previous};for(const kind of ["transport","slots"]){const sourceAt=Number(deck[kind==="transport"?"transportUpdatedAt":"slotsUpdatedAt"])||0;if(sourceAt){if(previous[`${kind}SourceAt`]!==sourceAt){next[`${kind}SourceAt`]=sourceAt;next[`${kind}ReceivedAt`]=now}}else next[`${kind}ReceivedAt`]=now}hyperdeckDataReceipts.set(id,next);hyperdeckClockReceipts.set(id,next.transportReceivedAt??now)}}
+function hyperdeckDataAge(deck,kind,now=Date.now()){const receipt=hyperdeckDataReceipts.get(String(deck.id))?.[`${kind}ReceivedAt`];return receipt===undefined?null:Math.max(0,now-receipt)}
 function observeHyperdeckRecordingTimes(decks,now=Date.now()){for(const deck of decks||[]){const status=String(deck.transport?.status||"").toLowerCase(),connected=!["disconnected","connecting"].includes(String(deck.status||"").toLowerCase());for(const slot of deck.slots||[]){const seconds=hyperdeckRecordingTimeSeconds(slot);if(seconds===null)continue;const key=String(deck.id)+":"+String(slot.id),recording=connected&&status==="record",old=hyperdeckRecordingTimeSamples.get(key);if(!old||old.reportedSeconds!==seconds){hyperdeckRecordingTimeSamples.set(key,{seconds,reportedSeconds:seconds,observedAt:now,recording});continue}if(old.recording!==recording){const current=old.seconds-(old.recording?Math.max(0,now-old.observedAt)/1000:0);hyperdeckRecordingTimeSamples.set(key,{seconds:Math.max(0,current),reportedSeconds:seconds,observedAt:now,recording})}}}}
-function hyperdeckRecordingTimeDisplaySeconds(slot,deck,now=Date.now()){const reported=hyperdeckRecordingTimeSeconds(slot);if(reported===null)return null;const sample=deck?hyperdeckRecordingTimeSamples.get(String(deck.id)+":"+String(slot.id)):null;if(!sample)return reported;const seconds=sample.seconds-(sample.recording?Math.max(0,now-sample.observedAt)/1000:0);return Math.max(0,seconds)}
+function hyperdeckRecordingTimeDisplaySeconds(slot,deck,now=Date.now()){const reported=hyperdeckRecordingTimeSeconds(slot);if(reported===null)return null;const sample=deck?hyperdeckRecordingTimeSamples.get(String(deck.id)+":"+String(slot.id)):null;if(!sample)return reported;const slotAge=deck?hyperdeckDataAge(deck,"slots",now):null,canInterpolate=sample.recording&&(slotAge===null||slotAge<=HYPERDECK_DATA_STALE_MS),seconds=sample.seconds-(canInterpolate?Math.max(0,now-sample.observedAt)/1000:0);return Math.max(0,seconds)}
 function hyperdeckSlotAvailabilityLabel(slot){const seconds=hyperdeckRecordingTimeSeconds(slot);return seconds===null?"Availability not reported":`${seconds} seconds available`}
 function hyperdeckTimecodeRate(deck){const format=String(deck.transport?.["video format"]||""),match=/(?:p|i)(\d{2,5})$/i.exec(format);let rate=30;if(match){const digits=match[1];rate=digits.length===5?Number(digits.slice(0,2))+Number(digits.slice(2))/1000:digits.length===4?Number(digits.slice(0,2))+Number(digits.slice(2))/100:Number(digits);if(/i\d/i.test(format)&&rate>=50)rate/=2}return Number.isFinite(rate)&&rate>0?rate:30}
 function hyperdeckTimecodeParts(value){const match=/^(\d{2,}):(\d{2}):(\d{2})([:;])(\d{2})$/.exec(String(value||""));if(!match)return null;return{hours:Number(match[1]),minutes:Number(match[2]),seconds:Number(match[3]),separator:match[4],frames:Number(match[5])}}
 function hyperdeckTimecodeToFrames(value,fps){const parts=hyperdeckTimecodeParts(value);if(!parts)return null;const nominal=Math.max(1,Math.round(fps)),minutes=parts.hours*60+parts.minutes;let frames=((parts.hours*3600+parts.minutes*60+parts.seconds)*nominal)+parts.frames;if(parts.separator===";"&&(nominal===30||nominal===60)){const drop=nominal===60?4:2;frames-=drop*(minutes-Math.floor(minutes/10))}return Math.max(0,frames)}
 function hyperdeckFramesToTimecode(frameCount,fps,separator=":"){const nominal=Math.max(1,Math.round(fps));let frames=Math.max(0,Math.floor(frameCount));if(separator===";"&&(nominal===30||nominal===60)){const drop=nominal===60?4:2,framesPerMinute=nominal*60-drop,framesPerTenMinutes=nominal*600-drop*9,tenMinuteBlocks=Math.floor(frames/framesPerTenMinutes),remainder=frames%framesPerTenMinutes;frames+=drop*9*tenMinuteBlocks+(remainder>=drop?drop*Math.floor((remainder-drop)/framesPerMinute):0)}const ff=frames%nominal,totalSeconds=Math.floor(frames/nominal),ss=totalSeconds%60,mm=Math.floor(totalSeconds/60)%60,hh=Math.floor(totalSeconds/3600);return`${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}:${String(ss).padStart(2,"0")}${separator}${String(ff).padStart(2,"0")}`}
-function hyperdeckClipTimecodeRate(deck){const sample=hyperdeckClipTimecodeSamples.get(String(deck.id));if(!sample||["disconnected","connecting"].includes(String(deck.status||"").toLowerCase()))return 0;const status=String(sample.status||"").toLowerCase(),speed=Number(sample.speed);if(status==="record")return 1;if(!["play","forward","rewind","jog","shuttle"].includes(status))return 0;let multiplier=Number.isFinite(speed)?speed/100:0;if(status==="rewind")return -Math.abs(multiplier||1);if((status==="play"||status==="forward")&&multiplier===0)return 1;return multiplier}
+function hyperdeckClipTimecodeRate(deck){const sample=hyperdeckClipTimecodeSamples.get(String(deck.id)),age=hyperdeckDataAge(deck,"transport");if(!sample||["disconnected","connecting"].includes(String(deck.status||"").toLowerCase())||age!==null&&age>HYPERDECK_DATA_STALE_MS)return 0;const status=String(sample.status||"").toLowerCase(),speed=Number(sample.speed);if(status==="record")return 1;if(!["play","forward","rewind","jog","shuttle"].includes(status))return 0;let multiplier=Number.isFinite(speed)?speed/100:0;if(status==="rewind")return -Math.abs(multiplier||1);if((status==="play"||status==="forward")&&multiplier===0)return 1;return multiplier}
 function observeHyperdeckClipTimecodes(decks,now=Date.now()){for(const deck of decks||[]){const t=deck.transport||{},timecode=String(t.timecode||""),parts=hyperdeckTimecodeParts(timecode);if(!parts)continue;const id=String(deck.id),status=String(t.status||"").toLowerCase(),speed=String(t.speed??""),videoFormat=String(t["video format"]||""),connectionStatus=String(deck.status||""),old=hyperdeckClipTimecodeSamples.get(id);if(!old||old.timecode!==timecode||old.status!==status||old.speed!==speed||old.videoFormat!==videoFormat||old.connectionStatus!==connectionStatus)hyperdeckClipTimecodeSamples.set(id,{timecode,status,speed,videoFormat,connectionStatus,observedAt:now})}}
 function hyperdeckInterpolatedClipTimecode(deck,now=Date.now()){const t=deck.transport||{},base=String(t.timecode||""),sample=hyperdeckClipTimecodeSamples.get(String(deck.id));if(!sample)return base||"--:--:--:--";const rate=hyperdeckTimecodeRate(deck),fps=Math.max(1,Math.round(rate)),baseFrames=hyperdeckTimecodeToFrames(sample.timecode,rate);if(baseFrames===null)return base||"--:--:--:--";const advanced=Math.floor(Math.max(0,now-sample.observedAt)*fps*hyperdeckClipTimecodeRate(deck)/1000);return hyperdeckFramesToTimecode(baseFrames+advanced,rate,hyperdeckTimecodeParts(sample.timecode).separator)}
-function hyperdeckTimerValue(deck,timer,now=Date.now()){const t=deck.transport||{};if(timer==="recordingElapsed"){const received=hyperdeckClockReceipts.get(String(deck.id))||now,connected=!["disconnected","connecting"].includes(String(deck.status||"").toLowerCase()),extra=connected&&String(t.status||"").toLowerCase()==="record"?Math.max(0,now-received):0;return formatHyperdeckElapsed(deck,(Number(deck.recordingElapsedMs)||0)+extra)}if(timer==="frontDisplayTimecode")return hyperdeckTimecode(deck);if(timer==="clipTimecode")return hyperdeckInterpolatedClipTimecode(deck,now);if(timer==="recordingRemaining"){const slots=hyperdeckTimerSlots(deck),slot=slots.find(item=>String(item.id)===String(t["slot id"]))||slots.find(item=>String(item.status||"").toLowerCase()==="mounted")||slots[0],seconds=hyperdeckRecordingTimeDisplaySeconds(slot,deck,now);if(seconds===null)return"—";const total=Math.floor(seconds);return`${String(Math.floor(total/3600)).padStart(2,"0")}:${String(Math.floor(total%3600/60)).padStart(2,"0")}:${String(total%60).padStart(2,"0")}`}return"—"}
-function renderHyperdeckReadouts(decks=hyperdeckStates){const root=$("hyperdeckCards");if(!root)return;for(const deck of decks){const id=String(deck.id),primary=root.querySelector(`[data-hyperdeck-primary="${id}"]`),secondary=root.querySelector(`[data-hyperdeck-secondary="${id}"]`),mainLabel=root.querySelector(`[data-hyperdeck-primary-label="${id}"]`),secondaryGroup=root.querySelector(`[data-hyperdeck-secondary-group="${id}"]`),secondaryLabel=root.querySelector(`[data-hyperdeck-secondary-label="${id}"]`),secondaryTimer=showDeskPreferences.hyperdeckSecondaryTimer;if(primary)primary.textContent=hyperdeckTimerValue(deck,showDeskPreferences.hyperdeckPrimaryTimer);if(mainLabel)mainLabel.textContent=hyperdeckTimerLabels[showDeskPreferences.hyperdeckPrimaryTimer]||"TIMER";for(const node of root.querySelectorAll(`[data-hyperdeck-slot-remaining][data-hyperdeck-id="${id}"]`)){const slot=(deck.slots||[]).find(item=>String(item.id)===node.dataset.slotId),label=slot?hyperdeckRecordingTimeRemaining(slot,deck):"";node.textContent=label;node.hidden=!label}if(secondaryGroup)secondaryGroup.hidden=secondaryTimer==="none";if(secondary)secondary.textContent=hyperdeckTimerValue(deck,secondaryTimer);if(secondaryLabel)secondaryLabel.textContent=hyperdeckTimerLabels[secondaryTimer]||"TIMER"}}
+function hyperdeckTimerValue(deck,timer,now=Date.now()){const t=deck.transport||{};if(timer==="recordingElapsed"){const received=hyperdeckClockReceipts.get(String(deck.id))||now,age=hyperdeckDataAge(deck,"transport",now),connected=!["disconnected","connecting"].includes(String(deck.status||"").toLowerCase()),fresh=age===null||age<=HYPERDECK_DATA_STALE_MS,extra=connected&&fresh&&String(t.status||"").toLowerCase()==="record"?Math.max(0,now-received):0;return formatHyperdeckElapsed(deck,(Number(deck.recordingElapsedMs)||0)+extra)}if(timer==="frontDisplayTimecode")return hyperdeckTimecode(deck);if(timer==="clipTimecode")return hyperdeckInterpolatedClipTimecode(deck,now);if(timer==="recordingRemaining"){const slots=hyperdeckTimerSlots(deck),slot=slots.find(item=>String(item.id)===String(t["slot id"]))||slots.find(item=>String(item.status||"").toLowerCase()==="mounted")||slots[0],age=hyperdeckDataAge(deck,"slots",now);if(age!==null&&age>HYPERDECK_DATA_STALE_MS)return"—";const seconds=hyperdeckRecordingTimeDisplaySeconds(slot,deck,now);if(seconds===null)return"—";const total=Math.floor(seconds);return`${String(Math.floor(total/3600)).padStart(2,"0")}:${String(Math.floor(total%3600/60)).padStart(2,"0")}:${String(total%60).padStart(2,"0")}`}return"—"}
+function renderHyperdeckReadouts(decks=hyperdeckStates){const root=$("hyperdeckCards");if(!root)return;const now=Date.now();for(const deck of decks){const id=String(deck.id),primary=root.querySelector(`[data-hyperdeck-primary="${id}"]`),secondary=root.querySelector(`[data-hyperdeck-secondary="${id}"]`),mainLabel=root.querySelector(`[data-hyperdeck-primary-label="${id}"]`),secondaryGroup=root.querySelector(`[data-hyperdeck-secondary-group="${id}"]`),secondaryLabel=root.querySelector(`[data-hyperdeck-secondary-label="${id}"]`),transportFreshness=root.querySelector(`[data-hyperdeck-transport-freshness="${id}"]`),slotFreshness=root.querySelector(`[data-hyperdeck-slot-freshness="${id}"]`),connected=String(deck.status||"").toLowerCase()==="connected",transportAge=hyperdeckDataAge(deck,"transport",now),slotsAge=hyperdeckDataAge(deck,"slots",now),secondaryTimer=showDeskPreferences.hyperdeckSecondaryTimer;if(transportFreshness){transportFreshness.textContent=!connected?"OFFLINE":transportAge===null?"WAITING":transportAge>HYPERDECK_DATA_STALE_MS?`STALE · ${Math.floor(transportAge/1000)}s`:"LIVE";transportFreshness.classList.toggle("isStale",!connected||transportAge===null||transportAge>HYPERDECK_DATA_STALE_MS)}if(slotFreshness){slotFreshness.textContent=!connected?"OFFLINE":slotsAge===null?"WAITING":slotsAge>HYPERDECK_DATA_STALE_MS?`STALE · ${Math.floor(slotsAge/1000)}s`:"LIVE";slotFreshness.classList.toggle("isStale",!connected||slotsAge===null||slotsAge>HYPERDECK_DATA_STALE_MS)}if(primary)primary.textContent=hyperdeckTimerValue(deck,showDeskPreferences.hyperdeckPrimaryTimer,now);if(mainLabel)mainLabel.textContent=hyperdeckTimerLabels[showDeskPreferences.hyperdeckPrimaryTimer]||"TIMER";for(const node of root.querySelectorAll(`[data-hyperdeck-slot-remaining][data-hyperdeck-id="${id}"]`)){const slot=(deck.slots||[]).find(item=>String(item.id)===node.dataset.slotId),label=slot?hyperdeckRecordingTimeRemaining(slot,deck,now):"";node.textContent=label;node.hidden=!label}if(secondaryGroup)secondaryGroup.hidden=secondaryTimer==="none";if(secondary)secondary.textContent=hyperdeckTimerValue(deck,secondaryTimer,now);if(secondaryLabel)secondaryLabel.textContent=hyperdeckTimerLabels[secondaryTimer]||"TIMER"}}
 function updateHyperdeckTimerPreference(which,value){const choices=["recordingElapsed","frontDisplayTimecode","clipTimecode","recordingRemaining","none"],key=which==="primary"?"hyperdeckPrimaryTimer":"hyperdeckSecondaryTimer";if(!choices.includes(value)||which==="primary"&&value==="none")return;showDeskPreferences[key]=value;if(showDeskPreferences.hyperdeckPrimaryTimer===showDeskPreferences.hyperdeckSecondaryTimer){showDeskPreferences[which==="primary"?"hyperdeckSecondaryTimer":"hyperdeckPrimaryTimer"]=value==="frontDisplayTimecode"?"recordingElapsed":"frontDisplayTimecode"}saveShowDeskPreferences();syncHyperdeckTimerMenus();lastHyperdeckRenderSignature="";renderHyperdeckCards()}
-function hyperdeckRecordingTimeRemaining(slot,deck=null,now=Date.now()){const seconds=hyperdeckRecordingTimeDisplaySeconds(slot,deck,now);if(seconds===null)return"";const total=Math.floor(seconds),hours=Math.floor(total/3600),minutes=Math.floor(total%3600/60),remainingSeconds=total%60;return`RECORD TIME LEFT · ${String(hours).padStart(2,"0")}:${String(minutes).padStart(2,"0")}:${String(remainingSeconds).padStart(2,"0")}`}
+function hyperdeckRecordingTimeRemaining(slot,deck=null,now=Date.now()){const slotAge=deck?hyperdeckDataAge(deck,"slots",now):null;if(slotAge!==null&&slotAge>HYPERDECK_DATA_STALE_MS)return"RECORD TIME LEFT · STALE";const seconds=hyperdeckRecordingTimeDisplaySeconds(slot,deck,now);if(seconds===null)return"";const total=Math.floor(seconds),hours=Math.floor(total/3600),minutes=Math.floor(total%3600/60),remainingSeconds=total%60;return`RECORD TIME LEFT · ${String(hours).padStart(2,"0")}:${String(minutes).padStart(2,"0")}:${String(remainingSeconds).padStart(2,"0")}`}
 function updateHyperdeckTimecodes(decks){const root=$("hyperdeckCards");if(!root)return;const fields=[...root.querySelectorAll("[data-hyperdeck-id][data-hyperdeck-field]")];for(const deck of decks){for(const node of fields)if(node.dataset.hyperdeckId===String(deck.id)){const value=deck.transport?.[node.dataset.hyperdeckField];if(value!=null)node.textContent=String(value)}}renderHyperdeckReadouts(decks)}
 function renderHyperdeckCards(){
  const root=$("hyperdeckCards");if(!root)return;
@@ -105,7 +111,7 @@ function renderHyperdeckCards(){
   const editableName=isViewer?`<b class="viewerDeckName">${name}</b>`:`<label class="rackNameLabel" for="hyperdeck-name-${escapeShowDeskText(config.id)}">DECK NAME</label><input class="rackNameInput" id="hyperdeck-name-${escapeShowDeskText(config.id)}" aria-label="HyperDeck name" maxlength="64" value="${name}" data-change-action="hyperdeck-name" data-id="${escapeShowDeskText(config.id)}">`;
   const location=isViewer?identity:`${identity} · ${escapeShowDeskText(deck.host)}:${Number(deck.port)||9993}`;
   const remove=isViewer?"":`<button class="rackRemove" type="button" data-action="remove-hyperdeck" data-id="${escapeShowDeskText(config.id)}">REMOVE</button>`;
-  return `<article class="hyperdeckRackUnit ${deck.status==="connected"?"isConnected":"isDisconnected"}" data-hyperdeck-card="${escapeShowDeskText(deck.id)}"><div class="rackFace"><header class="rackHeader"><div class="rackBadge" aria-hidden="true">SD</div><div class="rackIdentity">${editableName}<span>${location}</span></div><span class="rackConnection"><i></i>${escapeShowDeskText(statusText)}${deck.error?" · "+escapeShowDeskText(deck.error):""}</span>${remove}</header><div class="rackPanel"><div class="rackTransport"><span class="rackSectionLabel">TRANSPORT</span><div class="rackStaticControls" aria-label="Read-only HyperDeck transport indicators; ShowDesk does not control the deck"><span title="Skip to previous clip"><b>|◀</b><small>SKIP</small></span><span class="${stateClass==="recording"?"isRecording":""}" title="Record status"><b>●</b><small>REC</small></span><span title="Skip to next clip"><b>▶|</b><small>SKIP</small></span><span title="Input status"><b>▯</b><small>INPUT</small></span><span title="Rewind"><b>◀◀</b><small>REW</small></span><span class="${stateClass==="playing"?"isPlaying":""}" title="Playback status"><b>▶</b><small>PLAY</small></span><span title="Fast forward"><b>▶▶</b><small>F FWD</small></span><span class="${stateClass==="stopped"?"isStopped":""}" title="Stop status"><b>■</b><small>STOP</small></span></div></div><div class="rackLcd"><div class="lcdTop"><span>${escapeShowDeskText(deck.deviceName||config.name)} · LIVE STATUS</span><span>${escapeShowDeskText(t["video format"]||"VIDEO MODE —")}</span></div><div class="lcdMain"><div><small>STATUS</small><b class="lcdTransport ${stateClass}">${escapeShowDeskText(t.status||"Waiting for transport state")}</b></div><div class="lcdTimecodeGroup"><small data-hyperdeck-primary-label="${escapeShowDeskText(deck.id)}"></small><b class="lcdTimecode lcdPrimaryTimer" data-hyperdeck-primary="${escapeShowDeskText(deck.id)}"></b><span class="lcdSecondaryTimerGroup" data-hyperdeck-secondary-group="${escapeShowDeskText(deck.id)}"><small data-hyperdeck-secondary-label="${escapeShowDeskText(deck.id)}"></small><b class="lcdSecondaryTimer" data-hyperdeck-secondary="${escapeShowDeskText(deck.id)}"></b></span></div></div><div class="lcdBottom"><span>CLIP <b>${escapeShowDeskText(clip)}</b></span><span>SPEED <b>${escapeShowDeskText(t.speed||"—")}</b></span><span>MEDIA SLOT <b>${escapeShowDeskText(activeSlotId)}</b></span></div></div><div class="rackSlotIndicators"><span class="rackSectionLabel">MEDIA SLOTS</span>${visibleSlots.length?visibleSlots.map(slot=>`<div class="miniSlot"><i class="slotLed ${String(slot.status||"").toLowerCase()==="mounted"?"ready":""}"></i><span><b>SLOT ${escapeShowDeskText(slot.id||"—")}</b><em>${escapeShowDeskText(slot.status||"UNKNOWN")}</em>${hyperdeckRecordingTimeRemaining(slot,deck)?`<small data-hyperdeck-slot-remaining data-hyperdeck-id="${escapeShowDeskText(deck.id)}" data-slot-id="${escapeShowDeskText(slot.id||"")}">${escapeShowDeskText(hyperdeckRecordingTimeRemaining(slot,deck))}</small>`:""}</span></div>`).join(""):'<span class="noSlotStatus">—</span>'}</div><div class="rackModelPanel"><small>DEVICE</small><b>${escapeShowDeskText(deck.model||"HyperDeck")}</b>${deck.softwareVersion?`<span>SOFTWARE VERSION · ${escapeShowDeskText(deck.softwareVersion)}</span>`:""}</div></div><div class="rackDetails"><details><summary>Device protocol</summary>${hyperdeckFieldSubset(deck.deviceInfo,["protocol version"])}</details><details><summary>Transport details</summary>${hyperdeckFieldSubset(t,["dynamic range","loop","timeline"],deck.id)}</details><details><summary>Slot diagnostics</summary><div class="hyperdeckSlots">${slots}</div></details></div></div></article>`
+  return `<article class="hyperdeckRackUnit ${deck.status==="connected"?"isConnected":"isDisconnected"}" data-hyperdeck-card="${escapeShowDeskText(deck.id)}"><div class="rackFace"><header class="rackHeader"><div class="rackBadge" aria-hidden="true">SD</div><div class="rackIdentity">${editableName}<span>${location}</span></div><span class="rackConnection"><i></i>${escapeShowDeskText(statusText)}${deck.error?" · "+escapeShowDeskText(deck.error):""}</span>${remove}</header><div class="rackPanel"><div class="rackTransport"><span class="rackSectionLabel">TRANSPORT</span><div class="rackStaticControls" aria-label="Read-only HyperDeck transport indicators; ShowDesk does not control the deck"><span title="Skip to previous clip"><b>|◀</b><small>SKIP</small></span><span class="${stateClass==="recording"?"isRecording":""}" title="Record status"><b>●</b><small>REC</small></span><span title="Skip to next clip"><b>▶|</b><small>SKIP</small></span><span title="Input status"><b>▯</b><small>INPUT</small></span><span title="Rewind"><b>◀◀</b><small>REW</small></span><span class="${stateClass==="playing"?"isPlaying":""}" title="Playback status"><b>▶</b><small>PLAY</small></span><span title="Fast forward"><b>▶▶</b><small>F FWD</small></span><span class="${stateClass==="stopped"?"isStopped":""}" title="Stop status"><b>■</b><small>STOP</small></span></div></div><div class="rackLcd"><div class="lcdTop"><span>${escapeShowDeskText(deck.deviceName||config.name)} · LIVE STATUS</span><span>${escapeShowDeskText(t["video format"]||"VIDEO MODE —")}</span></div><div class="lcdMain"><div><small>STATUS <span class="rackFreshness" data-hyperdeck-transport-freshness="${escapeShowDeskText(deck.id)}"></span></small><b class="lcdTransport ${stateClass}">${escapeShowDeskText(t.status||"Waiting for transport state")}</b></div><div class="lcdTimecodeGroup"><small data-hyperdeck-primary-label="${escapeShowDeskText(deck.id)}"></small><b class="lcdTimecode lcdPrimaryTimer" data-hyperdeck-primary="${escapeShowDeskText(deck.id)}"></b><span class="lcdSecondaryTimerGroup" data-hyperdeck-secondary-group="${escapeShowDeskText(deck.id)}"><small data-hyperdeck-secondary-label="${escapeShowDeskText(deck.id)}"></small><b class="lcdSecondaryTimer" data-hyperdeck-secondary="${escapeShowDeskText(deck.id)}"></b></span></div></div><div class="lcdBottom"><span>CLIP <b>${escapeShowDeskText(clip)}</b></span><span>SPEED <b>${escapeShowDeskText(t.speed||"—")}</b></span><span>MEDIA SLOT <b>${escapeShowDeskText(activeSlotId)}</b></span></div></div><div class="rackSlotIndicators"><span class="rackSectionLabel">MEDIA SLOTS <small class="rackFreshness" data-hyperdeck-slot-freshness="${escapeShowDeskText(deck.id)}"></small></span>${visibleSlots.length?visibleSlots.map(slot=>`<div class="miniSlot"><i class="slotLed ${String(slot.status||"").toLowerCase()==="mounted"?"ready":""}"></i><span><b>SLOT ${escapeShowDeskText(slot.id||"—")}</b><em>${escapeShowDeskText(slot.status||"UNKNOWN")}</em>${hyperdeckRecordingTimeRemaining(slot,deck)?`<small data-hyperdeck-slot-remaining data-hyperdeck-id="${escapeShowDeskText(deck.id)}" data-slot-id="${escapeShowDeskText(slot.id||"")}">${escapeShowDeskText(hyperdeckRecordingTimeRemaining(slot,deck))}</small>`:""}</span></div>`).join(""):'<span class="noSlotStatus">—</span>'}</div><div class="rackModelPanel"><small>DEVICE</small><b>${escapeShowDeskText(deck.model||"HyperDeck")}</b>${deck.softwareVersion?`<span>SOFTWARE VERSION · ${escapeShowDeskText(deck.softwareVersion)}</span>`:""}</div></div><div class="rackDetails"><details><summary>Device protocol</summary>${hyperdeckFieldSubset(deck.deviceInfo,["protocol version"])}</details><details><summary>Transport details</summary>${hyperdeckFieldSubset(t,["dynamic range","loop","timeline"],deck.id)}</details><details><summary>Slot diagnostics</summary><div class="hyperdeckSlots">${slots}</div></details></div></div></article>`
  }).join("");
  root.querySelectorAll(".hyperdeckRackUnit[data-hyperdeck-card]").forEach(card=>{const open=hyperdeckOpenDetails.get(card.dataset.hyperdeckCard);if(!open)return;card.querySelectorAll(".rackDetails details").forEach((detail,index)=>{if(index<open.length)detail.open=open[index]})});
  renderHyperdeckReadouts(renderDecks);
@@ -116,7 +122,7 @@ function addHyperdeck(){if(isShowDeskViewer()){$("hyperdeckSettingsStatus").text
 function toggleDebug(){const el=$("atemDebug");if(!el)return;el.hidden=!el.hidden;if(!el.hidden)renderDebug()}
 function renderDebug(){const el=$("atemDebug");if(!el)return;el.textContent=JSON.stringify({productIdentifier:liveEngineering.productIdentifier,videoMode:liveEngineering.videoMode,topology:liveEngineering.topology,inputs:liveEngineering.inputs,mixEffects:liveEngineering.mixEffects,downstreamKeyers:liveEngineering.downstreamKeyers,auxRoutes:{...actual},rawExposedState:liveEngineering.debug},null,2)}
 function toast(msg){let t=$("toast");if(!t)return;t.textContent=msg;t.classList.add("show");clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove("show"),1100)}
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("settingsModal")&&!$("settingsModal").hidden)closeShowDeskSettings()});
+document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if($("whatsNewModal")&&!$("whatsNewModal").hidden)dismissWhatsNew();else if($("settingsModal")&&!$("settingsModal").hidden)closeShowDeskSettings()});
 document.addEventListener("click",e=>{
  const b=e.target.closest("button");if(!b||b.disabled)return;
  b.classList.remove("clickFlash");void b.offsetWidth;b.classList.add("clickFlash");
@@ -145,6 +151,44 @@ function rememberSuccessfulConnection(kind,ip){if(!validIpLike(ip))return;try{co
 function restoreRememberedConnections(){const saved=loadRememberedConnections();if(saved.atemIp&&$("atemIp"))$("atemIp").value=saved.atemIp;if(saved.viewerHostIp&&$("viewerHostIp"))$("viewerHostIp").value=saved.viewerHostIp;connectionInputChanged();viewerInputChanged();}
 const SHOWDESK_PREFERENCES_KEY="showdesk.preferences.v1";
 const SHOWDESK_SAVED_CONNECTIONS_KEY="showdesk.savedConnections.v1";
+const SHOWDESK_SHORTCUTS_KEY="showdesk.shortcuts.v1";
+const SHOWDESK_SHORTCUTS=[
+ {id:"show",label:"Show View",mac:"Meta+1",other:"Ctrl+1"},
+ {id:"signal",label:"Signal Explorer",mac:"Meta+2",other:"Ctrl+2"},
+ {id:"engineering",label:"Inspect",mac:"Meta+3",other:"Ctrl+3"},
+ {id:"hyperdecks",label:"HyperDeck Monitoring",mac:"Meta+4",other:"Ctrl+4"},
+ {id:"fit",label:"Fit Signal Explorer",mac:"Meta+Shift+F",other:"Ctrl+Shift+F"},
+ {id:"clear",label:"Clear Signal Trace",mac:"Meta+Shift+Backspace",other:"Ctrl+Shift+Backspace"},
+ {id:"zoom-in",label:"Zoom in",mac:"Meta+ArrowUp",other:"Ctrl+ArrowUp"},
+ {id:"zoom-out",label:"Zoom out",mac:"Meta+ArrowDown",other:"Ctrl+ArrowDown"},
+ {id:"fullscreen",label:"Toggle full screen",mac:"Meta+F",other:"Ctrl+Alt+Enter"},
+ {id:"settings",label:"Open Settings",mac:"Meta+,",other:"Ctrl+,"}
+];
+const showDeskIsMac=/Mac|iPhone|iPad/.test(navigator.userAgentData?.platform||navigator.platform||navigator.userAgent);
+let showDeskShortcutCapture=null;
+function showDeskDefaultShortcuts(){return Object.fromEntries(SHOWDESK_SHORTCUTS.map(item=>[item.id,showDeskIsMac?item.mac:item.other]))}
+function loadShowDeskShortcuts(){const defaults=showDeskDefaultShortcuts();try{const saved=JSON.parse(localStorage.getItem(SHOWDESK_SHORTCUTS_KEY)||"{}");for(const item of SHOWDESK_SHORTCUTS)if(typeof saved[item.id]==="string"&&saved[item.id])defaults[item.id]=saved[item.id];for(const item of SHOWDESK_SHORTCUTS){const binding=defaults[item.id];if(!/(^|\+)Fn(?=\+|$)/.test(binding))continue;const primary=showDeskIsMac?"Meta":"Ctrl",replacement=binding.replace(/(^|\+)Fn(?=\+|$)/g,`$1${primary}`),usedByOther=SHOWDESK_SHORTCUTS.some(other=>other.id!==item.id&&defaults[other.id]===replacement);if(!usedByOther)defaults[item.id]=replacement;}}catch{}return defaults}
+let showDeskShortcuts=loadShowDeskShortcuts();
+function saveShowDeskShortcuts(){try{localStorage.setItem(SHOWDESK_SHORTCUTS_KEY,JSON.stringify(showDeskShortcuts))}catch(error){console.warn("Unable to save ShowDesk shortcuts",error)}}
+function shortcutDisplay(value){return value.split("+").map(part=>showDeskIsMac?({Meta:"⌘",Ctrl:"⌃",Alt:"⌥",Shift:"⇧",ArrowUp:"↑",ArrowDown:"↓",Backspace:"⌫",Enter:"↩",",":","}[part]||part):({Meta:"Win",ArrowUp:"↑",ArrowDown:"↓",Backspace:"Backspace",Enter:"Enter"}[part]||part)).join(showDeskIsMac?"":" + ")}
+function renderShowDeskShortcuts(){const root=$("settingsShortcutList");if(!root)return;root.innerHTML=SHOWDESK_SHORTCUTS.map(item=>`<div class="settingsShortcutRow"><span>${escapeShowDeskText(item.label)}</span><button class="settingsShortcutKey" type="button" data-action="capture-shortcut" data-shortcut-id="${item.id}" aria-label="Change shortcut for ${escapeShowDeskText(item.label)}">${showDeskShortcutCapture===item.id?"Press shortcut…":escapeShowDeskText(shortcutDisplay(showDeskShortcuts[item.id]))}</button></div>`).join("")}
+const SHOWDESK_RELEASE_NOTES=[
+ {version:"1.2.0",date:"November 9, 2026",groups:[{label:"Added",items:["Open workspaces in separate windows, restore them on launch, and use OS window tiling.","Customize keyboard shortcuts, including ⌘F for full screen on Mac."]},{label:"Improved",items:["Signal Explorer highlights only the selected route and keeps active Program and Preview paths clear.","Viewer reconnects and HyperDeck status updates are more dependable."]},{label:"Minor bug fixes",items:["Improved compatibility when importing reference files and returning detached workspaces.","Other small fixes and refinements."]}]},
+ {version:"1.2.0 Beta",date:"November 2, 2026",beta:true,groups:[{label:"Added",items:["Open workspaces in separate windows that share the same connection.","Restore detached workspaces and arrange windows with your computer’s tiling controls.","Choose your own keyboard shortcuts, including ⌘F for full screen on Mac."]},{label:"Improved",items:["Main and detached windows fit more cleanly into OS-provided tiles.","Returning a detached workspace keeps the main window on its current view.","Signal Explorer highlights only the selected route and keeps active Program and Preview paths easy to see.","Viewer windows recover more reliably when the Host reconnects.","HyperDeck status and timecode updates are clearer and more dependable."]},{label:"Minor bug fixes",items:["Improved compatibility when importing reference files.","Other small fixes and refinements."]}]},
+ {version:"1.1.5",date:"October 25, 2026",groups:[{label:"Added",items:["Support for Intel Macs.","A clearer product guide with smaller screenshots you can open for a larger preview."]},{label:"Improved",items:["Signal Explorer route tracing and HyperDeck status details."]},{label:"Minor bug fixes",items:["Other small fixes and refinements."]}]},
+ {version:"1.1.4",date:"October 25, 2026",groups:[{label:"Improved",items:["HyperDeck information is organized into simpler, easier-to-scan sections."]},{label:"Minor bug fixes",items:["Other small fixes and refinements."]}]},
+ {version:"1.1.3",date:"October 25, 2026",groups:[{label:"Improved",items:["Signal Explorer shows complete source-to-destination routes again."]},{label:"Minor bug fixes",items:["Other small fixes and refinements."]}]},
+ {version:"1.1.2",date:"October 21, 2026",groups:[{label:"Improved",items:["Signal Explorer route layout and line spacing."]},{label:"Minor bug fixes",items:["Other small fixes and refinements."]}]},
+ {version:"1.1.1",date:"October 21, 2026",groups:[{label:"Improved",items:["Signal Explorer route tracing and readability."]},{label:"Minor bug fixes",items:["Other small fixes and refinements."]}]}
+];
+function renderShowDeskReleaseNotes(){const root=$("settingsReleaseNotes");if(!root)return;const beta=window.SHOWDESK_CONFIG?.channel==="beta",notes=SHOWDESK_RELEASE_NOTES.filter(item=>!item.beta||beta);root.innerHTML=notes.map(note=>`<article class="settingsReleaseCard"><header><strong>ShowDesk ${escapeShowDeskText(note.version)}</strong><time>${escapeShowDeskText(note.date)}</time></header>${note.groups.map(group=>`<div class="settingsReleaseGroup"><b>${escapeShowDeskText(group.label)}</b><ul>${group.items.map(item=>`<li>${escapeShowDeskText(item)}</li>`).join("")}</ul></div>`).join("")}</article>`).join("")}
+function showSettingsSection(section){
+ if(undockedWorkspace&&section==="connections")section="general";
+ const sections=["general","shortcuts","guide","hyperdeck","connections","reference","updates","about"],titles={general:"General",shortcuts:"Shortcuts",guide:"Feature Guide",hyperdeck:"HyperDeck Monitor",connections:"Connections",reference:"References",updates:"Updates",about:"About"};
+ for(const name of sections){const el=$("settingsSection"+name[0].toUpperCase()+name.slice(1));if(el)el.hidden=section!==name;}
+ document.querySelectorAll("[data-settings-tab]").forEach(b=>{b.classList.toggle("on",b.dataset.settingsTab===section);b.setAttribute("aria-current",b.dataset.settingsTab===section?"page":"false")});if($("settingsPageTitle"))$("settingsPageTitle").textContent=titles[section]||"Settings";
+ if(section==="shortcuts")renderShowDeskShortcuts();if(section==="updates")renderShowDeskReleaseNotes();
+}
 const showDeskPreferenceDefaults={workspace:"show",lastWorkspace:"show",autoConnect:false,automaticUpdateChecks:true,hyperdeckMonitoring:false,hyperdeckPrimaryTimer:"recordingElapsed",hyperdeckSecondaryTimer:"frontDisplayTimecode"};
 function loadShowDeskPreferences(){
  try{const v=JSON.parse(localStorage.getItem(SHOWDESK_PREFERENCES_KEY)||"{}"),timers=["recordingElapsed","frontDisplayTimecode","clipTimecode","recordingRemaining"];return {...showDeskPreferenceDefaults,...v,autoConnect:v.autoConnect===true,automaticUpdateChecks:v.automaticUpdateChecks!==false,hyperdeckMonitoring:v.hyperdeckMonitoring===true,hyperdeckPrimaryTimer:timers.includes(v.hyperdeckPrimaryTimer)?v.hyperdeckPrimaryTimer:showDeskPreferenceDefaults.hyperdeckPrimaryTimer,hyperdeckSecondaryTimer:[...timers,"none"].includes(v.hyperdeckSecondaryTimer)?v.hyperdeckSecondaryTimer:showDeskPreferenceDefaults.hyperdeckSecondaryTimer};}
@@ -227,7 +271,7 @@ document.addEventListener("keydown",event=>{
 function changeAutoConnectPreference(enabled){showDeskPreferences.autoConnect=!!enabled;saveShowDeskPreferences()}
 function changeAutomaticUpdateChecks(enabled){showDeskPreferences.automaticUpdateChecks=!!enabled;saveShowDeskPreferences();for(const id of ["settingsAutoUpdates","settingsAutoUpdatesSecondary"])if($(id))$(id).checked=!!enabled}
 function attemptPreferredAutoConnection(){
- if(!showDeskPreferences.autoConnect||activeConnectionMode||intentionalDisconnect)return;
+ if(undockedWorkspace||!showDeskPreferences.autoConnect||activeConnectionMode||intentionalDisconnect)return;
  const transport=window.ATEM_TRANSPORT;if(!transport)return;
  const list=showDeskSavedConnections;
  const preferred=list.find(c=>c.preferred&&c.mode==="viewer")||list.find(c=>c.preferred&&c.mode==="host");
@@ -237,12 +281,14 @@ function attemptPreferredAutoConnection(){
  else if(preferred.mode==="host"&&transport.connect)connectAtem();
 }
 function showDeskStartupWorkspace(){return showDeskPreferences.workspace==="last"?showDeskPreferences.lastWorkspace:showDeskPreferences.workspace}
-function applyShowDeskStartupWorkspace(){const tab=undockedWorkspace||showDeskStartupWorkspace();if(["show","engineering","signal","hyperdecks"].includes(tab))setTab(tab)}
-function showSettingsSection(section){
- const sections=["general","guide","hyperdeck","connections","reference","updates","about"],titles={general:"General",guide:"Feature Guide",hyperdeck:"HyperDeck Monitor",connections:"Connections",reference:"References",updates:"Updates",about:"About"};
- for(const name of sections){const el=$("settingsSection"+name[0].toUpperCase()+name.slice(1));if(el)el.hidden=section!==name;}
- document.querySelectorAll("[data-settings-tab]").forEach(b=>{b.classList.toggle("on",b.dataset.settingsTab===section);b.setAttribute("aria-current",b.dataset.settingsTab===section?"page":"false")});if($("settingsPageTitle"))$("settingsPageTitle").textContent=titles[section]||"Settings";
-}
+function applyShowDeskStartupWorkspace(){const tab=undockedWorkspace||showDeskStartupWorkspace();if(["show","engineering","signal","hyperdecks"].includes(tab))setTab(tab);if(!undockedWorkspace)restoreDetachedWorkspaceWindows()}
+function shortcutChordFromEvent(event){const parts=[];if(event.metaKey)parts.push("Meta");if(event.ctrlKey)parts.push("Ctrl");if(event.altKey)parts.push("Alt");if(event.shiftKey)parts.push("Shift");let key=event.key;if(key===" ")key="Space";else if(key.length===1&&/[a-z]/i.test(key))key=key.toUpperCase();if(["Meta","Control","Alt","Shift"].includes(key))return null;parts.push(key);return parts.join("+")}
+function shortcutIsTyping(target){return !!target?.closest?.('input,textarea,select,[contenteditable="true"],[role="textbox"]')}
+function beginShortcutCapture(id){if(!SHOWDESK_SHORTCUTS.some(item=>item.id===id))return;showDeskShortcutCapture=id;if($("settingsShortcutStatus"))$("settingsShortcutStatus").textContent="Press a shortcut with at least one modifier key. Press Escape to cancel.";renderShowDeskShortcuts();document.querySelector(`[data-shortcut-id="${id}"]`)?.focus()}
+function captureShowDeskShortcut(event){if(!showDeskShortcutCapture)return false;if(event.key==="Escape"){event.preventDefault();event.stopImmediatePropagation();showDeskShortcutCapture=null;if($("settingsShortcutStatus"))$("settingsShortcutStatus").textContent="Shortcut change canceled.";renderShowDeskShortcuts();return true}const chord=shortcutChordFromEvent(event);if(!chord||["Meta","Ctrl","Alt","Shift"].includes(event.key))return false;event.preventDefault();event.stopImmediatePropagation();if(!event.metaKey&&!event.ctrlKey&&!event.altKey){if($("settingsShortcutStatus"))$("settingsShortcutStatus").textContent="Use at least one modifier, such as Command, Control, or Option.";return true}const conflict=SHOWDESK_SHORTCUTS.find(item=>item.id!==showDeskShortcutCapture&&showDeskShortcuts[item.id]===chord);if(conflict){if($("settingsShortcutStatus"))$("settingsShortcutStatus").textContent=`That shortcut is already assigned to ${conflict.label}.`;return true}showDeskShortcuts[showDeskShortcutCapture]=chord;showDeskShortcutCapture=null;saveShowDeskShortcuts();if($("settingsShortcutStatus"))$("settingsShortcutStatus").textContent="Shortcut saved on this computer.";renderShowDeskShortcuts();return true}
+function toggleShowDeskFullscreen(){const invoke=tauriInvoke();if(invoke){invoke("toggle_fullscreen").catch(error=>{console.warn("Unable to toggle full screen",error);if(document.fullscreenElement)document.exitFullscreen?.();else document.documentElement.requestFullscreen?.()});return}if(document.fullscreenElement)document.exitFullscreen?.();else document.documentElement.requestFullscreen?.()}
+function runShowDeskShortcut(id){if(id==="show"||id==="signal"||id==="engineering"){setTab(id);return}if(id==="hyperdecks"){if(showDeskPreferences.hyperdeckMonitoring)setTab(id);else{openShowDeskSettings();showSettingsSection("hyperdeck")}return}if(id==="settings"){openShowDeskSettings();return}if(id==="fullscreen"){toggleShowDeskFullscreen();return}setTab("signal");if(id==="fit")requestAnimationFrame(()=>requestAnimationFrame(()=>explorerZoom(0)));else if(id==="clear")explorerClear();else if(id==="zoom-in")explorerZoom(1);else if(id==="zoom-out")explorerZoom(-1)}
+document.addEventListener("keydown",event=>{if(captureShowDeskShortcut(event))return;if(shortcutIsTyping(event.target))return;const chord=shortcutChordFromEvent(event);if(!chord)return;const match=SHOWDESK_SHORTCUTS.find(item=>showDeskShortcuts[item.id]===chord);if(!match)return;event.preventDefault();event.stopImmediatePropagation();runShowDeskShortcut(match.id)},true);
 function viewerInputChanged(){
  const ip=$("viewerHostIp").value.trim();
  $("connectViewerBtn").disabled=!validIpLike(ip);
@@ -258,29 +304,45 @@ function clearLiveStateSubscription(){
 function ensureViewerConnectionSubscription(transport){
  if(viewerConnectionSubscription||!transport?.subscribeConnection)return;
  viewerConnectionSubscription=transport.subscribeConnection(message=>{
+   if(undockedWorkspace){
+     if(message.status==="viewer-connected"&&message.data){adoptSharedViewerConnection(message);return}
+     if(message.status==="viewer-disconnected"){clearDetachedConnectionState();return}
+     if(message.status==="waiting"||message.status==="disconnected"){activeConnectionMode="viewer";viewerWaitingForAtem=true;viewerReconnecting=false;updateConnectionControls();return}
+     if(message.status==="reconnecting"){activeConnectionMode="viewer";viewerReconnecting=true;viewerWaitingForAtem=false;updateConnectionControls();return}
+     return;
+   }
    const ctx=viewerConnectionContext;if(!ctx)return;
    const {ip,btn,status,attempt}=ctx;if(attempt!==viewerConnectionAttempt)return;
    if(message.status==="viewer-connected"&&message.data){
-     enterViewerConnection(message.data,ctx);
+     const wasRecovering=viewerReconnecting||viewerWaitingForAtem;
+     viewerReconnecting=false;viewerWaitingForAtem=false;enterViewerConnection(message.data,ctx);
+     if(wasRecovering)recordConnectionIncident("recoveries","Viewer reconnected to ShowDesk Host at "+ip);
    }else if(message.status==="waiting"){
+     viewerReconnecting=false;viewerWaitingForAtem=true;
      status.textContent="ShowDesk Host reached at "+ip+". "+(message.reason||"Waiting for the Host to connect to an ATEM…");
      status.style.color="var(--amber)";btn.disabled=true;btn.textContent="WAITING FOR ATEM…";
+     updateConnectionHealth();refreshShowDeskSettings();
+   }else if(message.status==="disconnected"){
+     viewerReconnecting=false;viewerWaitingForAtem=true;
+     status.textContent="ShowDesk Host is connected, but its ATEM connection was interrupted. Waiting for the live feed…";
+     status.style.color="var(--amber)";btn.disabled=true;btn.textContent="WAITING FOR ATEM…";
+     updateConnectionHealth();refreshShowDeskSettings();
    }else if(message.status==="reconnecting"&&!intentionalDisconnect){
      if(!viewerReconnecting)recordConnectionIncident("interruptions","Viewer reconnecting to ShowDesk Host at "+ip);
      viewerReconnecting=true;updateConnectionHealth();
-   }else if(message.status==="viewer-connected"&&message.data){
-     const wasReconnecting=viewerReconnecting;viewerReconnecting=false;enterViewerConnection(message.data,ctx);
-     if(wasReconnecting)recordConnectionIncident("recoveries","Viewer reconnected to ShowDesk Host at "+ip);
    }
  });
 }
 function clearHostReconnectTimer(){if(hostReconnectTimer){clearTimeout(hostReconnectTimer);hostReconnectTimer=null;}}
 function stopHostReconnect(){clearHostReconnectTimer();hostReconnectIp=null;hostReconnectInFlight=false;hostReconnecting=false;}
 function adoptSharedHostConnection(message){if(!undockedWorkspace||activeConnectionMode||!message?.data)return;connectedDevice={...message.data,ip:message.ip||message.data.ip||""};activeConnectionMode="host";intentionalDisconnect=false;applyAtemStateUpdate(connectedDevice);ensureLiveStateSubscription(window.ATEM_TRANSPORT);ensureViewerCountSubscription(window.ATEM_TRANSPORT);ensureHostConnectionSubscription(window.ATEM_TRANSPORT);startConnectionHealth(window.ATEM_TRANSPORT);$("modelLabel").textContent=(connectedDevice.name||connectedDevice.productIdentifier||"ATEM Switcher")+(connectedDevice.ip?" • "+connectedDevice.ip:"");updateConnectionControls();$("setup").classList.add("hidden");syncHyperdeckTab();renderHyperdeckCards();render()}
+function adoptSharedViewerConnection(message){if(!undockedWorkspace||!message?.data)return;connectedDevice={...message.data,ip:message.ip||message.data.ip||""};activeConnectionMode="viewer";intentionalDisconnect=false;viewerReconnecting=false;viewerWaitingForAtem=false;applyAtemStateUpdate(connectedDevice);ensureLiveStateSubscription(window.ATEM_TRANSPORT);startConnectionHealth(window.ATEM_TRANSPORT);$("modelLabel").textContent=(connectedDevice.name||connectedDevice.productIdentifier||"ATEM Switcher")+(connectedDevice.ip?" • "+connectedDevice.ip:"");updateConnectionControls();$("setup").classList.add("hidden");syncHyperdeckTab();renderHyperdeckCards();render()}
+function clearDetachedConnectionState(){if(!undockedWorkspace)return;activeConnectionMode=null;connectedDevice=null;viewerReconnecting=false;viewerWaitingForAtem=false;stopHostReconnect();stopConnectionHealth();previousMeState=new Map();committedMeState=new Map();updateConnectionControls();$("modelLabel").textContent="";liveEngineering={inputs:[],mixEffects:[],downstreamKeyers:[],routing:[],productIdentifier:null,videoMode:null,topology:{},debug:null};pgm="—";pvw="—";liveState.pgm="—";liveState.pvw="—";liveState.updatedAt=null;Object.keys(actual).forEach(key=>delete actual[key]);syncHyperdeckTab();renderHyperdeckCards();render()}
 function ensureHostConnectionSubscription(transport){
  if(hostConnectionSubscription||!transport?.subscribeConnection)return;
  hostConnectionSubscription=transport.subscribeConnection(message=>{
   if(message?.status==="host-connected"){adoptSharedHostConnection(message);return}
+  if(undockedWorkspace&&message?.status==="disconnected"){clearDetachedConnectionState();return}
   if(activeConnectionMode!=="host"||intentionalDisconnect||message?.status!=="disconnected")return;
   const ip=connectedDevice?.ip||hostReconnectIp;if(!ip)return;
   hostReconnectIp=ip;hostReconnecting=true;stopConnectionHealth();updateConnectionControls();refreshShowDeskSettings();
@@ -307,12 +369,13 @@ async function attemptHostReconnect(transport){
 }
 function enterViewerConnection(d,ctx=viewerConnectionContext){
  if(!d||!ctx||ctx.attempt!==viewerConnectionAttempt)return;
- const {ip}=ctx;connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="viewer";intentionalDisconnect=false;viewerReconnecting=false;rememberSuccessfulConnection("viewerHostIp",ip);saveNamedConnection("viewer",ip);applyShowDeskStartupWorkspace();syncHyperdeckTab();renderHyperdeckCards();
+ const {ip}=ctx;connectedDevice=d;connectedDevice.ip=ip;activeConnectionMode="viewer";intentionalDisconnect=false;viewerReconnecting=false;viewerWaitingForAtem=false;rememberSuccessfulConnection("viewerHostIp",ip);saveNamedConnection("viewer",ip);applyShowDeskStartupWorkspace();syncHyperdeckTab();renderHyperdeckCards();
  ensureLiveStateSubscription(window.ATEM_TRANSPORT);
  startConnectionHealth(window.ATEM_TRANSPORT);
- applyAtemStateUpdate(d);$("modelLabel").textContent=(d.name||d.productIdentifier||"ATEM Switcher")+" • "+ip;updateConnectionControls();$("setup").classList.add("hidden");addLog("SYSTEM","Viewer connected to ShowDesk Host at "+ip);render();
+ applyAtemStateUpdate(d);window.ATEM_TRANSPORT?.publishViewerRelay?.({type:"connection",status:"viewer-connected",data:d,ip});$("modelLabel").textContent=(d.name||d.productIdentifier||"ATEM Switcher")+" • "+ip;updateConnectionControls();$("setup").classList.add("hidden");addLog("SYSTEM","Viewer connected to ShowDesk Host at "+ip);render();
 }
 async function connectViewer(){
+ if(undockedWorkspace)return;
  const ip=$("viewerHostIp").value.trim(),btn=$("connectViewerBtn"),status=$("viewerStatus"),transport=window.ATEM_TRANSPORT;
  if(!validIpLike(ip)||!transport?.connectViewer)return;
  const attempt=++viewerConnectionAttempt;viewerConnectionContext={ip,btn,status,attempt};ensureViewerConnectionSubscription(transport);
@@ -321,11 +384,12 @@ async function connectViewer(){
    status.textContent="Contacting ShowDesk Host at "+ip+" on port "+(window.SHOWDESK_CONFIG?.viewerPort||47822)+"…";
    const result=await transport.connectViewer(ip);if(attempt!==viewerConnectionAttempt)return;
    status.textContent="Host found — opening Viewer connection…";
-   if(result?.status==="waiting"){status.textContent="ShowDesk Host reached at "+ip+". "+(result.reason||"Waiting for the Host to connect to an ATEM…");status.style.color="var(--amber)";btn.disabled=true;btn.textContent="WAITING FOR ATEM…";return;}
-   enterViewerConnection(result?.data||result,viewerConnectionContext);
+   if(result?.status==="waiting"){viewerWaitingForAtem=true;viewerReconnecting=false;status.textContent="ShowDesk Host reached at "+ip+". "+(result.reason||"Waiting for the Host to connect to an ATEM…");status.style.color="var(--amber)";btn.disabled=true;btn.textContent="WAITING FOR ATEM…";updateConnectionHealth();refreshShowDeskSettings();return;}
+   if(activeConnectionMode!=="viewer"||connectedDevice?.ip!==ip)enterViewerConnection(result?.data||result,viewerConnectionContext);
  }catch(error){
    if(attempt!==viewerConnectionAttempt)return;
    status.textContent=(error?.message||String(error));status.style.color="var(--amber)";btn.disabled=false;btn.textContent="TRY AGAIN";
+   if(undockedWorkspace)$("setup").classList.remove("hidden");
  }
 }
 async function connectionInputChanged(){
@@ -334,6 +398,7 @@ async function connectionInputChanged(){
  $("setupStatus").textContent=validIpLike(ip)?"":"Enter a valid IPv4 address.";
 }
 async function connectAtem(){
+ if(undockedWorkspace)return;
  const ip=$("atemIp").value.trim();
  window.__showDeskConnectInvoked=(window.__showDeskConnectInvoked||0)+1;
  if(!validIpLike(ip))return;
@@ -394,7 +459,7 @@ function updateConnectionHealth(){
   text.innerHTML=activeConnectionMode.toUpperCase()+' • RECONNECTING <span class="reconnectNetwork" aria-hidden="true"><span class="reconnectEndpoint"></span><span class="reconnectDots"><i></i><i></i><i></i></span><span class="reconnectEndpoint destination"></span></span>';
   flag.classList.add("reconnecting");
  }else{
-  text.textContent=activeConnectionMode.toUpperCase()+" • CONNECTED";
+  text.textContent=activeConnectionMode.toUpperCase()+(activeConnectionMode==="viewer"&&viewerWaitingForAtem?" • WAITING FOR ATEM":" • CONNECTED");
   flag.classList.remove("reconnecting");
  }
  const now=Date.now(),target=connectedDevice?.ip||"—",age=connectionStartedAt?formatConnectionAge(now-connectionStartedAt):"—",last=lastHealthAt?formatConnectionAge(now-lastHealthAt)+" ago":"awaiting activity";
@@ -417,8 +482,9 @@ function updateConnectionControls(){
  updateConnectionHealth();
 }
 async function disconnectShowDesk(){
+ if(undockedWorkspace){toast("Manage the connection from the main ShowDesk window");return}
  const transport=window.ATEM_TRANSPORT;if(!activeConnectionMode||!transport)return;
- intentionalDisconnect=true;viewerReconnecting=false;stopHostReconnect();
+ intentionalDisconnect=true;viewerReconnecting=false;viewerWaitingForAtem=false;stopHostReconnect();
  ++viewerConnectionAttempt;viewerConnectionContext=null;
  clearLiveStateSubscription();
  clearViewerCountSubscription();
@@ -437,14 +503,14 @@ function selectedME(){return (liveEngineering.mixEffects||[]).find(me=>me.index=
 function refreshShowDeskSettings(){
  const mode=activeConnectionMode==="host"?"HOST":activeConnectionMode==="viewer"?"VIEWER":"NOT CONNECTED";
  if($("settingsMode"))$("settingsMode").textContent=mode;
- if($("settingsConnection"))$("settingsConnection").textContent=activeConnectionMode?((viewerReconnecting||hostReconnecting)?"RECONNECTING":"CONNECTED"):"DISCONNECTED";
+ if($("settingsConnection"))$("settingsConnection").textContent=activeConnectionMode?((viewerReconnecting||hostReconnecting)?"RECONNECTING":viewerWaitingForAtem?"WAITING FOR ATEM":"CONNECTED"):"DISCONNECTED";
  if($("settingsDevice"))$("settingsDevice").textContent=connectedDevice?.name||connectedDevice?.productIdentifier||liveEngineering.productIdentifier||"—";
  if($("settingsAddress"))$("settingsAddress").textContent=connectedDevice?.ip||viewerConnectionContext?.ip||"—";
  if($("settingsDisconnect"))$("settingsDisconnect").disabled=!activeConnectionMode;
- if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||"1.1.5"; if($("settingsBuild"))$("settingsBuild").textContent=`Version ${showDeskUpdater.currentVersion||"1.1.5"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
+ if($("settingsVersion"))$("settingsVersion").textContent=showDeskUpdater.currentVersion||window.SHOWDESK_CONFIG?.version||"1.2.0"; if($("settingsBuild"))$("settingsBuild").textContent=`Version ${showDeskUpdater.currentVersion||window.SHOWDESK_CONFIG?.version||"1.2.0"}`;if($("settingsUpdateStatus"))$("settingsUpdateStatus").textContent=showDeskUpdater.phase==="current"?"UP TO DATE":showDeskUpdater.phase==="available"?"UPDATE AVAILABLE":showDeskUpdater.phase==="checking"?"CHECKING":showDeskUpdater.phase==="failed"?"CHECK FAILED":"READY";
 }
-function openShowDeskSettings(){refreshShowDeskSettings();updateReferenceUI();renderSavedConnectionChoices();renderSavedHyperdeckAddresses();syncSettingsWorkspaceMenu();syncHyperdeckTimerMenus();syncHyperdeckTab();closeSettingsWorkspaceMenu();closeHyperdeckTimerMenus();if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;if($("settingsHyperdeckEnabled"))$("settingsHyperdeckEnabled").checked=showDeskPreferences.hyperdeckMonitoring===true;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");$("settingsModal").hidden=false;document.documentElement.classList.add("settingsOpen")}
-function closeShowDeskSettings(){if($("settingsModal"))$("settingsModal").hidden=true;document.documentElement.classList.remove("settingsOpen")}
+function openShowDeskSettings(){refreshShowDeskSettings();updateReferenceUI();renderSavedConnectionChoices();renderSavedHyperdeckAddresses();renderShowDeskShortcuts();syncSettingsWorkspaceMenu();syncHyperdeckTimerMenus();syncHyperdeckTab();closeSettingsWorkspaceMenu();closeHyperdeckTimerMenus();if($("settingsAutoConnect"))$("settingsAutoConnect").checked=showDeskPreferences.autoConnect;if($("settingsHyperdeckEnabled"))$("settingsHyperdeckEnabled").checked=showDeskPreferences.hyperdeckMonitoring===true;changeAutomaticUpdateChecks(showDeskPreferences.automaticUpdateChecks);showSettingsSection("general");if(undockedWorkspace){const connectionTab=document.querySelector('[data-settings-tab="connections"]');if(connectionTab)connectionTab.hidden=true}$("settingsModal").hidden=false;document.documentElement.classList.add("settingsOpen")}
+function closeShowDeskSettings(){showDeskShortcutCapture=null;if($("settingsModal"))$("settingsModal").hidden=true;document.documentElement.classList.remove("settingsOpen")}
 async function disconnectFromSettings(){closeShowDeskSettings();await disconnectShowDesk()}
 async function openShowDeskRepository(){
  const url="https://github.com/DrewL33/ShowDesk";
@@ -465,8 +531,9 @@ function setTab(tab){if(!["show","signal","engineering","hyperdecks"].includes(t
  if(tab==="signal"){renderPaths();requestAnimationFrame(explorerInitializeViewport)}
  if(tab==="hyperdecks")renderHyperdeckCards();
 }
-async function undockWorkspace(tab){if(!Object.hasOwn(workspaceTitles,tab)||(tab==="hyperdecks"&&!showDeskPreferences.hyperdeckMonitoring))return;const context={workspace:tab,connectionMode:activeConnectionMode,connectionHost:connectedDevice?.ip||""},invoke=tauriInvoke();try{if(invoke){await invoke("open_workspace_window",{workspace:tab,connectionMode:context.connectionMode,connectionHost:context.connectionHost});return}const url=new URL(location.href);url.searchParams.set("workspace",tab);url.searchParams.set("connectionMode",context.connectionMode||"");url.searchParams.set("connectionHost",context.connectionHost);if(!window.open(url.toString(),"_blank"))throw new Error("The browser blocked the new window")}catch(error){console.error("Could not open workspace window",error);toast(error.message||"Could not open workspace window")}}
-function initializeUndockedWorkspace(){const params=new URLSearchParams(location.search),context=window.SHOWDESK_UNDOCKED_CONTEXT||{workspace:params.get("workspace"),connectionMode:params.get("connectionMode"),connectionHost:params.get("connectionHost")};const requested=context.workspace;if(!Object.hasOwn(workspaceTitles,requested)||(requested==="hyperdecks"&&!showDeskPreferences.hyperdeckMonitoring))return;undockedWorkspace=requested;document.documentElement.classList.add("undockedWorkspace");document.title=`ShowDesk — ${workspaceTitles[requested]}`;const controls=$("undockedWorkspaceControls");if(controls)controls.hidden=false;if($("undockedWorkspaceTitle"))$("undockedWorkspaceTitle").textContent=workspaceTitles[requested];setTab(requested);if(context.connectionMode==="viewer"&&validIpLike(context.connectionHost||"")){chooseConnectionMode("viewer");$("viewerHostIp").value=context.connectionHost;viewerInputChanged();connectViewer()}else if(context.connectionMode==="host"){const transport=window.ATEM_TRANSPORT;ensureHostConnectionSubscription(transport);ensureLiveStateSubscription(transport);transport?.attach?.().catch(error=>console.warn("Could not attach detached workspace to the existing Host session",error))}}
+async function undockWorkspace(tab){if(!activeConnectionMode){toast("Connect in the main ShowDesk window before opening a separate workspace");return}if(!Object.hasOwn(workspaceTitles,tab)||(tab==="hyperdecks"&&!showDeskPreferences.hyperdeckMonitoring))return;const button=document.querySelector(`[data-undock-workspace="${tab}"]`);if(button?.disabled)return;const originalLabel=button?.querySelector("span")?.textContent;if(button){button.disabled=true;button.setAttribute("aria-busy","true");const label=button.querySelector("span");if(label)label.textContent="OPENING…"}const context={workspace:tab,connectionMode:activeConnectionMode,connectionHost:connectedDevice?.ip||""},invoke=tauriInvoke();try{if(invoke){await invoke("open_workspace_window",{workspace:tab,connectionMode:context.connectionMode,connectionHost:context.connectionHost});return}const url=new URL(location.href);url.searchParams.set("workspace",tab);url.searchParams.set("connectionMode",context.connectionMode||"");url.searchParams.set("connectionHost",context.connectionHost);if(!window.open(url.toString(),"_blank"))throw new Error("The browser blocked the new window")}catch(error){console.error("Could not open workspace window",error);toast(error.message||"Could not open workspace window")}finally{if(button){button.disabled=false;button.removeAttribute("aria-busy");const label=button.querySelector("span");if(label&&originalLabel)label.textContent=originalLabel}}}
+async function restoreDetachedWorkspaceWindows(){if(detachedWorkspaceRestoreStarted||!activeConnectionMode||undockedWorkspace)return;const invoke=tauriInvoke();if(!invoke)return;detachedWorkspaceRestoreStarted=true;try{await invoke("restore_workspace_windows",{connectionMode:activeConnectionMode,connectionHost:connectedDevice?.ip||"",hyperdeckMonitoring:showDeskPreferences.hyperdeckMonitoring===true})}catch(error){detachedWorkspaceRestoreStarted=false;console.warn("Could not restore detached workspaces",error)}}
+function initializeUndockedWorkspace(){const params=new URLSearchParams(location.search),context=window.SHOWDESK_UNDOCKED_CONTEXT||{workspace:params.get("workspace"),connectionMode:params.get("connectionMode"),connectionHost:params.get("connectionHost")};const requested=context.workspace;if(!Object.hasOwn(workspaceTitles,requested)||(requested==="hyperdecks"&&!showDeskPreferences.hyperdeckMonitoring))return;undockedWorkspace=requested;document.documentElement.classList.add("undockedWorkspace");document.documentElement.classList.remove("undockedStartup");document.title=`ShowDesk — ${workspaceTitles[requested]}`;const controls=$("undockedWorkspaceControls");if(controls)controls.hidden=false;if($("undockedWorkspaceTitle"))$("undockedWorkspaceTitle").textContent=workspaceTitles[requested];$("setup").classList.add("hidden");const connectionTab=document.querySelector('[data-settings-tab="connections"]');if(connectionTab)connectionTab.hidden=true;setTab(requested);const transport=window.ATEM_TRANSPORT;ensureHostConnectionSubscription(transport);ensureViewerConnectionSubscription(transport);ensureLiveStateSubscription(transport);transport?.attach?.().catch(error=>console.warn("Could not attach detached workspace to the main ShowDesk session",error))}
 async function redockWorkspace(){if(!undockedWorkspace)return;const invoke=tauriInvoke();if(invoke){try{await invoke("redock_workspace",{workspace:undockedWorkspace})}catch(error){console.error("Could not return workspace to main window",error);toast(error.message||"Could not return workspace to main window")}return}if(window.opener){window.close();return}document.documentElement.classList.remove("undockedWorkspace");$("undockedWorkspaceControls").hidden=true;undockedWorkspace=null;setTab("show")}
 function recordEvent(kind,msg,data={}){const e={iso:new Date().toISOString(),t:new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}),kind,msg,data};sessionEvents.unshift(e);if(sessionEvents.length>500)sessionEvents.length=500;logs=sessionEvents;lastChangeText=msg;return e}
 function addLog(kind,msg){recordEvent(kind,msg);renderLog()}
@@ -667,7 +734,7 @@ function restorePersistedReference(){
 async function importReferenceFile(event){
  const file=event.target.files?.[0];if(!file)return;
  try{
-   const text=await file.text();let ref;
+   const text=await readReferenceFile(file);let ref;
    if(file.name.toLowerCase().endsWith(".json")){ref=normalizeReferenceObject(JSON.parse(text));}
    else {ref=parseXmlReference(text);}
    const configValues=window.ShowDeskReferenceComparison?.configurationChecks(ref.metadata||{},{}).length||0;
@@ -678,13 +745,20 @@ async function importReferenceFile(event){
  }catch(err){toast("Reference not imported");alert("ShowDesk could not use this reference file. "+err.message+"\n\nImport an ATEM Software Control XML profile, ShowDesk JSON reference, or compatible XML reference.");}
  event.target.value="";
 }
+function readReferenceFile(file){
+ if(typeof file.text==="function")return file.text();
+ return new Promise((resolve,reject)=>{
+  if(typeof FileReader==="undefined"){reject(new Error("This version of ShowDesk cannot read local files. Please update ShowDesk and try again."));return}
+  const reader=new FileReader();reader.onload=()=>resolve(String(reader.result??""));reader.onerror=()=>reject(reader.error||new Error("The selected file could not be read."));reader.onabort=()=>reject(new Error("Reading the selected file was canceled."));reader.readAsText(file);
+ });
+}
 function clearReference(){
  if(!baselineState.attached)return;const old=baselineState.name;baselineState.attached=false;baselineState.name="";baselineState.loadedAt=null;baselineState.pgm=null;baselineState.pvw=null;baselineState.metadata={};Object.keys(baselineState.routes).forEach(k=>delete baselineState.routes[k]);recordEvent("REFERENCE",`Reference removed: ${old}`);persistReference();updateReferenceUI();render();toast("Reference removed");
 }
 async function exportLogReport(){
  const mismatches=getMismatches(),mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
  const line=(label,value)=>label.padEnd(24," ")+(value??"—");
- const rows=["SHOWDESK SESSION REPORT","=======================","",line("ShowDesk version",showDeskUpdater.currentVersion||"1.1.5"),line("Exported",new Date().toLocaleString()),line("ATEM",connectedDevice?.name||liveEngineering.productIdentifier||"Not connected"),line("Connection mode",activeConnectionMode||"Disconnected"),line("Connection state",!activeConnectionMode?"Disconnected":hostReconnecting||viewerReconnecting?"Reconnecting":"Connected"),line("Session started",new Date(sessionStartedAt).toLocaleString()),line("Session duration",Math.round((Date.now()-sessionStartedAt)/1000)+" seconds"),line("Link interruptions",connectionIncidents.interruptions),line("Link recoveries",connectionIncidents.recoveries),line("Connection failures",connectionIncidents.failures),line("ATEM IP",connectedDevice?.ip||"—"),line("Connection uptime",connectionStartedAt?Math.round((Date.now()-connectionStartedAt)/1000)+" seconds":"—"),line("Last health signal",lastHealthAt?new Date(lastHealthAt).toLocaleString():"—"),line("Video mode",liveEngineering.videoMode||"—"),line("Reported sources",(liveEngineering.inputs||[]).length),line("M/E buses",mes.length),"","CURRENT M/E STATE","-----------------"];
+ const rows=["SHOWDESK SESSION REPORT","=======================","",line("ShowDesk version",showDeskUpdater.currentVersion||window.SHOWDESK_CONFIG?.version||"1.2.0"),line("Exported",new Date().toLocaleString()),line("ATEM",connectedDevice?.name||liveEngineering.productIdentifier||"Not connected"),line("Connection mode",activeConnectionMode||"Disconnected"),line("Connection state",!activeConnectionMode?"Disconnected":hostReconnecting||viewerReconnecting?"Reconnecting":"Connected"),line("Session started",new Date(sessionStartedAt).toLocaleString()),line("Session duration",Math.round((Date.now()-sessionStartedAt)/1000)+" seconds"),line("Link interruptions",connectionIncidents.interruptions),line("Link recoveries",connectionIncidents.recoveries),line("Connection failures",connectionIncidents.failures),line("ATEM IP",connectedDevice?.ip||"—"),line("Connection uptime",connectionStartedAt?Math.round((Date.now()-connectionStartedAt)/1000)+" seconds":"—"),line("Last health signal",lastHealthAt?new Date(lastHealthAt).toLocaleString():"—"),line("Video mode",liveEngineering.videoMode||"—"),line("Reported sources",(liveEngineering.inputs||[]).length),line("M/E buses",mes.length),"","CURRENT M/E STATE","-----------------"];
  mes.forEach(me=>{rows.push(`M/E ${me.index}`,`  PROGRAM: ${me.pgm||"—"}`,`  PREVIEW: ${me.pvw||"—"}`,`  FTB: ${me.ftb?.isFullyBlack?"BLACK":me.ftb?.inTransition?"TRANSITION":"OFF"}`);(me.upstreamKeyers||[]).forEach((k,i)=>rows.push(`  USK ${i+1}: ${k.onAir?"ON AIR":"OFF"} | Fill: ${k.fill||"—"} | Key: ${k.key||"—"}`));});
  if(dsks.length){rows.push("","DOWNSTREAM KEYERS","-----------------");dsks.forEach((k,i)=>rows.push(`DSK ${i+1}: ${k.onAir?"ON AIR":"OFF"} | Fill: ${k.fill||"—"} | Key: ${k.key||"—"}`));}
  rows.push("","ROUTING / AUX ASSIGNMENTS","-------------------------");
@@ -721,7 +795,8 @@ function selectDestination(name){selectedDestination=name;renderPaths()}
 // Build072: stable full-workspace, bidirectional signal overview.
 let explorerPinned=null,explorerHover=null,explorerGraph=null,explorerTopology="",explorerRouteState="",explorerScale=1;
 const explorerEscape=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function explorerInspect(id,pin=false){if(pin)explorerPinned=explorerPinned===id?null:id;else explorerHover=id;explorerHighlight()}
+function explorerFocusId(){return explorerHover||explorerPinned}
+function explorerInspect(id,pin=false){if(pin){const unpin=explorerPinned===id;explorerPinned=unpin?null:id;explorerHover=unpin?id:null}else explorerHover=id;explorerHighlight()}
 function explorerClear(){explorerPinned=null;explorerHover=null;explorerHighlight()}
 let explorerViewportInitialized=false;
 let explorerFitRequested=false;
@@ -775,25 +850,19 @@ function explorerReach(graph,id,reverse=false){
  return seen;
 }
 function explorerTrace(graph,id){
- const nodes=new Set([id]),edges=new Set();
- const walk=(reverse)=>{
-  const queue=[id],visited=new Set([id]);
-  for(let cursor=0;cursor<queue.length;cursor++){
-   const current=queue[cursor],indexed=graph.adjacency?.[reverse?"incomingEdges":"outgoingEdges"]?.get(current);
-   const connected=indexed||graph.edges.filter(edge=>(reverse?edge.to:edge.from)===current);
-   for(const edge of connected){
-    edges.add(edge.id);
-    const next=reverse?edge.from:edge.to;
-    if(!visited.has(next)){visited.add(next);nodes.add(next);queue.push(next)}
-   }
-  }
- };
- walk(true);walk(false);
+ const inspectAssignment=/^(?:usk(?:fill|key)|dsk(?:fill|key)):/.test(id);
+ const traceGraph={...graph,edges:graph.edges.filter(edge=>edge.kind!=="assigned"||edge.traceable===true||inspectAssignment),adjacency:null};
+ const upstream=explorerReach(traceGraph,id,true),downstream=explorerReach(traceGraph,id,false);
+ const nodes=new Set([...upstream,...downstream]);
+ const edges=new Set(traceGraph.edges.filter(e=>
+  (upstream.has(e.from)&&upstream.has(e.to))||
+  (downstream.has(e.from)&&downstream.has(e.to))
+ ).map(e=>e.id));
  return {nodes,edges};
 }
 function explorerHighlight(){
  const graph=explorerGraph,svg=document.querySelector("#explorerCanvas .signalOverview");if(!graph||!svg)return;
- const id=explorerHover||explorerPinned,node=graph.nodes.find(n=>n.id===id);
+ const id=explorerFocusId(),node=graph.nodes.find(n=>n.id===id);
  let active=null,activeEdges=null;
  if(node){
   // Trace only edges wholly on paths into or out of the inspected node.
@@ -817,7 +886,7 @@ function explorerHighlight(){
 function explorerBuildGraph(){
  const inputs=liveEngineering.inputs||[],mes=liveEngineering.mixEffects||[],dsks=liveEngineering.downstreamKeyers||[],routing=liveEngineering.routing||[];
  const nodes=[],edges=[],byId=new Map(),edgeIds=new Set();
- const adjacency={outgoing:new Map(),incoming:new Map(),outgoingEdges:new Map(),incomingEdges:new Map()};
+ const adjacency={outgoing:new Map(),incoming:new Map()};
  const add=(id,label,type,group)=>{if(!byId.has(id)){const n={id,label,type,group};byId.set(id,n);nodes.push(n)}return id};
  const internal=new Map();
  // Blackmagic's internal M/E Program/Preview source IDs are stable; labels are user-editable.
@@ -832,19 +901,17 @@ function explorerBuildGraph(){
   return add("src:"+id,input?.name||("Source "+id),"source","INPUTS");
  };
  inputs.forEach(i=>source(i.id));
- const connect=(from,to,kind="selected")=>{
+ const connect=(from,to,kind="selected",traceable)=>{
   const id=from+"->"+to;
   if(from===to||edgeIds.has(id))return;
   // ATEM cross-M/E selections can be legitimate, but a graph cycle is not
   // proof of a live feedback path. Suppress circular inferred connections.
   if(explorerReach({edges,adjacency},to,false).has(from))return;
-  edgeIds.add(id);edges.push({id,from,to,kind});
+  edgeIds.add(id);edges.push({id,from,to,kind,...(traceable===undefined?{}:{traceable})});
   if(!adjacency.outgoing.has(from))adjacency.outgoing.set(from,new Set());adjacency.outgoing.get(from).add(to);
   if(!adjacency.incoming.has(to))adjacency.incoming.set(to,new Set());adjacency.incoming.get(to).add(from);
-  if(!adjacency.outgoingEdges.has(from))adjacency.outgoingEdges.set(from,[]);adjacency.outgoingEdges.get(from).push(edges[edges.length-1]);
-  if(!adjacency.incomingEdges.has(to))adjacency.incomingEdges.set(to,[]);adjacency.incomingEdges.get(to).push(edges[edges.length-1]);
  };
- const feed=(id,to,kind)=>{if(id===undefined||id===null||!Number.isFinite(Number(id)))return;connect(source(id),to,kind)};
+ const feed=(id,to,kind,traceable)=>{if(id===undefined||id===null||!Number.isFinite(Number(id)))return;connect(source(id),to,kind,traceable)};
  // Physical source -> bus -> processing output. Never create a reverse edge to an earlier column.
  mes.forEach(me=>{
   add("me:"+me.index,"M/E "+me.index+" · Processing","processor","M/E PROCESSORS");
@@ -859,14 +926,14 @@ function explorerBuildGraph(){
   (me.upstreamKeyers||[]).forEach(k=>{
    const fill=add("uskfill:"+me.index+":"+k.index,"M/E "+me.index+" · USK "+k.index+" Fill","bus","KEYER ASSIGNMENTS");
    const key=add("uskkey:"+me.index+":"+k.index,"M/E "+me.index+" · USK "+k.index+" Key","bus","KEYER ASSIGNMENTS");
-   feed(k.fillId,fill,"assigned");feed(k.keyId,key,"assigned");
-   // Reported assignment only; keyer state must be verified before claiming contribution.
+   feed(k.fillId,fill,"assigned",k.onAir===true);feed(k.keyId,key,"assigned",k.onAir===true);
+   if(k.onAir===true){connect(fill,"me:"+me.index,"assigned",true);connect(key,"me:"+me.index,"assigned",true)}
   });
  });
  dsks.forEach(k=>{
   const fill=add("dskfill:"+k.index,"DSK "+k.index+" · Fill","destination","DSK");
   const key=add("dskkey:"+k.index,"DSK "+k.index+" · Key","destination","DSK");
-  feed(k.fillId,fill,"assigned");feed(k.keyId,key,"assigned");
+  feed(k.fillId,fill,"assigned",k.onAir===true);feed(k.keyId,key,"assigned",k.onAir===true);
  });
  routing.forEach((r,i)=>{const id=add("aux:"+(r.busId??r.protocolBusId??r.rawIndex??i),r.name||("ATEM Routing "+(i+1)),"destination","AUX / ROUTING");feed(r.sourceId,id,"routing")});
  return {nodes,edges,adjacency};
@@ -919,7 +986,7 @@ function explorerRoute(start,end,columns,lanes,bounds){
    for(let bin=center-1;bin<=center+1;bin++)for(const prior of bins.get(bin)||[]){
     if(Math.abs(current.axis-prior.axis)>=spacing)continue;
     const overlap=Math.min(current.hi,prior.hi)-Math.max(current.lo,prior.lo);
-    if(overlap>0)penalty+=1000+overlap*4;
+    if(overlap>0)penalty+=250+overlap;
    }
   }
   return penalty;
@@ -937,8 +1004,7 @@ function explorerRoute(start,end,columns,lanes,bounds){
   const xs=[];
   for(let x=first.min;x<=first.max;x+=spacing)xs.push(x);
   const sample=(values,count)=>values.length<=count?values:Array.from({length:count},(_,i)=>values[Math.round(i*(values.length-1)/(count-1))]);
-  // Retain a wide set of staggered channel tracks to preserve the fan-out
-  // hierarchy when several long routes leave the same source column.
+  // Preserve the wider horizontal fan-out from the stable 1.1.5 layout.
   const firstXs=sample(xs,11);
   const lastXs=to===from+1?firstXs:sample(xs.map(x=>last.min+8+(x-first.min)),11);
   const ys=[];
@@ -1060,7 +1126,7 @@ function renderPaths(){
   explorerRouteState=routing;
  }
  const q=($("signalSearch")?.value||"").trim().toLowerCase();
- if(q){const match=graph.nodes.find(n=>n.label.toLowerCase().includes(q));if(match)explorerHover=match.id;else explorerHover=null}
+ if(q){explorerPinned=null;const match=graph.nodes.find(n=>n.label.toLowerCase().includes(q));if(match)explorerHover=match.id;else explorerHover=null}
  explorerHighlight();
 }
 function transitionPercent(position){const n=Number(position);if(!Number.isFinite(n))return null;return Math.max(0,Math.min(100,Math.round(n>100?n/100:n)))}
@@ -1226,6 +1292,16 @@ window.addEventListener("error",e=>{const s=$("setupStatus"),b=$("connectAtemBtn
 function tauriInvoke(){return window.__TAURI_INTERNALS__?.invoke||null}
 function formatUpdateBytes(bytes){const n=Number(bytes)||0;if(n<1024)return n+" B";if(n<1048576)return (n/1024).toFixed(1)+" KB";return (n/1048576).toFixed(1)+" MB"}
 const showDeskUpdater={phase:"idle",available:null,operation:null,currentVersion:null};
+const SHOWDESK_WHATS_NEW_KEY="showdesk-whats-new-seen-1.2.0";
+function dismissWhatsNew(){const modal=$("whatsNewModal");if(modal)modal.hidden=true;try{localStorage.setItem(SHOWDESK_WHATS_NEW_KEY,"1")}catch{}}
+function maybeShowWhatsNew(){
+ const config=window.SHOWDESK_CONFIG||{};
+ if(undockedWorkspace||config.channel!=="stable"||config.version!=="1.2.0")return;
+ try{if(localStorage.getItem(SHOWDESK_WHATS_NEW_KEY)==="1")return}catch{}
+ const updateModal=$("updateProgressModal");
+ if(showDeskUpdater.operation||updateModal&&!updateModal.hidden){setTimeout(maybeShowWhatsNew,1000);return}
+ const modal=$("whatsNewModal");if(modal)modal.hidden=false;
+}
 function updaterErrorText(error){return String(error?.message||error||"Unknown updater error").trim()}
 function updaterFailureKind(error){const msg=updaterErrorText(error).toLowerCase();if(/restart|relaunch/.test(msg))return "restart";if(/signature|verify|verification|install/.test(msg))return "install";return "download"}
 function showUpdaterFailure(kind,error){
@@ -1255,9 +1331,10 @@ function showUpdateProgress(detail={}){
 }
 async function ensureUpdateProgressListener(){
  const internals=window.__TAURI_INTERNALS__;if(!internals)return;const listen=internals.event?.listen;
- if(typeof listen==="function"){await listen("showdesk-update-progress",event=>showUpdateProgress(event.payload||{}));await listen("showdesk-redock-workspace",event=>setTab(event.payload));await listen("showdesk-native-menu",event=>{if(event.payload==="check-for-updates")checkForShowDeskUpdate(true);else if(event.payload==="disconnect")disconnectShowDesk();else if(event.payload==="settings")openShowDeskSettings();else if(["show","signal","engineering","hyperdecks"].includes(event.payload))setTab(event.payload);});return;}
- if(typeof internals.invoke==="function"){const transform=internals.transformCallback;if(typeof transform!=="function")throw new Error("Tauri event bridge is unavailable.");for(const [event,handler] of [["showdesk-update-progress",e=>showUpdateProgress(e.payload||{})],["showdesk-redock-workspace",e=>setTab(e.payload)],["showdesk-native-menu",e=>{if(e.payload==="check-for-updates")checkForShowDeskUpdate(true);else if(e.payload==="disconnect")disconnectShowDesk();else if(e.payload==="settings")openShowDeskSettings();else if(["show","signal","engineering","hyperdecks"].includes(e.payload))setTab(e.payload);}]]){const id=transform(handler);await internals.invoke("plugin:event|listen",{event,target:{kind:"Any"},handler:id});}}
+ if(typeof listen==="function"){await listen("showdesk-update-progress",event=>showUpdateProgress(event.payload||{}));await listen("showdesk-native-menu",event=>handleShowDeskNativeMenu(event.payload));return;}
+ if(typeof internals.invoke==="function"){const transform=internals.transformCallback;if(typeof transform!=="function")throw new Error("Tauri event bridge is unavailable.");for(const [event,handler] of [["showdesk-update-progress",e=>showUpdateProgress(e.payload||{})],["showdesk-native-menu",e=>handleShowDeskNativeMenu(e.payload)]]){const id=transform(handler);await internals.invoke("plugin:event|listen",{event,target:{kind:"Any"},handler:id});}}
 }
+function handleShowDeskNativeMenu(action){if(action==="check-for-updates")checkForShowDeskUpdate(true);else if(action==="disconnect")disconnectShowDesk();else if(action==="settings")openShowDeskSettings();else if(["show","signal","engineering","hyperdecks"].includes(action))setTab(action);else if(action==="signal-fit")runShowDeskShortcut("fit");else if(action==="signal-clear")runShowDeskShortcut("clear");else if(action==="fullscreen")toggleShowDeskFullscreen()}
 async function installShowDeskUpdate(){
  const invoke=tauriInvoke();if(!invoke||showDeskUpdater.operation)return;
  showDeskUpdater.operation="install";showUpdateProgress({phase:"downloading",version:showDeskUpdater.available?.version});
@@ -1304,6 +1381,8 @@ function runShowDeskAction(action,element){
   case "export-log":exportLogReport();break;
   case "toggle-debug":toggleDebug();break;
   case "close-settings":closeShowDeskSettings();break;
+  case "capture-shortcut":beginShortcutCapture(element.dataset.shortcutId);break;
+  case "reset-shortcuts":showDeskShortcutCapture=null;showDeskShortcuts=showDeskDefaultShortcuts();saveShowDeskShortcuts();renderShowDeskShortcuts();if($("settingsShortcutStatus"))$("settingsShortcutStatus").textContent="Shortcuts reset to defaults.";break;
   case "workspace-menu":toggleSettingsWorkspaceMenu();break;
   case "hyperdeck-primary-timer-menu":toggleHyperdeckTimerMenu("primary");break;
   case "hyperdeck-secondary-timer-menu":toggleHyperdeckTimerMenu("secondary");break;
@@ -1356,4 +1435,4 @@ document.addEventListener("mouseover",event=>{
 document.addEventListener("mouseout",event=>{
  const node=event.target.closest?.("[data-signal-node]");if(node&&!node.contains(event.relatedTarget))explorerInspect(null);
 });
-document.addEventListener("DOMContentLoaded",()=>{initializeUndockedWorkspace();const close=$("updateCloseBtn");if(close)close.onclick=closeUpdateModal;syncHyperdeckTab();syncHyperdeckTimerMenus();if($("settingsHyperdeckEnabled"))$("settingsHyperdeckEnabled").checked=showDeskPreferences.hyperdeckMonitoring===true;renderSavedHyperdeckAddresses();renderHyperdeckCards();const transport=window.ATEM_TRANSPORT;if(transport?.subscribeHyperdecks)hyperdeckSubscription=transport.subscribeHyperdecks(data=>{hyperdeckStates=Array.isArray(data)?data:[];const receivedAt=Date.now();for(const deck of hyperdeckStates)hyperdeckClockReceipts.set(String(deck.id),receivedAt);observeHyperdeckClipTimecodes(hyperdeckStates,receivedAt);observeHyperdeckRecordingTimes(hyperdeckStates,receivedAt);if(activeConnectionMode!=="viewer")rememberConnectedHyperdecks(hyperdeckStates);renderHyperdeckCards();syncHyperdeckTab()});transport?.subscribeHyperdeckAvailability?.(enabled=>{remoteHyperdeckMonitoringEnabled=enabled;syncHyperdeckTab();renderHyperdeckCards()});setInterval(()=>{if($("app")?.classList.contains("tab-hyperdecks"))renderHyperdeckReadouts(hyperdeckStates)},100);if(tauriInvoke()){ensureUpdateProgressListener().then(()=>{if(showDeskPreferences.automaticUpdateChecks)setTimeout(()=>checkForShowDeskUpdate(false),1200)}).catch(console.error)}setTimeout(attemptPreferredAutoConnection,1800)});
+document.addEventListener("DOMContentLoaded",()=>{initializeUndockedWorkspace();const close=$("updateCloseBtn");if(close)close.onclick=closeUpdateModal;const whatsNewDismiss=$("whatsNewDismiss");if(whatsNewDismiss)whatsNewDismiss.onclick=dismissWhatsNew;setTimeout(maybeShowWhatsNew,3000);syncHyperdeckTab();syncHyperdeckTimerMenus();if($("settingsHyperdeckEnabled"))$("settingsHyperdeckEnabled").checked=showDeskPreferences.hyperdeckMonitoring===true;renderSavedHyperdeckAddresses();renderHyperdeckCards();const transport=window.ATEM_TRANSPORT;if(transport?.subscribeHyperdecks)hyperdeckSubscription=transport.subscribeHyperdecks(data=>{hyperdeckStates=Array.isArray(data)?data:[];const receivedAt=Date.now();observeHyperdeckDataReceipts(hyperdeckStates,receivedAt);observeHyperdeckClipTimecodes(hyperdeckStates,receivedAt);observeHyperdeckRecordingTimes(hyperdeckStates,receivedAt);if(activeConnectionMode!=="viewer")rememberConnectedHyperdecks(hyperdeckStates);renderHyperdeckCards();syncHyperdeckTab()});transport?.subscribeHyperdeckAvailability?.(enabled=>{remoteHyperdeckMonitoringEnabled=enabled;syncHyperdeckTab();renderHyperdeckCards()});setInterval(()=>{if($("app")?.classList.contains("tab-hyperdecks"))renderHyperdeckReadouts(hyperdeckStates)},100);if(tauriInvoke()){ensureUpdateProgressListener().then(()=>{if(showDeskPreferences.automaticUpdateChecks)setTimeout(()=>checkForShowDeskUpdate(false),1200)}).catch(console.error)}setTimeout(attemptPreferredAutoConnection,1800)});

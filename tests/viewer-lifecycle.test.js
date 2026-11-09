@@ -12,11 +12,21 @@ assert.match(app,/function enterViewerConnection[\s\S]*?ensureLiveStateSubscript
 assert.match(app,/function disconnectShowDesk[\s\S]*?clearLiveStateSubscription\(\)/,'Disconnect must clear the active live-state subscription');
 assert.match(app,/connectionInputChanged\(\);viewerInputChanged\(\)/,'Disconnect must revalidate retained Host and Viewer addresses');
 assert.match(transport,/function connectViewer[\s\S]*?viewerSocket = viewer/,'Direct Viewer socket must be tracked');
+assert.match(transport,/if \(msg\.type === 'snapshot'\) \{[\s\S]*?status:'viewer-connected'/,'Viewer must accept fresh Host snapshots throughout the socket lifetime');
+assert.doesNotMatch(transport,/if\(receivedSnapshot\)return/,'A previous snapshot must not suppress the fresh snapshot sent after Host recovery');
+assert.match(app,/viewerReconnecting=false;viewerWaitingForAtem=true[\s\S]*?WAITING FOR ATEM/,'A reachable Host waiting for its ATEM must clear Viewer reconnecting state');
+assert.match(app,/activeConnectionMode==="viewer"&&viewerWaitingForAtem\?" • WAITING FOR ATEM"/,'The connection indicator must distinguish an available Host from an active ATEM feed');
+assert.match(app,/wasRecovering=viewerReconnecting\|\|viewerWaitingForAtem[\s\S]*?Viewer reconnected to ShowDesk Host/,'Viewer recovery must be recorded after reconnecting or waiting for the Host');
+assert.match(app,/message\.status==="disconnected"\)[\s\S]*?viewerWaitingForAtem=true/,'An explicit ATEM disconnect must put the Viewer badge into waiting state');
+assert.match(app,/subscribeHealth\(message=>\{if\(message\?\.atemConnected===false\)return;markConnectionActivity\(\);\}\)/,'Periodic heartbeats must not toggle the Viewer badge between waiting and connected');
 assert.match(transport,/disconnectViewer\(\) \{[\s\S]*?viewerSocket[\s\S]*?viewer\.close\(\)/,'Viewer disconnect must close the direct Viewer socket');
 const directDisconnect=transport.slice(transport.indexOf('disconnectViewer() {'));
 assert.ok(!directDisconnect.includes("request('disconnectViewerHost'")&&!directDisconnect.includes('request("disconnectViewerHost"'),'Direct Viewer disconnect must not use the retired backend relay');
 assert.match(transport,/subscribeHealth\(callback\)/,'Transport must expose read-only health subscriptions');
 assert.match(transport,/msg\.type === 'health'/,'Transport must forward Host health heartbeats');
+assert.match(transport,/HEARTBEAT_TIMEOUT_MS = 15000/,'A silent live-data socket must be treated as stale after three missed Host heartbeats');
+assert.match(transport,/function scheduleServiceReconnect\(\)/,'The local Host transport must reconnect after a dropped or silent socket');
+assert.match(transport,/if \(serviceSocket === ws\) serviceSocket = null/,'A stale socket must not clear a newer replacement connection');
 assert.match(app,/transport\.subscribe\(\(patch\)=>\{markConnectionActivity\(\)/,'Live state must count as healthy connection activity');
 assert.ok(!app.includes('• STALE'),'Operator-facing connection status must not show STALE while the transport remains connected');
 assert.match(app,/function startConnectionHealth[\s\S]*?subscribeHealth/,'Connected Host and Viewer modes must subscribe to health events');
@@ -88,7 +98,7 @@ console.log('Viewer lifecycle, health, toolbar, and Viewer-count regression chec
  assert(app.includes('ShowDesk will not download it until you choose Download Update.'),'Startup check must not auto-download');
  assert(app.includes('if(showDeskUpdater.operation)'),'Frontend must reject overlapping updater operations');
  assert(rust.includes('struct UpdaterBusy(Mutex<bool>);'),'Native updater must have a concurrency guard');
- assert(rust.includes('app.emit("showdesk-native-menu", "check-for-updates")'),'Native menu must route through the shared frontend updater');
+ assert(rust.includes('emit_native_menu_action(&app, "check-for-updates")'),'Native menu must route the focused window through the shared frontend updater');
  assert(!rust.includes('Install the update and restart ShowDesk?'),'Rust must not own a second install prompt');
  assert(app.includes('if(!progress){$("updateProgressFill").style.width="";$("updateProgressPercent").textContent="";$("updateProgressBytes").textContent="";}'),'Non-progress updater states must clear stale download progress');
  assert(app.includes('setUpdateModal({title:"ShowDesk is up to date",message:"You are running the latest published version."})'),'Current-version state must render the up-to-date modal without requesting progress UI');
@@ -150,7 +160,7 @@ assert.match(app,/message\?\.status!==\"disconnected\"/,'Host reconnect must beg
 assert.match(app,/const reconnecting=activeConnectionMode==="viewer"\?viewerReconnecting:activeConnectionMode==="host"\?hostReconnecting:false/,'Host connection flag must stop claiming CONNECTED while ATEM reconnects');
 assert.match(app,/function scheduleHostReconnect\(transport\)[\s\S]*?2000/,'Host reconnect must retry on a controlled two-second cadence');
 assert.match(app,/async function attemptHostReconnect\(transport\)[\s\S]*?transport\.connect\(ip\)/,'Host reconnect must reuse the established ATEM address through the existing read-only connect path');
-assert.match(app,/intentionalDisconnect=true;viewerReconnecting=false;stopHostReconnect\(\)/,'Intentional disconnect must cancel Host reconnect');
+assert.match(app,/intentionalDisconnect=true;viewerReconnecting=false;viewerWaitingForAtem=false;stopHostReconnect\(\)/,'Intentional disconnect must clear Viewer waiting and reconnect state');
 
 
 // Build065 compact reconnect indicator regression guards
@@ -231,8 +241,8 @@ assert.match(app,/function explorerTrace\(graph,id\)/,'Every inspected node must
 assert.match(app,/explorerReach\(\{edges,adjacency\},to,false\)\.has\(from\)/,'Explorer must reject inferred circular graph edges');
 assert.match(app,/routingChanged=routing!==explorerRouteState/,'Signal explorer must update when live routing changes');
 
-assert.match(app,/outgoingEdges|incomingEdges/,'Signal traces must walk the exact connected edges in both directions');
-assert.match(app,/edges\.add\(edge\.id\)/,'Only edge IDs actually traversed by the selected signal path may highlight');
+assert.match(app,/const nodes=new Set\(\[\.\.\.upstream,\.\.\.downstream\]\)/,'Signal traces must include connected upstream and downstream nodes');
+assert.match(app,/\(upstream\.has\(e\.from\)&&upstream\.has\(e\.to\)\)\|\|/,'Only edges along the upstream or downstream trace may highlight');
 
 assert.match(app,/const startTime=performance\.now\(\),duration=180/,'Signal Explorer zoom must animate smoothly');
 assert.match(app,/logicalX\*scale\+left-focalX/,'Zoom must preserve its cursor-centered focal point');
@@ -241,3 +251,50 @@ assert.match(app,/const hyperdeckOpenDetails=new Map\(\)/,'HyperDeck detail stat
 assert.match(app,/hyperdeckOpenDetails\.set\(card\.dataset\.hyperdeckCard,\[\.\.\.card\.querySelectorAll\("\.rackDetails details"\)\]\.map\(detail=>detail\.open\)\)/,'HyperDeck refresh must capture each deck’s expanded sections');
 assert.match(app,/data-hyperdeck-card="\$\{escapeShowDeskText\(deck\.id\)\}"/,'HyperDeck cards must have stable identities for detail-state restoration');
 assert.match(app,/hyperdeckOpenDetails\.get\(card\.dataset\.hyperdeckCard\)/,'HyperDeck refresh must restore expanded sections by deck identity');
+
+// A direct Viewer socket stays open while the Host reconnects its ATEM. A
+// waiting response must not prevent a later snapshot on that same socket.
+;(async()=>{
+ const vm=require('node:vm');
+ class FakeWebSocket{
+  static OPEN=1;
+  static CLOSED=3;
+  static instances=[];
+  constructor(url){this.url=url;this.listeners={};this.readyState=FakeWebSocket.OPEN;FakeWebSocket.instances.push(this)}
+  addEventListener(type,callback){(this.listeners[type]??=[]).push(callback)}
+  emit(type,data){for(const callback of this.listeners[type]||[])callback({data:JSON.stringify(data)})}
+  close(){this.readyState=FakeWebSocket.CLOSED;this.emit('close')}
+ }
+ const browser={SHOWDESK_CONFIG:{viewerPort:47822}};
+ let now=1000,nextTimer=0;const timers=new Map(),intervals=new Set();
+ const fakeSetTimeout=(fn,delay)=>{const id=++nextTimer;timers.set(id,{fn,delay});return id};
+ const fakeClearTimeout=id=>timers.delete(id);
+ const fakeSetInterval=fn=>{intervals.add(fn);return fn};
+ const fakeClearInterval=id=>intervals.delete(id);
+ vm.runInNewContext(transport,{window:browser,WebSocket:FakeWebSocket,Date:{now:()=>now},setTimeout:fakeSetTimeout,clearTimeout:fakeClearTimeout,setInterval:fakeSetInterval,clearInterval:fakeClearInterval,location:{protocol:'http:',host:'localhost'}});
+ const events=[];browser.ATEM_TRANSPORT.subscribeConnection(message=>events.push(message));
+ const first=browser.ATEM_TRANSPORT.connectViewer('192.168.1.20');
+ const socket=FakeWebSocket.instances.at(-1);
+ socket.emit('message',{type:'connection',status:'waiting',reason:'No ATEM'});
+ const result=await first;
+ assert.equal(result.status,'waiting','Initial Viewer connection should report a Host that is still waiting for ATEM');
+ socket.emit('message',{type:'snapshot',data:{name:'Recovered switcher'}});
+ assert.equal(events.filter(message=>message.status==='viewer-connected').length,1,'A recovered Host snapshot on the existing socket must restore connected state');
+ assert.equal(events.at(-1).data.name,'Recovered switcher');
+ await Promise.resolve();await Promise.resolve();
+ const relaySocket=FakeWebSocket.instances.find(item=>item.url.endsWith('/ws'));
+ if(relaySocket){relaySocket.emit('open');await Promise.resolve();}
+ now+=16000;for(const check of intervals)check();
+ assert.equal(socket.readyState,FakeWebSocket.CLOSED,'The Viewer heartbeat test should force-close a silent connection after three missed beats');
+ assert.equal(events.at(-1).status,'reconnecting','A Viewer heartbeat timeout must enter the regular reconnect path');
+ assert.ok([...timers.values()].some(timer=>timer.delay===2000),'A stale Viewer feed should schedule the existing reconnect attempt');
+ browser.ATEM_TRANSPORT.disconnectViewer();timers.clear();
+ const attach=browser.ATEM_TRANSPORT.attach();await Promise.resolve();
+ const localSocket=relaySocket||FakeWebSocket.instances.at(-1);if(!relaySocket)localSocket.emit('open');await attach;
+ now+=16000;for(const check of intervals)check();
+ assert.equal(localSocket.readyState,FakeWebSocket.CLOSED,'The local Host transport should close a socket that stops sending health heartbeats');
+ const serviceRetry=[...timers.values()].find(timer=>timer.delay===2000);assert.ok(serviceRetry,'A stale local Host feed should schedule service reconnection');
+ const retryRun=serviceRetry.fn();await Promise.resolve();
+ const recoveredSocket=FakeWebSocket.instances.at(-1);assert.notEqual(recoveredSocket,localSocket,'Service recovery should create a replacement WebSocket');
+ recoveredSocket.emit('open');await retryRun;
+})().catch(error=>{console.error(error);process.exitCode=1});

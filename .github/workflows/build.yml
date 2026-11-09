@@ -46,6 +46,8 @@ jobs:
         with:
           workspaces: src-tauri -> target
       - run: npm ci
+      - name: Prepare stable frontend configuration
+        run: node scripts/prepare-channel-build.js
       - name: Verify updater version ordering
         shell: bash
         run: |
