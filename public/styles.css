@@ -855,23 +855,5 @@ html.undockedStartup #setup{display:none!important}
 .patchTable .patchEmpty{color:#84939a;text-align:center}
 .patchEmptyNote{color:#84939a;font-size:11px}
 .patchListActions{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:13px 26px;border-top:1px solid #30414a;color:#9daab1;font-size:10px}
-.patchListSaveInfo{display:grid;gap:4px;min-width:0}.patchListSaveInfo span{overflow-wrap:anywhere}.patchListSaveInfo small{color:#70818a;font-size:9px}.patchListActionButtons{display:flex;flex:none;gap:8px}
 html.patchListOpen,html.patchListOpen body{overflow:hidden}
-@media(max-width:720px){.patchListModal{padding:8px}.patchListDialog{width:100%;height:94vh}.patchListHeader,.patchListContent{padding-left:15px;padding-right:15px}.patchSectionGrid{grid-template-columns:1fr}.patchListActions{padding:12px 15px;align-items:flex-start;flex-direction:column}.patchListActionButtons{flex-wrap:wrap}}
-@media print{
- @page{size:landscape;margin:12mm}
- body.printingPatchList,body.printingPatchList *{visibility:hidden!important}
- body.printingPatchList #patchListModal,body.printingPatchList #patchListModal *{visibility:visible!important}
- body.printingPatchList #patchListModal{position:absolute!important;inset:0!important;display:block!important;padding:0!important;background:#fff!important;color:#182128!important;backdrop-filter:none!important}
- body.printingPatchList .patchListDialog{display:block!important;width:auto!important;height:auto!important;max-height:none!important;overflow:visible!important;border:0!important;box-shadow:none!important;background:#fff!important;color:#182128!important}
- body.printingPatchList .patchListHeader{padding:0 0 8mm!important;border-color:#9aa5aa!important}
- body.printingPatchList .patchListHeader h2{color:#182128!important}
- body.printingPatchList .patchListHeader p,body.printingPatchList .patchListEyebrow{color:#44535b!important}
- body.printingPatchList .patchListContent{overflow:visible!important;padding:6mm 0 0!important}
- body.printingPatchList .patchSection{break-inside:avoid-page}
- body.printingPatchList .patchSection h3{color:#182128!important;border-color:#9aa5aa!important}
- body.printingPatchList .patchTable th{background:#e8eef0!important;color:#26363e!important}
- body.printingPatchList .patchTable td{background:#fff!important;color:#182128!important;border-color:#ccd4d8!important}
- body.printingPatchList .patchTable .patchEmpty,body.printingPatchList .patchEmptyNote{color:#53626a!important}
- body.printingPatchList .patchListActions,body.printingPatchList .patchListClose{display:none!important}
-}
+@media(max-width:720px){.patchListModal{padding:8px}.patchListDialog{width:100%;height:94vh}.patchListHeader,.patchListContent{padding-left:15px;padding-right:15px}.patchSectionGrid{grid-template-columns:1fr}.patchListActions{padding:12px 15px;align-items:flex-start;flex-direction:column}}

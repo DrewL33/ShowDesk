@@ -309,13 +309,13 @@ async fn save_log_report(app: AppHandle, filename: String, contents: String, ini
 }
 
 #[tauri::command]
-async fn save_patch_list(app: AppHandle, filename: String, contents: String, initial_directory: Option<String>) -> Result<serde_json::Value, String> {
-    let mut dialog = app.dialog().file().set_title("Save ShowDesk Patch List").set_file_name(filename).add_filter("Printable Patch List", &["html"]);
+async fn save_patch_list_pdf(app: AppHandle, filename: String, contents: String, initial_directory: Option<String>) -> Result<serde_json::Value, String> {
+    let mut dialog = app.dialog().file().set_title("Save ShowDesk Patch List PDF").set_file_name(filename).add_filter("PDF Document", &["pdf"]);
     if let Some(directory) = initial_directory { let path = std::path::PathBuf::from(directory); if path.is_dir() { dialog = dialog.set_directory(path); } }
     let Some(selected) = dialog.blocking_save_file() else { return Ok(serde_json::json!({ "saved": false })); };
-    let mut path = selected.into_path().map_err(|_| "The selected patch list location is not a local file path.".to_string())?;
-    if path.extension().and_then(|extension| extension.to_str()).map(|extension| !extension.eq_ignore_ascii_case("html")).unwrap_or(true) { path.set_extension("html"); }
-    fs::write(&path, contents).map_err(|e| format!("Unable to save ShowDesk patch list: {e}"))?;
+    let mut path = selected.into_path().map_err(|_| "The selected PDF location is not a local file path.".to_string())?;
+    if path.extension().and_then(|extension| extension.to_str()).map(|extension| !extension.eq_ignore_ascii_case("pdf")).unwrap_or(true) { path.set_extension("pdf"); }
+    fs::write(&path, contents.as_bytes()).map_err(|e| format!("Unable to save ShowDesk patch list PDF: {e}"))?;
     Ok(serde_json::json!({ "saved": true, "path": path.to_string_lossy().to_string(), "directory": path.parent().map(|p| p.to_string_lossy().to_string()) }))
 }
 
@@ -544,7 +544,7 @@ fn main() {
         .plugin(WindowStateBuilder::default().with_state_flags(StateFlags::POSITION | StateFlags::SIZE | StateFlags::MAXIMIZED).build())
         .manage(AtemService(Mutex::new(None)))
         .manage(UpdaterBusy(Mutex::new(false)))
-        .invoke_handler(tauri::generate_handler![ensure_atem_service, save_log_report, save_patch_list, check_for_update, install_update, open_showdesk_repository, open_workspace_window, restore_workspace_windows, redock_workspace, toggle_fullscreen])
+        .invoke_handler(tauri::generate_handler![ensure_atem_service, save_log_report, save_patch_list_pdf, check_for_update, install_update, open_showdesk_repository, open_workspace_window, restore_workspace_windows, redock_workspace, toggle_fullscreen])
         .setup(|app| {
             record_startup("Tauri setup started");
             let restore_path = app.path().app_config_dir()?.join("detached-workspaces.json");

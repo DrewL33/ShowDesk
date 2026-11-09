@@ -793,23 +793,23 @@ function openPatchList(){
  $("patchListModal").hidden=false;document.documentElement.classList.add("patchListOpen");$("patchListModal").querySelector("[data-action='print-patch-list']")?.focus();
 }
 function closePatchList(){$("patchListModal").hidden=true;document.documentElement.classList.remove("patchListOpen")}
-function printablePatchListHtml(){const meta=escapeShowDeskText($("patchListMeta")?.textContent||""),content=$("patchListContent")?.innerHTML||"";return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ShowDesk ATEM Patch List</title><style>*{box-sizing:border-box}body{margin:0;padding:28px;color:#17232a;background:#fff;font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;border-bottom:2px solid #34454e;padding-bottom:14px;margin-bottom:22px}.eyebrow{font-size:10px;font-weight:800;letter-spacing:.12em;color:#4c6973}h1{margin:5px 0;font-size:25px}.meta{margin:0;color:#53636a;font-size:11px}.print{border:1px solid #53636a;border-radius:4px;background:#f4f7f8;padding:9px 13px;font-weight:700;color:#17232a}.patchSection{margin:0 0 22px;break-inside:avoid}.patchSection h3{margin:0 0 8px;padding-bottom:6px;border-bottom:1px solid #9eaaaf;color:#26363e;font-size:11px;letter-spacing:.09em}.patchSectionGrid{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}.patchTableWrap{overflow:visible}.patchTable{width:100%;border-collapse:collapse;text-align:left;font-size:11px}.patchTable th{padding:7px 9px;background:#e9eef0;color:#364850;font-size:9px;letter-spacing:.06em}.patchTable td{padding:7px 9px;border-bottom:1px solid #d3dadd;vertical-align:top}.patchTable tbody tr:nth-child(even){background:#f6f8f8}.patchTable .patchEmpty{text-align:center;color:#65747a}.patchEmptyNote{color:#65747a}@page{size:landscape;margin:12mm}@media print{body{padding:0}.print{display:none}.patchSectionGrid{break-inside:avoid}}</style></head><body><header><div><div class="eyebrow">SHOWDESK · ATEM PATCH LIST</div><h1>Switcher patch list</h1><p class="meta">${meta}</p></div><button class="print" id="patchPrintButton" type="button">PRINT / SAVE PDF</button></header><main>${content}</main><script>document.getElementById("patchPrintButton").addEventListener("click",()=>window.print());</script></body></html>`}
-async function savePatchList(){
- const filename=`ShowDesk Patch List ${new Date().toISOString().slice(0,10)}.html`,contents=printablePatchListHtml(),status=$("patchListSaveStatus");
- if(status)status.textContent="Choose a location to save the printable patch list.";
+async function printPatchList(){
+ const sections=[...($("patchListContent")?.querySelectorAll(".patchSection")||[])].map(section=>({title:section.querySelector("h3")?.textContent||"PATCHES",headers:[...section.querySelectorAll("thead th")].map(cell=>cell.textContent.trim()),rows:[...section.querySelectorAll("tbody tr")].map(row=>[...row.querySelectorAll("td")].map(cell=>cell.textContent.trim()))}));
+ const pdf=window.ShowDeskPatchPdf?.createPatchListPdf(sections,$("patchListMeta")?.textContent||""),filename=`ShowDesk Patch List ${new Date().toISOString().slice(0,10)}.pdf`,status=$("patchListSaveStatus");
+ if(!pdf){if(status)status.textContent="Could not prepare the PDF. Close and reopen the patch list, then try again.";toast("PDF preparation failed");return}
+ if(status)status.textContent="Choose where to save the PDF.";
  try{
   const invoke=window.__TAURI_INTERNALS__?.invoke;
   if(typeof invoke==="function"){
-   const initialDirectory=localStorage.getItem("showdesk.patchList.lastDirectory")||null,result=await invoke("save_patch_list",{filename,contents,initialDirectory});
-   if(!result?.saved){if(status)status.textContent="Save canceled. No file was written.";return}
+   const initialDirectory=localStorage.getItem("showdesk.patchList.lastDirectory")||null,result=await invoke("save_patch_list_pdf",{filename,contents:pdf,initialDirectory});
+   if(!result?.saved){if(status)status.textContent="Save canceled. No PDF was written.";return}
    if(result.directory)localStorage.setItem("showdesk.patchList.lastDirectory",result.directory);
-   if(status)status.textContent=`Saved to ${result.path}`;toast("Patch list saved");return;
+   if(status)status.textContent=`PDF saved to ${result.path}`;toast("Patch list PDF saved");return;
   }
-  if(window.showSaveFilePicker){const handle=await window.showSaveFilePicker({suggestedName:filename,types:[{description:"Printable ShowDesk patch list",accept:{"text/html":[".html"]}}]});const writable=await handle.createWritable();await writable.write(contents);await writable.close();if(status)status.textContent=`Saved ${handle.name}`;toast("Patch list saved");return}
-  const link=document.createElement("a"),blob=new Blob([contents],{type:"text/html;charset=utf-8"});link.href=URL.createObjectURL(blob);link.download=filename;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);if(status)status.textContent=`Download started: ${filename}`;toast("Patch list downloaded");
- }catch(error){if(error?.name==="AbortError"){if(status)status.textContent="Save canceled. No file was written.";return}console.error("Unable to save patch list",error);if(status)status.textContent=`Could not save the patch list: ${error?.message||error}`;toast("Patch list save failed")}
+  if(window.showSaveFilePicker){const handle=await window.showSaveFilePicker({suggestedName:filename,types:[{description:"PDF document",accept:{"application/pdf":[".pdf"]}}]});const writable=await handle.createWritable();await writable.write(new Blob([pdf],{type:"application/pdf"}));await writable.close();if(status)status.textContent=`PDF saved as ${handle.name}`;toast("Patch list PDF saved");return}
+  const link=document.createElement("a"),blob=new Blob([pdf],{type:"application/pdf"});link.href=URL.createObjectURL(blob);link.download=filename;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);if(status)status.textContent=`PDF download started: ${filename}`;toast("Patch list PDF downloaded");
+ }catch(error){if(error?.name==="AbortError"){if(status)status.textContent="Save canceled. No PDF was written.";return}console.error("Unable to save patch list PDF",error);if(status)status.textContent=`Could not save the PDF: ${error?.message||error}`;toast("Patch list PDF save failed")}
 }
-function printPatchList(){const status=$("patchListSaveStatus");if(status)status.textContent="Opening the system print dialog. Choose Save as PDF there to create a PDF file.";document.body.classList.add("printingPatchList");const clear=()=>document.body.classList.remove("printingPatchList");window.addEventListener("afterprint",()=>{clear();if(status)status.textContent="Print dialog closed. If no PDF was saved, use Save Printable File."},{once:true});try{window.print()}catch(error){clear();if(status)status.textContent=`Could not open the print dialog: ${error?.message||error}. Use Save Printable File instead.`;toast("Print dialog unavailable")};setTimeout(clear,30000)}
 function renderActiveSources(){
  const el=$("activeSourceGrid");if(!el)return;
  const e=liveEngineering,items=[],seen=new Set(),add=(name,role,tone="")=>{if(!name||name==="—")return;const key=role+"|"+name;if(seen.has(key))return;seen.add(key);items.push({name,role,tone})};
@@ -1404,7 +1404,6 @@ function runShowDeskAction(action,element){
   case "import-reference-click":$("referenceFile")?.click();break;
   case "export-log":exportLogReport();break;
   case "export-patch-list":openPatchList();break;
-  case "save-patch-list":savePatchList();break;
   case "close-patch-list":closePatchList();break;
   case "print-patch-list":printPatchList();break;
   case "toggle-debug":toggleDebug();break;
