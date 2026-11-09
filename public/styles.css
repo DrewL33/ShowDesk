@@ -855,8 +855,9 @@ html.undockedStartup #setup{display:none!important}
 .patchTable .patchEmpty{color:#84939a;text-align:center}
 .patchEmptyNote{color:#84939a;font-size:11px}
 .patchListActions{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:13px 26px;border-top:1px solid #30414a;color:#9daab1;font-size:10px}
+.patchListSaveInfo{display:grid;gap:4px;min-width:0}.patchListSaveInfo span{overflow-wrap:anywhere}.patchListSaveInfo small{color:#70818a;font-size:9px}.patchListActionButtons{display:flex;flex:none;gap:8px}
 html.patchListOpen,html.patchListOpen body{overflow:hidden}
-@media(max-width:720px){.patchListModal{padding:8px}.patchListDialog{width:100%;height:94vh}.patchListHeader,.patchListContent{padding-left:15px;padding-right:15px}.patchSectionGrid{grid-template-columns:1fr}.patchListActions{padding:12px 15px;align-items:flex-start;flex-direction:column}}
+@media(max-width:720px){.patchListModal{padding:8px}.patchListDialog{width:100%;height:94vh}.patchListHeader,.patchListContent{padding-left:15px;padding-right:15px}.patchSectionGrid{grid-template-columns:1fr}.patchListActions{padding:12px 15px;align-items:flex-start;flex-direction:column}.patchListActionButtons{flex-wrap:wrap}}
 @media print{
  @page{size:landscape;margin:12mm}
  body.printingPatchList,body.printingPatchList *{visibility:hidden!important}
