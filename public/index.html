@@ -81,7 +81,7 @@
    <div id="referenceEmpty" class="referenceEmpty"><b>NO REFERENCE ATTACHED</b><span>Import a show reference to enable expected-vs-actual comparison.</span></div>
    <div id="referenceAttached" class="referenceAttached" hidden><div><span>REFERENCE</span><b id="engReferenceName">—</b><small id="referenceMeta">—</small></div><button class="tinyAction" data-action="clear-reference">REMOVE</button></div>
    <div id="referenceComparisonControls" class="referenceComparisonControls" hidden><div class="referenceSectionLabel" id="referenceKind">IMPORTED REFERENCE</div><label><input id="referenceCompareconfiguration" type="checkbox" data-compare="configuration"> Configuration</label><label><input id="referenceComparerouting" type="checkbox" data-compare="routing"> AUX / output routing</label><label><input id="referenceCompareprogramPreview" type="checkbox" data-compare="programPreview"> Program / Preview</label><small id="referenceCompareNote"></small><div id="referenceIndividualItems"></div></div><input id="referenceFile" type="file" accept=".json,.xml,.show,.atem" hidden data-change-action="import-reference">
-   <div class="actionbar referenceActions"><button class="tinyAction primaryAction" data-action="import-reference-click">IMPORT REFERENCE</button><button class="tinyAction" data-action="export-log">EXPORT LOG REPORT</button><button class="tinyAction" data-action="tab-signal">VIEW SIGNAL EXPLORER</button></div>
+   <div class="actionbar referenceActions"><button class="tinyAction primaryAction" data-action="import-reference-click">IMPORT REFERENCE</button><button class="tinyAction" data-action="export-patch-list">PRINT PATCH LIST</button><button class="tinyAction" data-action="export-log">EXPORT LOG REPORT</button><button class="tinyAction" data-action="tab-signal">VIEW SIGNAL EXPLORER</button></div>
    <div class="referenceSectionLabel referenceMetricsLabel">SESSION SUMMARY</div>
    <div class="compare referenceMetrics"><div><span>MISMATCHES</span><b id="mismatchCount">—</b></div><div><span>CHANGES THIS SESSION</span><b id="sessionChangeCount">0</b></div><div><span>LOG EVENTS</span><b id="logEventCount">0</b></div></div>
   </div>
@@ -120,6 +120,13 @@
    <button id="updateCloseBtn" class="tinyAction" type="button">CLOSE</button>
   </div>
 </div>
+</div>
+<div id="patchListModal" class="patchListModal" hidden aria-modal="true" role="dialog" aria-labelledby="patchListTitle">
+ <section class="patchListDialog">
+  <header class="patchListHeader"><div><span class="patchListEyebrow">SHOWDESK · ATEM PATCH LIST</span><h2 id="patchListTitle">Switcher patch list</h2><p id="patchListMeta"></p></div><button class="tinyAction patchListClose" type="button" data-action="close-patch-list" aria-label="Close patch list">CLOSE</button></header>
+  <div id="patchListContent" class="patchListContent"></div>
+  <footer class="patchListActions"><span>Print this list or choose Save as PDF in the print dialog.</span><button class="tinyAction primaryAction" type="button" data-action="print-patch-list">PRINT / SAVE PDF</button></footer>
+ </section>
 </div>
 <div id="settingsModal" class="settingsModal" hidden aria-modal="true" role="dialog" aria-labelledby="settingsTitle">
 <div class="settingsCard settingsCardExpanded settingsWindow">

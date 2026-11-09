@@ -121,7 +121,7 @@ function addHyperdeck(){if(isShowDeskViewer()){$("hyperdeckSettingsStatus").text
 function toggleDebug(){const el=$("atemDebug");if(!el)return;el.hidden=!el.hidden;if(!el.hidden)renderDebug()}
 function renderDebug(){const el=$("atemDebug");if(!el)return;el.textContent=JSON.stringify({productIdentifier:liveEngineering.productIdentifier,videoMode:liveEngineering.videoMode,topology:liveEngineering.topology,inputs:liveEngineering.inputs,mixEffects:liveEngineering.mixEffects,downstreamKeyers:liveEngineering.downstreamKeyers,auxRoutes:{...actual},rawExposedState:liveEngineering.debug},null,2)}
 function toast(msg){let t=$("toast");if(!t)return;t.textContent=msg;t.classList.add("show");clearTimeout(window.__toast);window.__toast=setTimeout(()=>t.classList.remove("show"),1100)}
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("settingsModal")&&!$("settingsModal").hidden)closeShowDeskSettings()});
+document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if($("patchListModal")&&!$("patchListModal").hidden)closePatchList();else if($("settingsModal")&&!$("settingsModal").hidden)closeShowDeskSettings()});
 document.addEventListener("click",e=>{
  const b=e.target.closest("button");if(!b||b.disabled)return;
  b.classList.remove("clickFlash");void b.offsetWidth;b.classList.add("clickFlash");
@@ -774,6 +774,26 @@ async function exportLogReport(){
    else {const link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download=filename;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);toast("Log report exported");}
  }catch(err){if(err?.name!=="AbortError")toast("Export failed");}
 }
+const PATCH_EXTERNAL_PORTS=[[1,"SDI"],[2,"HDMI"],[4,"Component"],[8,"Composite"],[16,"S-Video"],[32,"XLR"],[64,"AES/EBU"],[128,"RCA"],[256,"Internal"],[512,"TS jack"],[1024,"MADI"],[2048,"TRS jack"],[4096,"RJ45"]];
+const PATCH_INTERNAL_TYPES={0:"External input",1:"Black",2:"Color bars",3:"Color generator",4:"Media player fill",5:"Media player key",6:"SuperSource",7:"External direct",128:"M/E output",129:"AUX output",130:"Mask",131:"Multiview output",132:"Audio monitor output"};
+function patchPortLabel(input){const value=Number(input.externalPortType)||0,labels=PATCH_EXTERNAL_PORTS.filter(([bit])=>(value&bit)!==0).map(([,label])=>label);return labels.join(" / ")||PATCH_INTERNAL_TYPES[Number(input.internalPortType)]||"ATEM source"}
+function patchTable(headers,rows,emptyText){return `<div class="patchTableWrap"><table class="patchTable"><thead><tr>${headers.map(x=>`<th>${escapeShowDeskText(x)}</th>`).join("")}</tr></thead><tbody>${rows.length?rows.map(row=>`<tr>${row.map(cell=>`<td>${escapeShowDeskText(cell||"—")}</td>`).join("")}</tr>`).join(""):`<tr><td class="patchEmpty" colspan="${headers.length}">${escapeShowDeskText(emptyText)}</td></tr>`}</tbody></table></div>`}
+function openPatchList(){
+ if(!activeConnectionMode){toast("Connect to an ATEM or ShowDesk Host to export its patch list.");return}
+ const inputs=liveEngineering.inputs||[],outputs=inputs.filter(x=>[128,129,131,132].includes(Number(x.internalPortType))),sources=inputs.filter(x=>!outputs.includes(x));
+ const physical=sources.filter(x=>Number(x.internalPortType)===0&&Number(x.externalPortType)>0),internal=sources.filter(x=>!physical.includes(x));
+ const meAccess=input=>{const mask=Number(input.meAvailability);if(!Number.isFinite(mask))return "—";const allowed=mes.filter(me=>(mask&(1<<(Number(me.index)-1)))!==0).map(me=>`M/E ${me.index}`);return allowed.join(", ")||"None"};
+ const sourceRows=items=>items.slice().sort((a,b)=>Number(a.id)-Number(b.id)).map(x=>[String(x.id),x.name||`Source ${x.id}`,patchPortLabel(x),meAccess(x)]);
+ const outputRows=outputs.slice().sort((a,b)=>Number(a.id)-Number(b.id)).map(x=>[String(x.id),x.name||`Output ${x.id}`,patchPortLabel(x)]);
+ const mes=liveEngineering.mixEffects||[],meSections=mes.map(me=>{const rows=(me.upstreamKeyers||[]).map(k=>[`USK ${k.index}`,k.type||"Keyer",`Fill · ${k.fill||"—"}`,`Key · ${k.key||"—"}`]);return `<section class="patchSection patchMeSection"><h3>M/E ${escapeShowDeskText(me.index)} · KEYER PATCHES</h3>${patchTable(["ASSIGNMENT","TYPE","FILL SOURCE","KEY SOURCE"],rows,"No keyer patches reported.")}</section>`}).join("");
+ const dsks=liveEngineering.downstreamKeyers||[],dskRows=dsks.map(k=>[`DSK ${k.index}`,`Fill · ${k.fill||"—"}`,`Key · ${k.key||"—"}`]);
+ const routes=liveEngineering.routing||[],routeRows=routes.slice().sort((a,b)=>Number(a.busId??a.rawIndex??0)-Number(b.busId??b.rawIndex??0)).map(r=>[r.name||r.label||`AUX ${Number(r.busId??r.rawIndex??0)+1}`,r.route||r.source||r.value||"Unassigned"]);
+ const meta=$("patchListMeta");if(meta)meta.textContent=`${liveEngineering.productIdentifier||connectedDevice?.name||"ATEM switcher"} · Prepared ${new Date().toLocaleString()}`;
+ const content=$("patchListContent");if(content)content.innerHTML=`<section class="patchSection"><h3>EXTERNAL INPUTS</h3>${patchTable(["INPUT ID","SOURCE NAME","CONNECTION","M/E ACCESS"],sourceRows(physical),"No external inputs reported.")}</section><section class="patchSection"><h3>INTERNAL / DIRECT SOURCES</h3>${patchTable(["SOURCE ID","SOURCE NAME","SOURCE TYPE","M/E ACCESS"],sourceRows(internal),"No internal or direct sources reported.")}</section><section class="patchSection"><h3>SWITCHER OUTPUTS</h3>${patchTable(["OUTPUT ID","DESTINATION","OUTPUT TYPE"],outputRows,"No output destinations reported.")}</section><div class="patchSectionGrid">${meSections||'<section class="patchSection"><h3>M/E KEYER PATCHES</h3><p class="patchEmptyNote">No M/E blocks reported.</p></section>'}<section class="patchSection"><h3>DOWNSTREAM KEYER PATCHES</h3>${patchTable(["ASSIGNMENT","FILL SOURCE","KEY SOURCE"],dskRows,"No downstream keyer patches reported.")}</section></div><section class="patchSection"><h3>AUX OUTPUT PATCHES</h3>${patchTable(["DESTINATION","PATCHED SOURCE"],routeRows,"No AUX output patches reported.")}</section>`;
+ $("patchListModal").hidden=false;document.documentElement.classList.add("patchListOpen");$("patchListModal").querySelector("[data-action='print-patch-list']")?.focus();
+}
+function closePatchList(){$("patchListModal").hidden=true;document.documentElement.classList.remove("patchListOpen")}
+function printPatchList(){document.body.classList.add("printingPatchList");const clear=()=>document.body.classList.remove("printingPatchList");window.addEventListener("afterprint",clear,{once:true});window.print();setTimeout(clear,120000)}
 function renderActiveSources(){
  const el=$("activeSourceGrid");if(!el)return;
  const e=liveEngineering,items=[],seen=new Set(),add=(name,role,tone="")=>{if(!name||name==="—")return;const key=role+"|"+name;if(seen.has(key))return;seen.add(key);items.push({name,role,tone})};
@@ -1367,6 +1387,9 @@ function runShowDeskAction(action,element){
   case "clear-reference":clearReference();break;
   case "import-reference-click":$("referenceFile")?.click();break;
   case "export-log":exportLogReport();break;
+  case "export-patch-list":openPatchList();break;
+  case "close-patch-list":closePatchList();break;
+  case "print-patch-list":printPatchList();break;
   case "toggle-debug":toggleDebug();break;
   case "close-settings":closeShowDeskSettings();break;
   case "capture-shortcut":beginShortcutCapture(element.dataset.shortcutId);break;
