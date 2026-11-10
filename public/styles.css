@@ -861,3 +861,51 @@ html.undockedStartup #setup{display:none!important}
 .patchListActions{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:13px 26px;border-top:1px solid #30414a;color:#9daab1;font-size:10px}
 html.patchListOpen,html.patchListOpen body{overflow:hidden}
 @media(max-width:720px){.patchListModal{padding:8px}.patchListDialog{width:100%;height:94vh}.patchListHeader,.patchListContent{padding-left:15px;padding-right:15px}.patchPreviewPage,.patchSectionGrid{grid-template-columns:1fr}.patchListActions{padding:12px 15px;align-items:flex-start;flex-direction:column}}
+
+/* Shared button hierarchy: clear primary actions, readable secondary controls. */
+button.tinyAction,.referencePanel button.tinyAction{
+ min-height:36px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;
+ padding:0 13px!important;background:#24343e!important;border:1px solid #627985!important;border-radius:3px!important;
+ color:#f3f7f8!important;font-family:inherit!important;font-size:10px!important;font-weight:800!important;line-height:1.1!important;letter-spacing:.035em!important;white-space:nowrap!important;
+ box-shadow:inset 0 1px #ffffff0a!important;transition:background-color .14s ease,border-color .14s ease,box-shadow .14s ease,transform .08s ease!important
+}
+button.tinyAction:hover:not(:disabled),.referencePanel button.tinyAction:hover:not(:disabled){background:#304651!important;border-color:#8ba2ad!important;filter:none!important}
+button.tinyAction.primaryAction,.referencePanel button.tinyAction.primaryAction{
+ background:#3479c8!important;border-color:#6ba8ef!important;color:#fff!important;box-shadow:inset 0 1px #ffffff30,0 2px 0 #1c4d80!important
+}
+button.tinyAction.primaryAction:hover:not(:disabled),.referencePanel button.tinyAction.primaryAction:hover:not(:disabled){background:#438be0!important;border-color:#9bc8fb!important;box-shadow:inset 0 1px #ffffff38,0 2px 0 #1c4d80,0 0 0 2px #3479c833!important}
+button.tinyAction:active:not(:disabled){transform:translateY(1px)!important;box-shadow:none!important}
+button.tinyAction:disabled{opacity:.52!important;cursor:not-allowed!important;filter:none!important}
+button.tinyAction:focus-visible,.workspaceUndockButton:focus-visible,.disconnectBtn:focus-visible,.floatingWorkspaceTab:focus-visible,.settingsAction:focus-visible{outline:2px solid #8ec3ff!important;outline-offset:2px!important}
+.disconnectBtn{min-height:34px!important;padding:0 12px!important;background:#351d20!important;border:1px solid #a44e53!important;color:#ffd6d4!important;border-radius:3px!important;font-size:9px!important;font-weight:900!important;letter-spacing:.07em!important}
+.disconnectBtn:hover:not(:disabled){background:#52272b!important;border-color:#df7778!important}
+.connectBtn{min-height:44px!important;background:#3479c8!important;border:1px solid #6ba8ef!important;border-radius:3px!important;color:#fff!important;font-size:12px!important;font-weight:900!important;letter-spacing:.055em!important;box-shadow:inset 0 1px #ffffff30,0 2px 0 #1c4d80!important}
+.connectBtn:hover:not(:disabled){background:#438be0!important;border-color:#9bc8fb!important}
+.connectBtn:disabled{opacity:.48!important;box-shadow:none!important}
+.workspaceUndockButton{height:36px!important;padding:0 13px!important;background:#1c2a33!important;border:1px solid #526a77!important;color:#e0eaf0!important;border-radius:3px!important;font-size:10px!important;font-weight:850!important}
+.workspaceUndockButton:hover:not(:disabled){background:#2a3d48!important;border-color:#8ca4b0!important;color:#fff!important}
+.floatingWorkspaceTabs{gap:5px!important;padding:5px!important;border:1px solid #465a66!important;border-radius:5px!important;background:#121e25!important}
+.floatingWorkspaceTab{min-height:40px!important;padding:0 18px!important;border:1px solid transparent!important;border-radius:3px!important;color:#c0cbd1!important;font-size:12px!important;font-weight:750!important}
+.floatingWorkspaceTab:hover:not(.on){background:#22333c!important;color:#fff!important}
+.floatingWorkspaceTab.on{background:#3479c8!important;border-color:#75adf0!important;color:#fff!important;box-shadow:inset 0 1px #ffffff30,0 2px 0 #1d4d7c!important}
+.meSelector .meSelectBtn{min-height:38px!important;padding:0 14px!important;border:1px solid #425660!important;border-right:1px solid #425660!important;background:#1b2931!important;color:#d4dee3!important;font-weight:750!important}
+.meSelector .meSelectBtn:hover:not(.on){background:#293b45!important;color:#fff!important}
+.meSelector .meSelectBtn.on{background:#174f3d!important;border-color:#4f9b79!important;color:#fff!important;box-shadow:inset 0 -2px #73d3a5!important}
+.explorerToolbar>.tinyAction{min-width:36px!important;padding:0 10px!important}
+.explorerModes button{min-height:38px;background:#1b2931;border:1px solid #425660;color:#d4dee3;font-weight:750}
+.explorerModes button:hover:not(.active){background:#293b45;color:#fff}
+.explorerModes button.active{background:#3479c8;border-color:#75adf0;color:#fff;box-shadow:inset 0 1px #ffffff30}
+.explorerItem:hover,.explorerItem:focus-visible{background:#1c2b34;border-color:#566d79;color:#fff;outline:none}
+.explorerItem.selected{background:#332126;border-color:#a34a50;border-left-color:#ef6667;color:#fff}
+.macro{border-color:#526875!important;background:#1d2b34!important;transition:background-color .14s ease,border-color .14s ease,box-shadow .14s ease!important}
+.macro:hover{background:#293c47!important;border-color:#89a1ad!important;box-shadow:inset 0 0 0 1px #89a1ad22!important}
+.macro.restore{background:#351e20!important;border-color:#945052!important;color:#ffe4e2!important}
+.settingsAction,.settingsWindow .settingsFooter button{min-height:36px!important;padding:0 13px!important;background:#24343e!important;border:1px solid #627985!important;border-radius:3px!important;color:#f3f7f8!important;font-size:10px!important;font-weight:800!important}
+.settingsAction:hover,.settingsWindow .settingsFooter button:hover{background:#304651!important;border-color:#8ba2ad!important}
+.settingsWindow .settingsFooter button.primaryAction{background:#3479c8!important;border-color:#6ba8ef!important;color:#fff!important}
+.connectionModeCard{position:relative!important;min-height:188px!important;background:#14212a!important;border:1px solid #526976!important;transition:background-color .14s ease,border-color .14s ease,box-shadow .14s ease!important}
+.connectionModeCard:hover{background:#1a2b35!important;border-color:#78a9c3!important;box-shadow:inset 0 0 0 1px #78a9c333!important}
+.connectionModeCard em{display:flex!important;align-items:center!important;justify-content:center!important;min-height:34px!important;padding:0 12px!important;background:#3479c8!important;color:#fff!important;font-size:10px!important;letter-spacing:.05em!important}
+.setupBack{min-height:34px!important;color:#c2ccd2!important;font-size:10px!important;font-weight:750!important}
+@media(max-width:720px){.floatingWorkspaceTab{min-height:36px!important;padding:0 10px!important;font-size:10px!important}.inspectInputsPanel>.head{gap:8px!important}.inspectInputsPanel>.head .sub{flex:1;text-align:right}.inspectInputsPanel>.head .tinyAction{margin-left:0!important}}
+@media(prefers-reduced-motion:reduce){button.tinyAction,.connectionModeCard{transition:none!important}}
