@@ -843,8 +843,10 @@ html.undockedStartup #setup{display:none!important}
 .patchListHeader h2{margin:7px 0 3px;font-size:22px}
 .patchListHeader p{margin:0;color:#9daab1;font-size:11px}
 .patchListContent{flex:1;overflow:auto;padding:18px 26px 26px}
+.patchPreviewPage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 22px;padding:0 0 10px;margin:0 0 20px;border-bottom:1px solid #30414a}
 .patchSection{margin:0 0 20px;break-inside:avoid}
 .patchSection h3{margin:0 0 8px;padding-bottom:7px;border-bottom:1px solid #30414a;color:#c7d3d9;font-size:10px;font-weight:900;letter-spacing:.1em}
+.patchSectionNote{margin:-2px 0 7px;color:#84939a;font-size:9px;line-height:1.35}
 .patchSectionGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 22px}
 .patchTableWrap{overflow-x:auto}
 .patchTable{width:100%;border-collapse:collapse;text-align:left;font-size:11px}
@@ -856,4 +858,4 @@ html.undockedStartup #setup{display:none!important}
 .patchEmptyNote{color:#84939a;font-size:11px}
 .patchListActions{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:13px 26px;border-top:1px solid #30414a;color:#9daab1;font-size:10px}
 html.patchListOpen,html.patchListOpen body{overflow:hidden}
-@media(max-width:720px){.patchListModal{padding:8px}.patchListDialog{width:100%;height:94vh}.patchListHeader,.patchListContent{padding-left:15px;padding-right:15px}.patchSectionGrid{grid-template-columns:1fr}.patchListActions{padding:12px 15px;align-items:flex-start;flex-direction:column}}
+@media(max-width:720px){.patchListModal{padding:8px}.patchListDialog{width:100%;height:94vh}.patchListHeader,.patchListContent{padding-left:15px;padding-right:15px}.patchPreviewPage,.patchSectionGrid{grid-template-columns:1fr}.patchListActions{padding:12px 15px;align-items:flex-start;flex-direction:column}}
