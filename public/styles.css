@@ -207,6 +207,8 @@
 .referenceEmpty b,.referenceAttached b{font-size:11px}.referenceEmpty span,.referenceAttached span,.referenceAttached small{font-size:9px}
 .referenceActions{margin:16px 0 0!important;gap:10px}
 .referenceActions .tinyAction{padding:10px 14px!important}
+.inspectInputsPanel>.head .tinyAction{margin-left:6px;white-space:nowrap}
+@media(max-width:720px){.inspectInputsPanel>.head{flex-wrap:wrap}.inspectInputsPanel>.head .sub{margin-left:auto}.inspectInputsPanel>.head .tinyAction{margin-left:0}}
 .referenceMetricsLabel{margin-top:24px}
 .referenceMetrics{gap:10px}
 .referenceMetrics div{padding:14px 16px;min-height:76px}.referenceMetrics span{font-size:9px}.referenceMetrics b{font-size:20px}
