@@ -12,7 +12,6 @@ let selectedDestination=null;
 let selectedMeIndex=1;
 let previousMeState=new Map();
 let committedMeState=new Map();
-let companionStatusTimer=null;
 let viewerConnectionSubscription=null;
 let hostConnectionSubscription=null;
 let hostReconnectTimer=null;
@@ -485,21 +484,6 @@ function updateConnectionControls(){
  const flag=$("connectionFlag"),button=$("disconnectBtn");
  if(flag)flag.hidden=!connected;if(button)button.hidden=!connected;
  updateConnectionHealth();
- publishCompanionStatusSoon();
-}
-function buildCompanionStatus(){
- const reconnecting=viewerReconnecting||hostReconnecting;
- const connection=!activeConnectionMode?"DISCONNECTED":reconnecting?"RECONNECTING":viewerWaitingForAtem?"WAITING FOR ATEM":"CONNECTED";
- const videoMode=liveEngineering.videoMode==null?"—":formatVideoMode(liveEngineering.videoMode)[0];
- const mixEffects=(liveEngineering.mixEffects||[]).map(me=>({index:Number(me.index)||1,program:String(me.pgm||"—"),preview:String(me.pvw||"—"),ftb:me.ftb?(me.ftb.inTransition?"TRANSITION":me.ftb.isFullyBlack?"BLACK":"OFF"):"—"}));
- const hyperdecks=hyperdeckStates.map(deck=>({name:String(deck.name||deck.deviceName||"HyperDeck"),status:String(deck.status||"UNKNOWN").toUpperCase(),timecode:String(hyperdeckTimecode(deck)||"—"),recording:deck.transport?.status==="record"||deck.transport?.status==="recording"}));
- const workspace=(document.querySelector("#app[class*='tab-']")?.className.match(/tab-(show|signal|engineering|hyperdecks)/)||[])[1]||"show";
- return {connection,mode:activeConnectionMode?activeConnectionMode.toUpperCase():"—",switcher:String(connectedDevice?.name||connectedDevice?.productIdentifier||liveEngineering.productIdentifier||"—"),videoMode,workspace,selectedMe:selectedMeIndex,mixEffects,hyperdecks,updatedAt:new Date().toISOString()};
-}
-function publishCompanionStatusSoon(){
- if(undockedWorkspace)return;
- if(companionStatusTimer)clearTimeout(companionStatusTimer);
- companionStatusTimer=setTimeout(()=>{companionStatusTimer=null;window.ATEM_TRANSPORT?.publishCompanionStatus?.(buildCompanionStatus()).catch(()=>{})},200);
 }
 async function disconnectShowDesk(){
  if(undockedWorkspace){toast("Manage the connection from the main ShowDesk window");return}
@@ -518,7 +502,7 @@ async function disconnectShowDesk(){
  $("setup").classList.remove("hidden");chooseConnectionMode(null);syncHyperdeckTab();$("modelLabel").textContent="";updateConnectionControls();$("connectAtemBtn").textContent="CONNECT & HOST";$("connectViewerBtn").textContent="CONNECT TO HOST";connectionInputChanged();viewerInputChanged();intentionalDisconnect=false;render();
 }
 window.addEventListener("showdesk-native-menu",event=>{if(event.detail==="disconnect")disconnectShowDesk();});
-function selectME(index){selectedMeIndex=Number(index)||1;render();publishCompanionStatusSoon()}
+function selectME(index){selectedMeIndex=Number(index)||1;render()}
 function selectedME(){return (liveEngineering.mixEffects||[]).find(me=>me.index===selectedMeIndex)||(liveEngineering.mixEffects||[])[0]||null}
 function refreshShowDeskSettings(){
  const mode=activeConnectionMode==="host"?"HOST":activeConnectionMode==="viewer"?"VIEWER":"NOT CONNECTED";
@@ -550,7 +534,6 @@ function setTab(tab){if(!["show","signal","engineering","hyperdecks"].includes(t
  if(tab==="engineering")render();
  if(tab==="signal"){renderPaths();requestAnimationFrame(explorerInitializeViewport)}
  if(tab==="hyperdecks")renderHyperdeckCards();
- publishCompanionStatusSoon();
 }
 async function undockWorkspace(tab){if(!activeConnectionMode){toast("Connect in the main ShowDesk window before opening a separate workspace");return}if(!Object.hasOwn(workspaceTitles,tab)||(tab==="hyperdecks"&&!showDeskPreferences.hyperdeckMonitoring))return;const button=document.querySelector(`[data-undock-workspace="${tab}"]`);if(button?.disabled)return;const originalLabel=button?.querySelector("span")?.textContent;if(button){button.disabled=true;button.setAttribute("aria-busy","true");const label=button.querySelector("span");if(label)label.textContent="OPENING…"}const context={workspace:tab,connectionMode:activeConnectionMode,connectionHost:connectedDevice?.ip||""},invoke=tauriInvoke();try{if(invoke){await invoke("open_workspace_window",{workspace:tab,connectionMode:context.connectionMode,connectionHost:context.connectionHost});return}const url=new URL(location.href);url.searchParams.set("workspace",tab);url.searchParams.set("connectionMode",context.connectionMode||"");url.searchParams.set("connectionHost",context.connectionHost);if(!window.open(url.toString(),"_blank"))throw new Error("The browser blocked the new window")}catch(error){console.error("Could not open workspace window",error);toast(error.message||"Could not open workspace window")}finally{if(button){button.disabled=false;button.removeAttribute("aria-busy");const label=button.querySelector("span");if(label&&originalLabel)label.textContent=originalLabel}}}
 async function restoreDetachedWorkspaceWindows(){if(detachedWorkspaceRestoreStarted||!activeConnectionMode||undockedWorkspace)return;const invoke=tauriInvoke();if(!invoke)return;detachedWorkspaceRestoreStarted=true;try{await invoke("restore_workspace_windows",{connectionMode:activeConnectionMode,connectionHost:connectedDevice?.ip||"",hyperdeckMonitoring:showDeskPreferences.hyperdeckMonitoring===true})}catch(error){detachedWorkspaceRestoreStarted=false;console.warn("Could not restore detached workspaces",error)}}
@@ -1344,7 +1327,6 @@ function applyAtemStateUpdate(patch={}){
   }
   if(Array.isArray(patch.inputs)&&connectedDevice) connectedDevice.inputs=patch.inputs.length;
   render();
-  publishCompanionStatusSoon();
   const root=document.querySelector(".signalPage"),transitionActive=(liveEngineering.mixEffects||[]).some(me=>me.transition?.inTransition);
   if(routeStateChanged&&root&&!transitionActive){root.classList.remove("routePulse");void root.offsetWidth;root.classList.add("routePulse");}
 }
@@ -1507,4 +1489,4 @@ document.addEventListener("mouseover",event=>{
 document.addEventListener("mouseout",event=>{
  const node=event.target.closest?.("[data-signal-node]");if(node&&!node.contains(event.relatedTarget))explorerInspect(null);
 });
-document.addEventListener("DOMContentLoaded",()=>{initializeUndockedWorkspace();const close=$("updateCloseBtn");if(close)close.onclick=closeUpdateModal;syncHyperdeckTab();syncHyperdeckTimerMenus();if($("settingsHyperdeckEnabled"))$("settingsHyperdeckEnabled").checked=showDeskPreferences.hyperdeckMonitoring===true;renderSavedHyperdeckAddresses();renderHyperdeckCards();const transport=window.ATEM_TRANSPORT;transport?.subscribeCompanionActions?.(action=>{if(undockedWorkspace||!action)return;if(action.type==="workspace")setTab(action.workspace);else if(action.type==="selectMe"&&(liveEngineering.mixEffects||[]).some(me=>Number(me.index)===action.index)){selectME(action.index);setTab("show")}});if(transport?.subscribeHyperdecks)hyperdeckSubscription=transport.subscribeHyperdecks(data=>{hyperdeckStates=Array.isArray(data)?data:[];const receivedAt=Date.now();observeHyperdeckDataReceipts(hyperdeckStates,receivedAt);observeHyperdeckClipTimecodes(hyperdeckStates,receivedAt);observeHyperdeckRecordingTimes(hyperdeckStates,receivedAt);if(activeConnectionMode!=="viewer")rememberConnectedHyperdecks(hyperdeckStates);renderHyperdeckCards();syncHyperdeckTab();publishCompanionStatusSoon()});transport?.subscribeHyperdeckAvailability?.(enabled=>{remoteHyperdeckMonitoringEnabled=enabled;syncHyperdeckTab();renderHyperdeckCards();publishCompanionStatusSoon()});setInterval(()=>{if($("app")?.classList.contains("tab-hyperdecks"))renderHyperdeckReadouts(hyperdeckStates)},100);if(tauriInvoke()){ensureUpdateProgressListener().then(()=>{if(showDeskPreferences.automaticUpdateChecks)setTimeout(()=>checkForShowDeskUpdate(false),1200)}).catch(console.error)}setTimeout(attemptPreferredAutoConnection,1800);setTimeout(publishCompanionStatusSoon,2000)});
+document.addEventListener("DOMContentLoaded",()=>{initializeUndockedWorkspace();const close=$("updateCloseBtn");if(close)close.onclick=closeUpdateModal;syncHyperdeckTab();syncHyperdeckTimerMenus();if($("settingsHyperdeckEnabled"))$("settingsHyperdeckEnabled").checked=showDeskPreferences.hyperdeckMonitoring===true;renderSavedHyperdeckAddresses();renderHyperdeckCards();const transport=window.ATEM_TRANSPORT;if(transport?.subscribeHyperdecks)hyperdeckSubscription=transport.subscribeHyperdecks(data=>{hyperdeckStates=Array.isArray(data)?data:[];const receivedAt=Date.now();observeHyperdeckDataReceipts(hyperdeckStates,receivedAt);observeHyperdeckClipTimecodes(hyperdeckStates,receivedAt);observeHyperdeckRecordingTimes(hyperdeckStates,receivedAt);if(activeConnectionMode!=="viewer")rememberConnectedHyperdecks(hyperdeckStates);renderHyperdeckCards();syncHyperdeckTab()});transport?.subscribeHyperdeckAvailability?.(enabled=>{remoteHyperdeckMonitoringEnabled=enabled;syncHyperdeckTab();renderHyperdeckCards()});setInterval(()=>{if($("app")?.classList.contains("tab-hyperdecks"))renderHyperdeckReadouts(hyperdeckStates)},100);if(tauriInvoke()){ensureUpdateProgressListener().then(()=>{if(showDeskPreferences.automaticUpdateChecks)setTimeout(()=>checkForShowDeskUpdate(false),1200)}).catch(console.error)}setTimeout(attemptPreferredAutoConnection,1800)});
