@@ -174,7 +174,7 @@ assert.match(styles, /\.rackDetails \.hyperdeckFieldList dd\{margin-top:6px;font
 assert.match(styles, /\.rackSlotIndicators \.miniSlot\{padding:0;border:0/, 'Media slot indicators should stay compact without a redundant divider');
 assert.match(styles, /\.hyperdeckPage \.hyperdeckCards\{display:grid;grid-template-columns:minmax\(0,1fr\)/, 'Rack units should stack vertically');
 assert.match(styles, /\.hyperdeckRackUnit\{display:block;overflow:visible\}/, 'The deck display should not draw decorative rack ears');
-assert.match(styles, /\.rackFace\{background:var\(--sd-work\)/, 'The rack should use ShowDesk workspace colors');
+assert.match(styles, /\.rackFace\{background:linear-gradient\(180deg,#272727/, 'The rack should use ShowDesk workspace colors');
 
 const timerStart = hostApp.indexOf('function formatHyperdeckElapsed(');
 const timerEnd = hostApp.indexOf('function updateHyperdeckTimecodes(', timerStart);

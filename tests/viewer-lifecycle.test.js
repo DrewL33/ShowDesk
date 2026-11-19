@@ -42,8 +42,8 @@ assert.doesNotMatch(app,/\son(?:click|change|input|keydown|mouseenter|mouseleave
 assert.match(app,/function runShowDeskAction\(/,'Native button actions must use CSP-compatible JavaScript listeners');
 assert.match(html,/data-action="tab-signal"/,'Signal Explorer tab must dispatch through the JavaScript action listener');
 assert.match(html,/data-action="tab-inspect"/,'Inspect tab must dispatch through the JavaScript action listener');
-assert.match(styles,/\.hero\.pgm\{background:linear-gradient\(105deg,#241f21/,'Restrained Program surface');
-assert.match(styles,/\.hero\.pvw\{background:linear-gradient\(105deg,#182630/,'Restrained Preview surface');
+assert.match(styles,/\.hero\.pgm\{border:1px solid #9c484e!important/,'Restrained Program surface');
+assert.match(styles,/\.hero\.pvw\{border:1px solid #4f7393!important/,'Restrained Preview surface');
 assert.match(styles,/\.explorerLayout\{display:grid/,'Signal Explorer must use full-width canvas layout');
 assert.ok(!styles.includes('.signalTree'),'Retired signal tree styling must not return');
 assert.match(app,/function explorerReach\(/,'Signal Explorer must support bidirectional graph traversal');
@@ -53,7 +53,8 @@ assert.match(app,/function explorerDraw\(/,'Signal Explorer must draw a persiste
 assert.match(styles,/\.explorerDiagramScroll\{min-height:0;flex:1;overflow:auto/,'Signal diagram must scroll independently');
 assert.match(styles,/\.explorerClearButton\[hidden\]/,'Clear trace control must be contextual');
 assert.match(html,/class="explorerLegend"/,'Legend must be available in the signal toolbar');
-assert.match(html,/id="explorerVisibility"[^>]*>[\s\S]*?<option value="all" selected>Show all<\/option>[\s\S]*?<option value="dim">Dim unlinked<\/option>[\s\S]*?<option value="hide">Hide unlinked<\/option>/,'Signal Explorer visibility menu must default to Show all and offer both unlinked views');
+assert.match(html,/id="explorerVisibility" type="hidden" value="all"/,'Signal Explorer visibility menu must default to Show all');
+assert.match(html,/id="explorerVisibilityOptions"[\s\S]*?data-explorer-visibility="all" aria-selected="true">Show all[\s\S]*?data-explorer-visibility="dim" aria-selected="false">Dim unlinked[\s\S]*?data-explorer-visibility="hide" aria-selected="false">Hide unlinked/,'Signal Explorer visibility menu must offer both unlinked views');
 assert.match(app,/const linked=new Set\(graph\.edges\.flatMap/,'Unlinked detection must include all graph node types');
 assert.match(styles,/\.overviewNode\.is-unlinked/,'Unlinked nodes must have dimmed styling');
 assert.match(html,/id="explorerClearButton"/,'Clear Trace must be available in the toolbar');
@@ -145,12 +146,12 @@ assert.match(app,/function renderTransitionStatus\(\)/,'All-tab transition progr
 assert.match(app,/root&&!transitionActive/,'Signal Path pulse must be suppressed during an active transition');
 assert.match(app,/ftbTransition/,'FTB transition must receive a flashing state class');
 assert.match(styles,/\.ftbTransition\{animation:ftbFlash/,'FTB transition must visibly flash');
-assert.match(styles,/\.meSelector \.meSelectBtn\.on\{[^}]*box-shadow:/,'M\/E selector must retain a selected-state indicator');
+assert.match(styles,/\.meSelector \.meSelectBtn\.on[^{}]*\{[^}]*box-shadow:/,'M\/E selector must retain a selected-state indicator');
 assert.match(styles,/\.transitionStatus\{position:fixed!important/,'Transition progress must remain visible across tabs');
 
 assert.ok(!styles.includes('ShowDesk v5.0.6 Broadcast Console visual system'),'Legacy charcoal visual layer must be removed rather than overridden');
 assert.ok(!styles.includes('background:#11161a!important;border-bottom-color:var(--accent)!important'),'Legacy charcoal selected-tab rule must not return');
-assert.match(styles,/\.meSelector \.meSelectBtn\.on\{[^}]*background:#1c303b!important/,'M/E selection must use canonical blue-slate surface');
+assert.match(styles,/\.meSelector \.meSelectBtn\.on[^{}]*\{[^}]*background:var\(--control-pressed\)!important/,'M/E selection must use the inset console surface');
 assert.match(styles,/\.referencePanel \.referenceEmpty,\.referencePanel \.referenceAttached\{background:var\(--sd-panel\)!important/,'Reference attachment surfaces must use canonical slate panel');
 assert.match(app,/me\.ftb\?\(me\.ftb\.inTransition\?"TRANSITION":me\.ftb\.isFullyBlack\?"BLACK":"OFF"\)/,'FTB transition must take precedence over fully-black state');
 

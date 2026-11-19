@@ -247,6 +247,11 @@ function syncSettingsWorkspaceMenu(){
  if($("settingsWorkspaceLabel"))$("settingsWorkspaceLabel").textContent=settingsWorkspaceNames[current]||settingsWorkspaceNames.show;
  document.querySelectorAll("#settingsWorkspaceOptions [data-workspace]").forEach(option=>option.setAttribute("aria-selected",String(option.dataset.workspace===current)));
 }
+const explorerVisibilityLabels={all:"Show all",dim:"Dim unlinked",hide:"Hide unlinked"};
+function syncExplorerVisibilityMenu(){const value=$("explorerVisibility")?.value||"all",label=explorerVisibilityLabels[value]||explorerVisibilityLabels.all;if($("explorerVisibilityLabel"))$("explorerVisibilityLabel").textContent=label;if($("explorerVisibilityTrigger"))$("explorerVisibilityTrigger").setAttribute("aria-label","Source and output visibility: "+label);document.querySelectorAll("#explorerVisibilityOptions [data-explorer-visibility]").forEach(option=>option.setAttribute("aria-selected",String(option.dataset.explorerVisibility===value)))}
+function closeExplorerVisibilityMenu(){const menu=$("explorerVisibilityOptions"),trigger=$("explorerVisibilityTrigger");if(menu)menu.hidden=true;if(trigger)trigger.setAttribute("aria-expanded","false")}
+function toggleExplorerVisibilityMenu(){const menu=$("explorerVisibilityOptions"),trigger=$("explorerVisibilityTrigger");if(!menu||!trigger)return;const opening=menu.hidden;closeSettingsWorkspaceMenu();closeHyperdeckTimerMenus();closeExplorerVisibilityMenu();if(!opening)return;menu.hidden=false;trigger.setAttribute("aria-expanded","true");const active=menu.querySelector('[aria-selected="true"]');(active||menu.querySelector("button"))?.focus()}
+function chooseExplorerVisibility(value){if(!Object.hasOwn(explorerVisibilityLabels,value))return;const input=$("explorerVisibility");if(input)input.value=value;syncExplorerVisibilityMenu();closeExplorerVisibilityMenu();renderPaths();requestAnimationFrame(()=>explorerZoom(0));$("explorerVisibilityTrigger")?.focus()}
 const hyperdeckTimerOptionLabels={recordingElapsed:"Recording elapsed",frontDisplayTimecode:"Front display timecode",clipTimecode:"Clip / timeline timecode",recordingRemaining:"SSD record time remaining",none:"None"};
 function syncHyperdeckTimerMenus(){for(const which of ["primary","secondary"]){const value=showDeskPreferences[which==="primary"?"hyperdeckPrimaryTimer":"hyperdeckSecondaryTimer"],label=$(which==="primary"?"settingsHyperdeckPrimaryTimerLabel":"settingsHyperdeckSecondaryTimerLabel"),menu=$(which==="primary"?"settingsHyperdeckPrimaryTimerOptions":"settingsHyperdeckSecondaryTimerOptions");if(label)label.textContent=hyperdeckTimerOptionLabels[value]||hyperdeckTimerOptionLabels.frontDisplayTimecode;menu?.querySelectorAll(`[data-hyperdeck-timer="${which}"]`).forEach(option=>option.setAttribute("aria-selected",String(option.dataset.timerValue===value)))}}
 function closeHyperdeckTimerMenus(except=null){for(const which of ["primary","secondary"]){if(which===except)continue;const menu=$(which==="primary"?"settingsHyperdeckPrimaryTimerOptions":"settingsHyperdeckSecondaryTimerOptions"),trigger=$(which==="primary"?"settingsHyperdeckPrimaryTimer":"settingsHyperdeckSecondaryTimer");if(menu)menu.hidden=true;if(trigger)trigger.setAttribute("aria-expanded","false")}}
@@ -261,10 +266,10 @@ function toggleSettingsWorkspaceMenu(){
  if(opening){const active=menu.querySelector('[aria-selected="true"]');(active||menu.querySelector("button"))?.focus()}
 }
 function chooseSettingsWorkspace(value){changeDefaultWorkspace(value);syncSettingsWorkspaceMenu();closeSettingsWorkspaceMenu();$("settingsDefaultWorkspace")?.focus()}
-document.addEventListener("click",event=>{if(!$("settingsWorkspaceSelector")?.contains(event.target))closeSettingsWorkspaceMenu();if(!$("settingsHyperdeckPrimaryTimerSelector")?.contains(event.target)&&!$("settingsHyperdeckSecondaryTimerSelector")?.contains(event.target))closeHyperdeckTimerMenus()});
+document.addEventListener("click",event=>{if(!$("settingsWorkspaceSelector")?.contains(event.target))closeSettingsWorkspaceMenu();if(!$("settingsHyperdeckPrimaryTimerSelector")?.contains(event.target)&&!$("settingsHyperdeckSecondaryTimerSelector")?.contains(event.target))closeHyperdeckTimerMenus();if(!$("explorerVisibilitySelector")?.contains(event.target))closeExplorerVisibilityMenu()});
 document.addEventListener("keydown",event=>{
- const menu=[$("settingsWorkspaceOptions"),$("settingsHyperdeckPrimaryTimerOptions"),$("settingsHyperdeckSecondaryTimerOptions")].find(item=>item&&!item.hidden);if(!menu)return;
- if(event.key==="Escape"){event.preventDefault();if(menu.id==="settingsWorkspaceOptions"){closeSettingsWorkspaceMenu();$("settingsDefaultWorkspace")?.focus()}else{const which=menu.id.includes("Primary")?"primary":"secondary";closeHyperdeckTimerMenus();$(which==="primary"?"settingsHyperdeckPrimaryTimer":"settingsHyperdeckSecondaryTimer")?.focus()}return}
+ const menu=[$("settingsWorkspaceOptions"),$("settingsHyperdeckPrimaryTimerOptions"),$("settingsHyperdeckSecondaryTimerOptions"),$("explorerVisibilityOptions")].find(item=>item&&!item.hidden);if(!menu)return;
+ if(event.key==="Escape"){event.preventDefault();if(menu.id==="settingsWorkspaceOptions"){closeSettingsWorkspaceMenu();$("settingsDefaultWorkspace")?.focus()}else if(menu.id==="explorerVisibilityOptions"){closeExplorerVisibilityMenu();$("explorerVisibilityTrigger")?.focus()}else{const which=menu.id.includes("Primary")?"primary":"secondary";closeHyperdeckTimerMenus();$(which==="primary"?"settingsHyperdeckPrimaryTimer":"settingsHyperdeckSecondaryTimer")?.focus()}return}
  if(event.key==="ArrowDown"||event.key==="ArrowUp"){event.preventDefault();const options=[...menu.querySelectorAll('[role="option"]')];const i=options.indexOf(document.activeElement);options[(i+(event.key==="ArrowDown"?1:-1)+options.length)%options.length]?.focus()}
 });
 function changeAutoConnectPreference(enabled){showDeskPreferences.autoConnect=!!enabled;saveShowDeskPreferences()}
@@ -1431,6 +1436,7 @@ function runShowDeskAction(action,element){
   case "capture-shortcut":beginShortcutCapture(element.dataset.shortcutId);break;
   case "reset-shortcuts":showDeskShortcutCapture=null;showDeskShortcuts=showDeskDefaultShortcuts();saveShowDeskShortcuts();renderShowDeskShortcuts();if($("settingsShortcutStatus"))$("settingsShortcutStatus").textContent="Shortcuts reset to defaults.";break;
   case "workspace-menu":toggleSettingsWorkspaceMenu();break;
+  case "explorer-visibility-menu":toggleExplorerVisibilityMenu();break;
   case "hyperdeck-primary-timer-menu":toggleHyperdeckTimerMenu("primary");break;
   case "hyperdeck-secondary-timer-menu":toggleHyperdeckTimerMenu("secondary");break;
   case "save-reference-preferences":saveReferencePreferences();break;
@@ -1443,11 +1449,12 @@ function runShowDeskAction(action,element){
  }
 }
 document.addEventListener("click",event=>{
- const target=event.target.closest?.("[data-action],[data-settings-tab],[data-workspace],[data-signal-node],[data-hyperdeck-timer]");
+ const target=event.target.closest?.("[data-action],[data-settings-tab],[data-workspace],[data-signal-node],[data-hyperdeck-timer],[data-explorer-visibility]");
  if(!target)return;
  if(target.hasAttribute("data-settings-tab")){showSettingsSection(target.dataset.settingsTab);return;}
  if(target.hasAttribute("data-workspace")){chooseSettingsWorkspace(target.dataset.workspace);return;}
  if(target.hasAttribute("data-hyperdeck-timer")){chooseHyperdeckTimer(target.dataset.hyperdeckTimer,target.dataset.timerValue);return;}
+ if(target.hasAttribute("data-explorer-visibility")){chooseExplorerVisibility(target.dataset.explorerVisibility);return;}
  if(target.hasAttribute("data-signal-node")){explorerInspect(target.dataset.signalNode,true);return;}
  runShowDeskAction(target.dataset.action,target);
 });
