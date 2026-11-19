@@ -980,7 +980,7 @@ function explorerBuildGraph(){
  routing.forEach((r,i)=>{const id=add("aux:"+(r.busId??r.protocolBusId??r.rawIndex??i),r.name||("ATEM Routing "+(i+1)),"destination","AUX / ROUTING");feed(r.sourceId,id,"routing")});
  return {nodes,edges,adjacency};
 }
-function explorerLayout(graph){
+function explorerLayout(graph,compact=false){
  const W=184,H=36,ROW=78,top=72,pos=new Map(),labels=[];
  const groups=[
   {type:"source",title:"EXTERNAL & OTHER SOURCES",limit:12},
@@ -1003,7 +1003,7 @@ function explorerLayout(graph){
   nodes.forEach((n,i)=>pos.set(n.id,{x:cursor+Math.floor(i/group.limit)*306,y:top+(i%group.limit)*ROW}));
   cursor+=banks*306+90;
  });
- const minimumHeight=$("explorerVisibility")?.value==="hide"?560:1120;
+ const minimumHeight=compact?560:1120;
  const height=Math.max(minimumHeight,...[...pos.values()].map(p=>p.y+H+Math.max(260,graph.edges.length*5+50)));
  const width=cursor+W+40;
  return {pos,labels,height,width,W,H};
@@ -1103,8 +1103,8 @@ function explorerDirectionMarker(points){
  const x=(best.a.x+best.b.x)/2,y=best.a.y,sign=best.b.x>best.a.x?1:-1;
  return "M"+(x-5*sign)+" "+(y-5)+" L"+x+" "+y+" L"+(x-5*sign)+" "+(y+5);
 }
-function explorerDraw(graph){
- const layout=explorerLayout(graph),{pos,labels,height,width,W,H}=layout;
+function explorerDraw(graph,compact=false){
+ const layout=explorerLayout(graph,compact),{pos,labels,height,width,W,H}=layout;
  const edges=graph.edges.slice().sort((a,b)=>a.id.localeCompare(b.id)),ports=new Map(),lanes=new Map();
  const columns=[...new Set([...pos.values()].map(p=>p.x))].sort((a,b)=>a-b);
  const reserve=key=>{const n=ports.get(key)||0;ports.set(key,n+1);return n};
@@ -1143,13 +1143,13 @@ function renderPaths(){
  if(q){explorerPinned=null;explorerHover=match?.id||null}
  const linked=new Set(graph.edges.flatMap(edge=>[edge.from,edge.to]));
  if($("explorerVisibility")?.value==="hide"&&!q&&explorerFocusId()&&!linked.has(explorerFocusId())){explorerPinned=null;explorerHover=null}
- const displayGraph=explorerPresentationGraph(graph,q?match?.id:null);
+ const compact=$("explorerVisibility")?.value==="hide",displayGraph=explorerPresentationGraph(graph,q?match?.id:null);
  const topology=displayGraph.nodes.map(n=>n.id+"|"+n.label+"|"+n.group).join(";"),routing=displayGraph.edges.map(e=>e.id+"|"+e.kind).sort().join(";");
  const topologyChanged=topology!==explorerTopology||!canvas.querySelector(".signalOverview"),routingChanged=routing!==explorerRouteState;
  explorerGraph=graph;
  if(topologyChanged){
   const scroller=canvas.querySelector(".explorerDiagramScroll"),x=scroller?.scrollLeft||0,y=scroller?.scrollTop||0;
-  canvas.innerHTML='<div class="explorerDiagramScroll">'+explorerDraw(displayGraph)+'</div>';
+  canvas.innerHTML='<div class="explorerDiagramScroll">'+explorerDraw(displayGraph,compact)+'</div>';
   canvas.firstElementChild.scrollLeft=x;canvas.firstElementChild.scrollTop=y;
   canvas.firstElementChild.addEventListener('wheel',explorerWheel,{passive:false});
   explorerTopology=topology;explorerRouteState=routing;
@@ -1164,7 +1164,7 @@ function renderPaths(){
   }
  }else if(routingChanged){
   const svg=canvas.querySelector(".signalOverview"),oldEdges=new Map([...svg.querySelectorAll("[data-signal-edge]")].map(el=>[el.dataset.signalEdge,el])),oldHalos=new Map([...svg.querySelectorAll("[data-signal-halo]")].map(el=>[el.dataset.signalHalo,el])),oldDirections=new Map([...svg.querySelectorAll("[data-signal-direction]")].map(el=>[el.dataset.signalDirection,el]));
-  const holder=document.createElement("div");holder.innerHTML=explorerDraw(displayGraph);
+  const holder=document.createElement("div");holder.innerHTML=explorerDraw(displayGraph,compact);
   const nextHalos=new Map([...holder.querySelectorAll("[data-signal-halo]")].map(el=>[el.dataset.signalHalo,el])),nextDirections=new Map([...holder.querySelectorAll("[data-signal-direction]")].map(el=>[el.dataset.signalDirection,el]));
   const insertBefore=svg.querySelector(".overviewGroup, .overviewNode");
   for(const el of holder.querySelectorAll("[data-signal-edge]")){
