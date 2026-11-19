@@ -1,0 +1,20 @@
+{
+  "name": "companion-module-showdesk",
+  "version": "0.1.2",
+  "description": "Bitfocus Companion connection module for ShowDesk",
+  "main": "src/main.js",
+  "type": "module",
+  "scripts": {
+    "package": "companion-module-build"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@companion-module/base": "~2.1.3"
+  },
+  "devDependencies": {
+    "@companion-module/tools": "^3.1.1"
+  }
+}

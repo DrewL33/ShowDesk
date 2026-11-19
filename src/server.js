@@ -34,6 +34,8 @@ let lastState = null;
 let hasConnected = false;
 let hostReferenceAttention = { attached: false, name: '', categories: [] };
 const clients = new Set();
+const companionClients = new Set();
+let companionStatusSnapshot = { connection: 'DISCONNECTED', mode: '—', switcher: '—', videoMode: '—', workspace: 'show', selectedMe: 1, mixEffects: [], hyperdecks: [], updatedAt: new Date().toISOString() };
 const viewerClients = new Set();
 const viewerRelayCache = new Map();
 const hyperDeckMonitor = new HyperDeckMonitor();
@@ -109,6 +111,25 @@ function discovery(state) {
 function broadcast(message) {
   const payload = JSON.stringify(message);
   for (const ws of clients) if (ws.readyState === 1) ws.send(payload);
+}
+function normalizeCompanionStatus(value) {
+  const text = (item, fallback = '—', limit = 120) => typeof item === 'string' ? item.slice(0, limit) : fallback;
+  const mixEffects = Array.isArray(value?.mixEffects) ? value.mixEffects.slice(0, 4).map(me => ({
+    index: Math.max(1, Math.min(4, Number(me.index) || 1)),
+    program: text(me.program), preview: text(me.preview), ftb: text(me.ftb)
+  })) : [];
+  const hyperdecks = Array.isArray(value?.hyperdecks) ? value.hyperdecks.slice(0, 8).map(deck => ({
+    name: text(deck.name, 'HyperDeck'), status: text(deck.status, 'UNKNOWN'), timecode: text(deck.timecode), recording: deck.recording === true
+  })) : [];
+  const connection = ['CONNECTED', 'RECONNECTING', 'WAITING FOR ATEM', 'DISCONNECTED'].includes(value?.connection) ? value.connection : 'DISCONNECTED';
+  const mode = ['HOST', 'VIEWER'].includes(value?.mode) ? value.mode : '—';
+  const workspace = ['show', 'signal', 'engineering', 'hyperdecks'].includes(value?.workspace) ? value.workspace : 'show';
+  const selectedMe = Math.max(1, Math.min(4, Number(value?.selectedMe) || 1));
+  return { connection, mode, switcher: text(value?.switcher), videoMode: text(value?.videoMode), workspace, selectedMe, mixEffects, hyperdecks, updatedAt: new Date().toISOString() };
+}
+function broadcastCompanionStatus() {
+  const payload = JSON.stringify({ type: 'status', data: companionStatusSnapshot });
+  for (const ws of companionClients) if (ws.readyState === 1) ws.send(payload);
 }
 function relayToOtherClients(source, message) {
   const payload = JSON.stringify(message);
@@ -264,6 +285,10 @@ async function connectViewerHost(host) {
 
 const server = http.createServer((req, res) => {
   const pathname = new URL(req.url, `http://${req.headers.host}`).pathname;
+  if (pathname === '/companion/status') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+    return res.end(JSON.stringify(companionStatusSnapshot));
+  }
   const item = ASSETS[pathname];
   if (!item) { res.writeHead(404); return res.end('Not found'); }
   try {
@@ -273,7 +298,7 @@ const server = http.createServer((req, res) => {
     res.writeHead(500); res.end('ShowDesk asset error');
   }
 });
-const wss = new WebSocketServer({ server, path: '/ws' });
+const wss = new WebSocketServer({ noServer: true });
 wss.on('connection', (ws) => {
   clients.add(ws);
   if (hasConnected && lastState) {
@@ -305,6 +330,11 @@ wss.on('connection', (ws) => {
         broadcastViewers({ type: 'referenceAttention', data: hostReferenceAttention });
         return reply(true, { published: true });
       }
+      if (msg.type === 'companionStatus') {
+        companionStatusSnapshot = normalizeCompanionStatus(msg.data);
+        broadcastCompanionStatus();
+        return reply(true, { published: true });
+      }
       if (msg.type === 'connect') { viewerRelayCache.clear(); return reply(true, await connectAtem(msg.ip)); }
       if (msg.type === 'configureHyperdecks') {
         hostHyperdeckMonitoringEnabled = msg.enabled === true;
@@ -322,6 +352,30 @@ wss.on('connection', (ws) => {
       reply(false, null, error.message || String(error));
     }
   });
+});
+const companionWss = new WebSocketServer({ noServer: true });
+companionWss.on('connection', ws => {
+  companionClients.add(ws);
+  ws.send(JSON.stringify({ type: 'status', data: companionStatusSnapshot }));
+  ws.on('message', raw => {
+    let message;
+    try { message = JSON.parse(raw.toString()); } catch { return; }
+    if (message?.type !== 'action') return;
+    let action = null;
+    if (message.action === 'workspace' && ['show', 'signal', 'engineering', 'hyperdecks'].includes(message.workspace)) {
+      action = { type: 'workspace', workspace: message.workspace };
+    } else if (message.action === 'selectMe' && Number.isInteger(Number(message.index)) && Number(message.index) >= 1 && Number(message.index) <= 4) {
+      action = { type: 'selectMe', index: Number(message.index) };
+    }
+    if (action) broadcast({ type: 'companionAction', action });
+  });
+  ws.on('close', () => companionClients.delete(ws));
+});
+server.on('upgrade', (request, socket, head) => {
+  const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
+  const target = pathname === '/ws' ? wss : pathname === '/companion' ? companionWss : null;
+  if (!target) { socket.destroy(); return; }
+  target.handleUpgrade(request, socket, head, ws => target.emit('connection', ws, request));
 });
 // Viewer service is intentionally separate from the local control service.
 const viewerServer = http.createServer((req, res) => {

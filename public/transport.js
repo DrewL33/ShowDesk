@@ -9,6 +9,7 @@
   const viewerCountSubscribers = new Set();
   const hyperdeckSubscribers = new Set();
   const hyperdeckAvailabilitySubscribers = new Set();
+  const companionActionSubscribers = new Set();
   let serviceReconnectEnabled = false;
   let serviceReconnectTimer = null;
   let serviceReconnectInFlight = false;
@@ -85,6 +86,7 @@
         if (msg.type === 'viewerCount') viewerCountSubscribers.forEach(fn => fn(msg.count));
         if (msg.type === 'hyperdecks') hyperdeckSubscribers.forEach(fn => fn(msg.data || []));
         if (msg.type === 'hyperdeckAvailability') hyperdeckAvailabilitySubscribers.forEach(fn => fn(msg.enabled === true));
+        if (msg.type === 'companionAction') companionActionSubscribers.forEach(fn => fn(msg.action));
       });
       ws.addEventListener('close', () => {
         liveness.stop();
@@ -182,6 +184,8 @@
     subscribeHyperdecks(callback) { hyperdeckSubscribers.add(callback); return () => hyperdeckSubscribers.delete(callback); },
     subscribeHyperdeckAvailability(callback) { hyperdeckAvailabilitySubscribers.add(callback); return () => hyperdeckAvailabilitySubscribers.delete(callback); },
     publishReferenceAttention(data) { return request('referenceAttention', { data }); },
+    publishCompanionStatus(data) { return request('companionStatus', { data }); },
+    subscribeCompanionActions(callback) { companionActionSubscribers.add(callback); return () => companionActionSubscribers.delete(callback); },
     connectViewer(host, relayToWorkspaceWindows = true) { viewerRelayEnabled = relayToWorkspaceWindows; return connectViewer(host); },
     publishViewerRelay(message) { publishViewerRelay(message); },
     subscribe(callback) {
