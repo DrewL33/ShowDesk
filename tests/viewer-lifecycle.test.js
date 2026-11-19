@@ -104,6 +104,8 @@ console.log('Viewer lifecycle, health, toolbar, and Viewer-count regression chec
  assert(app.includes('if(!progress){$("updateProgressFill").style.width="";$("updateProgressPercent").textContent="";$("updateProgressBytes").textContent="";}'),'Non-progress updater states must clear stale download progress');
  assert(app.includes('setUpdateModal({title:"ShowDesk is up to date",message:"You are running the latest published version."})'),'Current-version state must render the up-to-date modal without requesting progress UI');
  assert(app.includes('track.hidden=!progress;meta.hidden=!progress'),'Updater modal must hide progress elements whenever progress is not requested');
+ const styles=fs.readFileSync(path.join(root,'public','styles.css'),'utf8');
+ assert.match(styles,/#updateActions>button\[hidden\]\{display:none!important\}/,'Updater action buttons with the hidden attribute must stay hidden despite shared button display styles');
  assert(app.includes('closeLabel:"CANCEL"'),'Recoverable updater failures must offer Cancel');
  assert(app.includes('primary:"TRY AGAIN"'),'Recoverable updater failures must offer retry');
  assert(app.includes('showUpdaterFailure(updaterFailureKind(error),error)'),'Install/download failures must leave progress mode and enter a recoverable failure state');
