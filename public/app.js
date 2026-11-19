@@ -915,8 +915,8 @@ function explorerHighlight(){
  }
  svg.classList.toggle("is-filtered",!!active);
  const linked=new Set(graph.edges.flatMap(e=>[e.from,e.to]));
- const dimUnlinked=$("explorerDimUnlinked")?.checked!==false;
- svg.querySelectorAll("[data-signal-node]").forEach(el=>{el.classList.toggle("is-active",!active||active.has(el.dataset.signalNode));el.classList.toggle("is-unlinked",dimUnlinked&&!linked.has(el.dataset.signalNode));});
+ const visibility=$("explorerVisibility")?.value||"all";
+ svg.querySelectorAll("[data-signal-node]").forEach(el=>{el.classList.toggle("is-active",!active||active.has(el.dataset.signalNode));el.classList.toggle("is-unlinked",visibility==="dim"&&!linked.has(el.dataset.signalNode));});
  if(!activeEdges)activeEdges=new Set(graph.edges.map(e=>e.id));
  svg.querySelectorAll("[data-signal-edge]").forEach(el=>el.classList.toggle("is-active",activeEdges.has(el.dataset.signalEdge)));
  svg.querySelectorAll("[data-signal-halo]").forEach(el=>el.classList.toggle("is-active",activeEdges.has(el.dataset.signalHalo)));
@@ -994,7 +994,8 @@ function explorerLayout(graph){
  const nodesByType=new Map(groups.map(group=>[group.type,[]]));
  graph.nodes.forEach(n=>nodesByType.get(n.type)?.push(n));
  groups.forEach(group=>{
-  const nodes=nodesByType.get(group.type)||[],banks=Math.max(1,Math.ceil(nodes.length/group.limit));
+  const nodes=nodesByType.get(group.type)||[],banks=Math.ceil(nodes.length/group.limit);
+  if(!banks)return;
   for(let bank=0;bank<banks;bank++){
    const x=cursor+bank*306;
    labels.push('<text class="overviewGroup" x="'+x+'" y="32">'+explorerEscape(group.title)+(bank?' · '+(bank+1):'')+'</text>');
@@ -1002,7 +1003,8 @@ function explorerLayout(graph){
   nodes.forEach((n,i)=>pos.set(n.id,{x:cursor+Math.floor(i/group.limit)*306,y:top+(i%group.limit)*ROW}));
   cursor+=banks*306+90;
  });
- const height=Math.max(1120,...[...pos.values()].map(p=>p.y+H+Math.max(260,graph.edges.length*5+50)));
+ const minimumHeight=$("explorerVisibility")?.value==="hide"?560:1120;
+ const height=Math.max(minimumHeight,...[...pos.values()].map(p=>p.y+H+Math.max(260,graph.edges.length*5+50)));
  const width=cursor+W+40;
  return {pos,labels,height,width,W,H};
 }
@@ -1128,14 +1130,26 @@ function explorerDraw(graph){
  const fittedHeight=Math.min(height,Math.max(routedBottom+40,nodeBottom+30));
  return '<svg class="signalOverview" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+width+' '+fittedHeight+'" width="'+width+'" height="'+fittedHeight+'" data-width="'+width+'" data-height="'+fittedHeight+'" role="img" aria-label="Live ATEM signal overview">'+paths+labels.join("")+nodes+'</svg>';
 }
+function explorerPresentationGraph(graph,revealId=null){
+ if($("explorerVisibility")?.value!=="hide")return graph;
+ const linked=new Set(graph.edges.flatMap(edge=>[edge.from,edge.to]));
+ if(revealId)linked.add(revealId);
+ const nodes=graph.nodes.filter(node=>linked.has(node.id)),visible=new Set(nodes.map(node=>node.id));
+ return {...graph,nodes,edges:graph.edges.filter(edge=>visible.has(edge.from)&&visible.has(edge.to))};
+}
 function renderPaths(){
  const graph=explorerBuildGraph(),canvas=$("explorerCanvas");if(!canvas)return;
- const topology=graph.nodes.map(n=>n.id+"|"+n.label+"|"+n.group).join(";"),routing=graph.edges.map(e=>e.id+"|"+e.kind).sort().join(";");
+ const q=($("signalSearch")?.value||"").trim().toLowerCase(),match=q?graph.nodes.find(n=>n.label.toLowerCase().includes(q)):null;
+ if(q){explorerPinned=null;explorerHover=match?.id||null}
+ const linked=new Set(graph.edges.flatMap(edge=>[edge.from,edge.to]));
+ if($("explorerVisibility")?.value==="hide"&&!q&&explorerFocusId()&&!linked.has(explorerFocusId())){explorerPinned=null;explorerHover=null}
+ const displayGraph=explorerPresentationGraph(graph,q?match?.id:null);
+ const topology=displayGraph.nodes.map(n=>n.id+"|"+n.label+"|"+n.group).join(";"),routing=displayGraph.edges.map(e=>e.id+"|"+e.kind).sort().join(";");
  const topologyChanged=topology!==explorerTopology||!canvas.querySelector(".signalOverview"),routingChanged=routing!==explorerRouteState;
  explorerGraph=graph;
  if(topologyChanged){
   const scroller=canvas.querySelector(".explorerDiagramScroll"),x=scroller?.scrollLeft||0,y=scroller?.scrollTop||0;
-  canvas.innerHTML='<div class="explorerDiagramScroll">'+explorerDraw(graph)+'</div>';
+  canvas.innerHTML='<div class="explorerDiagramScroll">'+explorerDraw(displayGraph)+'</div>';
   canvas.firstElementChild.scrollLeft=x;canvas.firstElementChild.scrollTop=y;
   canvas.firstElementChild.addEventListener('wheel',explorerWheel,{passive:false});
   explorerTopology=topology;explorerRouteState=routing;
@@ -1150,7 +1164,7 @@ function renderPaths(){
   }
  }else if(routingChanged){
   const svg=canvas.querySelector(".signalOverview"),oldEdges=new Map([...svg.querySelectorAll("[data-signal-edge]")].map(el=>[el.dataset.signalEdge,el])),oldHalos=new Map([...svg.querySelectorAll("[data-signal-halo]")].map(el=>[el.dataset.signalHalo,el])),oldDirections=new Map([...svg.querySelectorAll("[data-signal-direction]")].map(el=>[el.dataset.signalDirection,el]));
-  const holder=document.createElement("div");holder.innerHTML=explorerDraw(graph);
+  const holder=document.createElement("div");holder.innerHTML=explorerDraw(displayGraph);
   const nextHalos=new Map([...holder.querySelectorAll("[data-signal-halo]")].map(el=>[el.dataset.signalHalo,el])),nextDirections=new Map([...holder.querySelectorAll("[data-signal-direction]")].map(el=>[el.dataset.signalDirection,el]));
   const insertBefore=svg.querySelector(".overviewGroup, .overviewNode");
   for(const el of holder.querySelectorAll("[data-signal-edge]")){
@@ -1167,8 +1181,6 @@ function renderPaths(){
   for(const removed of [oldEdges,oldHalos,oldDirections])removed.forEach(el=>{el.classList.add("is-exiting");setTimeout(()=>el.remove(),180)});
   explorerRouteState=routing;
  }
- const q=($("signalSearch")?.value||"").trim().toLowerCase();
- if(q){explorerPinned=null;const match=graph.nodes.find(n=>n.label.toLowerCase().includes(q));if(match)explorerHover=match.id;else explorerHover=null}
  explorerHighlight();
 }
 function transitionPercent(position){const n=Number(position);if(!Number.isFinite(n))return null;return Math.max(0,Math.min(100,Math.round(n>100?n/100:n)))}
@@ -1450,7 +1462,7 @@ document.addEventListener("change",event=>{
  if(target.dataset.compare){setReferenceComparison(target.dataset.compare,target.checked);return;}
  if(target.dataset.changeAction==="hyperdeck-name"){renameHyperdeck(target.dataset.id,target.value);return;}
  switch(target.dataset.changeAction){
-  case "explorer-highlight":explorerHighlight();break;
+  case "explorer-visibility":renderPaths();requestAnimationFrame(()=>explorerZoom(0));break;
   case "import-reference":importReferenceFile(event);break;
   case "auto-connect":changeAutoConnectPreference(target.checked);break;
   case "auto-updates":changeAutomaticUpdateChecks(target.checked);break;
