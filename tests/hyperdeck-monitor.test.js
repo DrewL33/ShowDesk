@@ -27,6 +27,7 @@ function waitFor(predicate, timeoutMs = 1500) {
   let fakeSocket;
   let transportStatus = 'record';
   let displayTimecodeNotifications = false;
+  let transportRepliesEnabled = true;
   const fakeDeck = net.createServer(socket => {
     fakeSocket = socket;
     let infoResponded = false;
@@ -51,7 +52,7 @@ function waitFor(predicate, timeoutMs = 1500) {
       }
       if (commands.includes('notify: display timecode: false')) displayTimecodeNotifications = false;
       const transportCommands = commands.filter(command => command === 'transport info').length;
-      if (transportCommands > transportInfoCount) {
+      if (transportCommands > transportInfoCount && transportRepliesEnabled) {
         transportInfoCount = transportCommands;
         const clipTimecode = transportInfoCount === 1 ? '00:00:00:01' : '00:00:00:02';
         const displayTimecode = `14:25:02;${String(22 + transportInfoCount).padStart(2, '0')}`;
@@ -101,6 +102,9 @@ function waitFor(predicate, timeoutMs = 1500) {
     assert(monitor.entries.get('deck1').displayTimecodeNotifications, 'Frame-level front display notifications should be enabled during recording');
     fakeSocket.write('508 display timecode:\r\ntimecode: 14:25:02;45\r\n\r\n');
     await waitFor(() => monitor.snapshot()[0]?.frontDisplayTimecode === '14:25:02;45');
+    // Stop answering interval polls before sending the deterministic stop
+    // response, so a delayed synthetic recording reply cannot race the freeze.
+    transportRepliesEnabled = false;
     transportStatus = 'preview';
     fakeSocket.write('508 transport info:\r\nstatus: preview\r\ntimecode: 00:00:00:02\r\ndisplay timecode: 14:25:02;46\r\n\r\n');
     await waitFor(() => monitor.snapshot()[0]?.transport?.status === 'preview');
